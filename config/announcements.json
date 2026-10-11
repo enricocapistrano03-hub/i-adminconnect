@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "title": "Schedule of Releasing for Form 137 & Good Moral Certificates",
+    "category": "registrar",
+    "category_label": "Registrar Advisory",
+    "category_class": "processing",
+    "date": "October 15, 2026",
+    "summary": "All students who submitted document requests online with status 'Ready for Release' may now claim their hard copies at Window 2 of the Office of the Registrar. Please bring your School ID and valid transaction reference.",
+    "is_featured": true
+  },
+  {
+    "id": 2,
+    "title": "Registrar Office Hours Advisory for Midterm Week",
+    "category": "registrar",
+    "category_label": "Registrar Advisory",
+    "category_class": "processing",
+    "date": "October 15, 2026",
+    "summary": "Please be informed that office processing hours will be strictly from 8:00 AM to 5:00 PM. Cut-off for same-day walk-in claim verification is 4:00 PM.",
+    "is_featured": false
+  },
+  {
+    "id": 3,
+    "title": "2nd Quarter Academic Calendar & Grade Evaluation",
+    "category": "academic",
+    "category_label": "Academic Schedule",
+    "category_class": "ready",
+    "date": "October 12, 2026",
+    "summary": "Faculty members are reminded to finalize student evaluation sheets. Certificate of Employment (COE) requests for teaching credentials are being processed.",
+    "is_featured": false
+  },
+  {
+    "id": 4,
+    "title": "Special Clearance Extension for Senior High Students",
+    "category": "clearance",
+    "category_label": "Clearance Notice",
+    "category_class": "pending",
+    "date": "October 10, 2026",
+    "summary": "Guidance and Library clearances may be submitted through the end of the month. Transferees requesting Form 137 are advised to clear all department holds.",
+    "is_featured": false
+  }
+]

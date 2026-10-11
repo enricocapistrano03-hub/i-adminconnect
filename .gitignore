@@ -1,0 +1,12 @@
+# Operating System Files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor & IDE files
+.vscode/
+.idea/
+
+# Large raw archive/temp files
+*.log
+*.tmp

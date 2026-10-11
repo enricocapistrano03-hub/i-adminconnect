@@ -2822,7 +2822,6 @@ body.landing-page-body * {
 
 .leadership-avatar-img {
   width: 100%;
-  height: 100%;
   object-fit: cover;
   display: block;
   transition: transform 0.35s ease;
@@ -2971,7 +2970,6 @@ body.landing-page-body * {
 
 .leadership-modal-avatar {
   width: 100%;
-  height: 100%;
   object-fit: cover;
   display: block;
 }

@@ -610,12 +610,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
                     <option value="Grade 8">Grade 8</option>
                     <option value="Grade 9">Grade 9</option>
                     <option value="Grade 10">Grade 10</option>
-                    <option value="Grade 11">Grade 11 (SHS)</option>
-                    <option value="Grade 12">Grade 12 (SHS)</option>
-                    <option value="1st Year College">1st Year College</option>
-                    <option value="2nd Year College">2nd Year College</option>
-                    <option value="3rd Year College">3rd Year College</option>
-                    <option value="4th Year College">4th Year College</option>
+                    <option value="Grade 11">Grade 11 ABM</option>
+                    <option value="Grade 11">Grade 11 STEM</option>
+                    <option value="Grade 12">Grade 12 ABM</option>
+                    <option value="Grade 12">Grade 12 STEM</option>
                   </select>
                 </div>
 

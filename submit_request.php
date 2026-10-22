@@ -156,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <div class="form-group">
-      <label class="form-label">Additional Notes <span style="font-weight: normal; color: #64748b;">(Optional)</span></label>
+      <label class="form-label">Additional Notes <span style="font-weight: normal; color: #64748b;">(RECENT SECTION,SPECIFIC SCHOOL/UNIVERSITY)</span></label>
       <input 
         type="text" 
         name="notes" 

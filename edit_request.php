@@ -1,6 +1,7 @@
 <?php
 $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Re-upload / Edit Document</div><h1>Re-upload Documents</h1><p>Update and resubmit the documents requested by the registrar.</p>';
 require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/mailer.php';
 
 $ref = trim($_GET['ref'] ?? '');
 $id = (int)($_GET['id'] ?? 0);
@@ -13,14 +14,14 @@ if (empty($ref) && $id <= 0) {
 
 // Fetch request record
 if ($id > 0) {
-    $stmt = $pdo->prepare("SELECT r.*, rt.name as request_type_name, rt.requirements, u.full_name, u.role as requester_role 
+    $stmt = $pdo->prepare("SELECT r.*, rt.name as request_type_name, rt.requirements, u.full_name, u.email as requester_email, u.role as requester_role 
         FROM requests r 
         JOIN request_types rt ON r.request_type_id = rt.id 
         JOIN users u ON r.user_id = u.id 
         WHERE r.id = ? LIMIT 1");
     $stmt->execute([$id]);
 } else {
-    $stmt = $pdo->prepare("SELECT r.*, rt.name as request_type_name, rt.requirements, u.full_name, u.role as requester_role 
+    $stmt = $pdo->prepare("SELECT r.*, rt.name as request_type_name, rt.requirements, u.full_name, u.email as requester_email, u.role as requester_role 
         FROM requests r 
         JOIN request_types rt ON r.request_type_id = rt.id 
         JOIN users u ON r.user_id = u.id 
@@ -148,10 +149,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'My Requests'
             ]);
 
-            $success_msg = "Your revised documents for <strong>{$req['tracking_number']}</strong> have been successfully submitted! The request status has been updated to <strong>Under Review</strong>.";
+            // Dispatch Live Real-Time Email to Requester
+            if (!empty($req['requester_email'])) {
+                send_request_status_email(
+                    $req['requester_email'],
+                    $req['full_name'],
+                    $req['tracking_number'],
+                    $req['request_type_name'],
+                    'Revision Submitted',
+                    "Your updated documents have been submitted and are now Under Review by the office.",
+                    'Office of the Registrar'
+                );
+            }
+
+            $success_msg = "Your revised documents for <strong>{$req['tracking_number']}</strong> have been successfully submitted! The request status has been updated to <strong>Under Review</strong>, and a real-time email confirmation has been sent to your registered inbox.";
 
             // Refresh current request record
-            $stmt = $pdo->prepare("SELECT r.*, rt.name as request_type_name, rt.requirements, u.full_name, u.role as requester_role 
+            $stmt = $pdo->prepare("SELECT r.*, rt.name as request_type_name, rt.requirements, u.full_name, u.email as requester_email, u.role as requester_role 
                 FROM requests r 
                 JOIN request_types rt ON r.request_type_id = rt.id 
                 JOIN users u ON r.user_id = u.id 

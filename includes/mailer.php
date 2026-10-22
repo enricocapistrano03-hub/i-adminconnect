@@ -1,9 +1,19 @@
 <?php
 // ==============================================================================
 // i-AdminConnect Lightweight Native SMTP Mailer for Gmail
+// Supports OTP Verification and Real-Time Request Status Update Notifications
 // ==============================================================================
 
-function send_otp_email($to_email, $otp_code, $type = 'registration', $recipient_name = 'User', $role = 'student') {
+/**
+ * Core SMTP Mail Sender via Stream Socket (TLS)
+ *
+ * @param string $to_email Destination email address
+ * @param string $to_name Destination recipient name
+ * @param string $subject Email subject line
+ * @param string $html_body Full HTML content
+ * @return array ['success' => bool, 'mode' => 'live'|'demo', 'message' => string]
+ */
+function send_smtp_mail($to_email, $to_name, $subject, $html_body) {
     $config_file = __DIR__ . '/../config/mail_config.php';
     $config = file_exists($config_file) ? require($config_file) : [];
 
@@ -14,6 +24,163 @@ function send_otp_email($to_email, $otp_code, $type = 'registration', $recipient
     $from_email = !empty($config['from_email']) ? $config['from_email'] : ($user ?: 'noreply@adminconnect.edu.ph');
     $from_name = $config['from_name'] ?? 'i-AdminConnect Portal';
 
+    // If SMTP credentials are empty or placeholder, return demo mode info
+    if (empty($user) || empty($pass) || strpos($user, 'your_') !== false || $user === 'iadminconnect.demo@gmail.com') {
+        return [
+            'success' => false,
+            'mode' => 'demo',
+            'message' => 'Gmail SMTP credentials not yet set in config/mail_config.php. Running in demo mode.'
+        ];
+    }
+
+    $to_email = trim($to_email);
+    if (!filter_var($to_email, FILTER_VALIDATE_EMAIL)) {
+        return [
+            'success' => false,
+            'mode' => 'demo',
+            'message' => "Invalid recipient email address: {$to_email}"
+        ];
+    }
+
+    $timeout = 10;
+    $socket = @stream_socket_client("tcp://{$host}:{$port}", $errno, $errstr, $timeout);
+    if (!$socket) {
+        return [
+            'success' => false,
+            'mode' => 'demo',
+            'message' => "Could not connect to SMTP server: {$errstr} ({$errno})"
+        ];
+    }
+
+    $read = function() use ($socket) {
+        $data = "";
+        while ($str = fgets($socket, 512)) {
+            $data .= $str;
+            if (substr($str, 3, 1) === ' ') break;
+        }
+        return $data;
+    };
+
+    $send = function($cmd) use ($socket) {
+        fputs($socket, $cmd . "\r\n");
+    };
+
+    try {
+        $read(); // 220
+        $send("EHLO " . gethostname());
+        $read(); // 250
+
+        // STARTTLS
+        $send("STARTTLS");
+        $tls_res = $read();
+        if (substr($tls_res, 0, 3) !== '220') {
+            fclose($socket);
+            return [
+                'success' => false,
+                'mode' => 'demo',
+                'message' => "STARTTLS rejected: {$tls_res}"
+            ];
+        }
+
+        if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+            fclose($socket);
+            return [
+                'success' => false,
+                'mode' => 'demo',
+                'message' => "Failed to initiate TLS encryption"
+            ];
+        }
+
+        $send("EHLO " . gethostname());
+        $read(); // 250
+
+        // Authenticate
+        $send("AUTH LOGIN");
+        $auth_res = $read(); // 334
+        if (substr($auth_res, 0, 3) !== '334') {
+            fclose($socket);
+            return [
+                'success' => false,
+                'mode' => 'demo',
+                'message' => "AUTH LOGIN not accepted: {$auth_res}"
+            ];
+        }
+
+        $send(base64_encode($user));
+        $read(); // 334
+        $send(base64_encode($pass));
+        $pass_res = $read();
+        if (substr($pass_res, 0, 3) !== '235') {
+            fclose($socket);
+            return [
+                'success' => false,
+                'mode' => 'demo',
+                'message' => "Gmail Authentication Failed: Please check your Gmail App Password. Server said: {$pass_res}"
+            ];
+        }
+
+        // Send Email Envelope
+        $send("MAIL FROM:<{$user}>");
+        $read();
+        $send("RCPT TO:<{$to_email}>");
+        $rcpt_res = $read();
+        if (substr($rcpt_res, 0, 3) !== '250') {
+            fclose($socket);
+            return [
+                'success' => false,
+                'mode' => 'demo',
+                'message' => "Recipient rejected: {$rcpt_res}"
+            ];
+        }
+
+        $send("DATA");
+        $read(); // 354
+
+        $encoded_to = !empty($to_name) ? "=?UTF-8?B?" . base64_encode($to_name) . "?= <{$to_email}>" : "<{$to_email}>";
+        $headers = [
+            "From: =?UTF-8?B?" . base64_encode($from_name) . "?= <{$user}>",
+            "To: {$encoded_to}",
+            "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=",
+            "MIME-Version: 1.0",
+            "Content-Type: text/html; charset=UTF-8",
+            "Content-Transfer-Encoding: 8bit",
+            "Date: " . date('r'),
+            "X-Mailer: i-AdminConnect-PHP"
+        ];
+
+        $payload = implode("\r\n", $headers) . "\r\n\r\n" . $html_body . "\r\n.\r\n";
+        fputs($socket, $payload);
+        $final_res = $read();
+        $send("QUIT");
+        fclose($socket);
+
+        if (substr($final_res, 0, 3) === '250') {
+            return [
+                'success' => true,
+                'mode' => 'live',
+                'message' => "Email notification successfully delivered to {$to_email}."
+            ];
+        } else {
+            return [
+                'success' => false,
+                'mode' => 'demo',
+                'message' => "Message rejected by server: {$final_res}"
+            ];
+        }
+    } catch (Exception $e) {
+        if (is_resource($socket)) fclose($socket);
+        return [
+            'success' => false,
+            'mode' => 'demo',
+            'message' => "Error sending email: " . $e->getMessage()
+        ];
+    }
+}
+
+/**
+ * Send OTP Verification Email
+ */
+function send_otp_email($to_email, $otp_code, $type = 'registration', $recipient_name = 'User', $role = 'student') {
     $role_clean = strtolower(trim($role));
     if ($role_clean === 'teacher') {
         $role_label = 'Teacher';
@@ -30,7 +197,6 @@ function send_otp_email($to_email, $otp_code, $type = 'registration', $recipient
     $subject_title = $is_reset ? "{$role_label} Password Reset Verification Code" : "{$role_label} Registration OTP Verification";
     $action_desc = $is_reset ? "resetting your {$account_desc} password" : "creating your {$account_desc}";
 
-    // Build responsive HTML email template
     $html_body = '<!DOCTYPE html>
     <html>
     <head>
@@ -76,157 +242,246 @@ function send_otp_email($to_email, $otp_code, $type = 'registration', $recipient
     </body>
     </html>';
 
-    // If SMTP credentials are empty or placeholder, return demo mode info
-    if (empty($user) || empty($pass) || strpos($user, 'your_') !== false || $user === 'iadminconnect.demo@gmail.com') {
-        return [
-            'success' => false,
-            'mode' => 'demo',
-            'otp' => $otp_code,
-            'message' => 'Gmail SMTP credentials not yet set in config/mail_config.php. OTP code is available in demo mode.'
-        ];
+    $subject = "Your {$role_label} Verification Code: {$otp_code} - i-AdminConnect";
+    $result = send_smtp_mail($to_email, $recipient_name, $subject, $html_body);
+    $result['otp'] = $otp_code;
+    return $result;
+}
+
+/**
+ * Send Real-Time Status Update Email Notification to Student or Teacher
+ *
+ * @param string $to_email Student/Teacher email
+ * @param string $recipient_name Student/Teacher name
+ * @param string $tracking_number e.g. RQ-001
+ * @param string $document_type e.g. Good Moral Certificate
+ * @param string $status e.g. Under Review, Processing, Ready for Release, Returned for Revision, Rejected, Released
+ * @param string $remarks Additional remarks or instructions from registrar
+ * @param string $location Physical office location / instruction
+ * @return array
+ */
+function send_request_status_email($to_email, $recipient_name, $tracking_number, $document_type, $status, $remarks = '', $location = '') {
+    $status_clean = trim($status);
+
+    // Color theme & icon based on request status
+    $badge_bg = '#0284c7';
+    $badge_color = '#ffffff';
+    $icon = '📌';
+    $headline = "Update on Request {$tracking_number}";
+    $subject_status = $status_clean;
+
+    switch ($status_clean) {
+        case 'Under Review':
+            $badge_bg = '#fef3c7';
+            $badge_color = '#b45309';
+            $icon = '🔍';
+            $headline = "Your Request is Now Under Review";
+            $subject_status = "Under Review 🔍";
+            break;
+        case 'Processing':
+            $badge_bg = '#e0f2fe';
+            $badge_color = '#0369a1';
+            $icon = '⚙️';
+            $headline = "Your Document is Being Processed";
+            $subject_status = "Processing ⚙️";
+            break;
+        case 'Ready for Release':
+            $badge_bg = '#dcfce7';
+            $badge_color = '#15803d';
+            $icon = '🎉';
+            $headline = "Your Document is Ready for Release!";
+            $subject_status = "Ready for Release 🎉";
+            break;
+        case 'Returned for Revision':
+            $badge_bg = '#ffedd5';
+            $badge_color = '#c2410c';
+            $icon = '⚠️';
+            $headline = "Action Required: Request Returned for Revision";
+            $subject_status = "Action Required (Returned for Revision) ⚠️";
+            break;
+        case 'Released':
+            $badge_bg = '#d1fae5';
+            $badge_color = '#065f46';
+            $icon = '✔';
+            $headline = "Document Successfully Claimed & Released";
+            $subject_status = "Document Released ✔";
+            break;
+        case 'Rejected':
+            $badge_bg = '#fee2e2';
+            $badge_color = '#b91c1c';
+            $icon = '❌';
+            $headline = "Update Regarding Your Request";
+            $subject_status = "Request Rejected ❌";
+            break;
+        case 'Submitted':
+        case 'Revision Submitted':
+            $badge_bg = '#e0f2fe';
+            $badge_color = '#0284c7';
+            $icon = '📥';
+            $headline = "Request Successfully Received";
+            $subject_status = "Submitted Successfully 📥";
+            break;
     }
 
-    // Connect via stream_socket_client
-    $timeout = 15;
-    $socket = @stream_socket_client("tcp://{$host}:{$port}", $errno, $errstr, $timeout);
-    if (!$socket) {
-        return [
-            'success' => false,
-            'mode' => 'demo',
-            'otp' => $otp_code,
-            'message' => "Could not connect to SMTP server: {$errstr} ({$errno})"
-        ];
-    }
+    $now_str = date('F j, Y g:i A');
+    $subject = "[{$tracking_number}] Status Update: {$subject_status} - i-AdminConnect";
 
-    $read = function() use ($socket) {
-        $data = "";
-        while ($str = fgets($socket, 512)) {
-            $data .= $str;
-            if (substr($str, 3, 1) === ' ') break;
-        }
-        return $data;
-    };
+    $html_body = '<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>' . htmlspecialchars($headline) . '</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px 12px; color: #1e293b; }
+    .email-container { max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.06); border: 1px solid #e2e8f0; }
+    .email-header { background: linear-gradient(135deg, #0d3b66 0%, #00bfa5 100%); color: #ffffff; padding: 28px 24px; text-align: center; }
+    .email-header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    .email-header p { margin: 6px 0 0 0; font-size: 13px; opacity: 0.9; }
+    .email-content { padding: 30px 24px; }
+    .status-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px 20px; margin: 20px 0; }
+    .status-badge { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; background: ' . $badge_bg . '; color: ' . $badge_color . '; border: 1px solid rgba(0,0,0,0.05); }
+    .remarks-box { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 6px; margin-top: 14px; font-size: 13px; color: #78350f; line-height: 1.5; }
+    .btn-cta { display: inline-block; background: #00bfa5; color: #ffffff !important; font-weight: 700; font-size: 14px; padding: 12px 26px; border-radius: 8px; text-decoration: none; margin-top: 18px; box-shadow: 0 2px 6px rgba(0,191,165,0.25); text-align: center; }
+    .email-footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 24px; text-align: center; font-size: 12px; color: #94a3b8; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="email-header">
+      <h1>i-AdminConnect</h1>
+      <p>Administrative Services and Record Tracking System</p>
+    </div>
+    <div class="email-content">
+      <div style="font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">
+        ' . $icon . ' ' . htmlspecialchars($headline) . '
+      </div>
+      <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 16px 0;">
+        Hello <strong>' . htmlspecialchars($recipient_name) . '</strong>,
+      </p>
+      <p style="font-size: 14px; line-height: 1.6; color: #475569; margin: 0 0 16px 0;">
+        This is an automated live notification regarding the progress of your administrative request:
+      </p>
 
-    $send = function($cmd) use ($socket) {
-        fputs($socket, $cmd . "\r\n");
-    };
+      <div class="status-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+          <span style="font-size: 15px; font-weight: 800; color: #0d3b66;">' . htmlspecialchars($tracking_number) . '</span>
+          <span class="status-badge">' . htmlspecialchars($status) . '</span>
+        </div>
 
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Document Requested:</td>
+            <td style="padding: 6px 0; color: #0f172a; font-weight: 700; text-align: right;">' . htmlspecialchars($document_type) . '</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Status:</td>
+            <td style="padding: 6px 0; color: ' . $badge_color . '; font-weight: 800; text-align: right;">' . htmlspecialchars($status) . '</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Date & Time Updated:</td>
+            <td style="padding: 6px 0; color: #0f172a; text-align: right;">' . htmlspecialchars($now_str) . '</td>
+          </tr>
+          ' . (!empty($location) ? '
+          <tr>
+            <td style="padding: 6px 0; color: #64748b; font-weight: 600;">Office Location:</td>
+            <td style="padding: 6px 0; color: #0f172a; font-weight: 600; text-align: right;">📍 ' . htmlspecialchars($location) . '</td>
+          </tr>' : '') . '
+        </table>
+
+        ' . (!empty($remarks) ? '
+        <div class="remarks-box">
+          <strong>Office Instructions / Remarks:</strong><br>
+          ' . nl2br(htmlspecialchars($remarks)) . '
+        </div>' : '') . '
+      </div>
+
+      ' . ($status === 'Returned for Revision' ? '
+      <div style="background: #fff7ed; border: 1.5px solid #f59e0b; padding: 14px 16px; border-radius: 8px; font-size: 13px; color: #9a3412; margin-bottom: 16px; line-height: 1.5;">
+        👉 <strong>How to re-upload required documents:</strong><br>
+        Log in to your <strong>i-AdminConnect Portal</strong>, navigate to <strong>My Requests</strong>, click <strong>Track</strong> or <strong>Edit</strong> on request <strong>' . htmlspecialchars($tracking_number) . '</strong>, and re-upload the requested clear copy.
+      </div>' : '') . '
+
+      ' . ($status === 'Ready for Release' ? '
+      <div style="background: #f0fdf4; border: 1.5px solid #22c55e; padding: 14px 16px; border-radius: 8px; font-size: 13px; color: #15803d; margin-bottom: 16px; line-height: 1.5;">
+        🎉 <strong>Ready for Pick-Up:</strong><br>
+        Your document has been prepared. Please proceed to the <strong>' . htmlspecialchars($location ?: "Office of the Registrar") . '</strong> to claim your document. No fee required.
+      </div>' : '') . '
+
+      <div style="text-align: center; margin-top: 24px;">
+        <a href="http://localhost/i-adminconnect/my_requests.php" class="btn-cta" style="color: #ffffff;">
+          View Request in i-AdminConnect Portal &rarr;
+        </a>
+      </div>
+    </div>
+
+    <div class="email-footer">
+      <strong>i-AdminConnect Portal</strong> &bull; Office of the Registrar & Administration<br>
+      This is an automated live notification sent to your registered email address. Please do not reply directly to this email.
+    </div>
+  </div>
+</body>
+</html>';
+
+    return send_smtp_mail($to_email, $recipient_name, $subject, $html_body);
+}
+
+/**
+ * Universal Helper: Inserts in-app notification and immediately dispatches real-time email
+ *
+ * @param PDO $pdo Active PDO database instance
+ * @param int $user_id Recipient student/teacher user ID
+ * @param string $tracking_number Tracking number (e.g. RQ-001)
+ * @param string $title Notification title
+ * @param string $message Main message/remarks
+ * @param string $document_type Name of the document requested
+ * @param string $status Current status
+ * @param string $location Location or office
+ * @return array
+ */
+function notify_user_and_email($pdo, $user_id, $tracking_number, $title, $message, $document_type, $status, $location = '') {
+    // 1. Insert In-App Notification
     try {
-        $read(); // 220
-        $send("EHLO " . gethostname());
-        $read(); // 250
-
-        // STARTTLS
-        $send("STARTTLS");
-        $tls_res = $read();
-        if (substr($tls_res, 0, 3) !== '220') {
-            fclose($socket);
-            return [
-                'success' => false,
-                'mode' => 'demo',
-                'otp' => $otp_code,
-                'message' => "STARTTLS rejected: {$tls_res}"
-            ];
-        }
-
-        if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
-            fclose($socket);
-            return [
-                'success' => false,
-                'mode' => 'demo',
-                'otp' => $otp_code,
-                'message' => "Failed to initiate TLS encryption"
-            ];
-        }
-
-        $send("EHLO " . gethostname());
-        $read(); // 250
-
-        // Authenticate
-        $send("AUTH LOGIN");
-        $auth_res = $read(); // 334
-        if (substr($auth_res, 0, 3) !== '334') {
-            fclose($socket);
-            return [
-                'success' => false,
-                'mode' => 'demo',
-                'otp' => $otp_code,
-                'message' => "AUTH LOGIN not accepted: {$auth_res}"
-            ];
-        }
-
-        $send(base64_encode($user));
-        $read(); // 334
-        $send(base64_encode($pass));
-        $pass_res = $read();
-        if (substr($pass_res, 0, 3) !== '235') {
-            fclose($socket);
-            return [
-                'success' => false,
-                'mode' => 'demo',
-                'otp' => $otp_code,
-                'message' => "Gmail Authentication Failed: Please check your Gmail App Password. Server said: {$pass_res}"
-            ];
-        }
-
-        // Send Email Envelope
-        $send("MAIL FROM:<{$user}>");
-        $read();
-        $send("RCPT TO:<{$to_email}>");
-        $rcpt_res = $read();
-        if (substr($rcpt_res, 0, 3) !== '250') {
-            fclose($socket);
-            return [
-                'success' => false,
-                'mode' => 'demo',
-                'otp' => $otp_code,
-                'message' => "Recipient rejected: {$rcpt_res}"
-            ];
-        }
-
-        $send("DATA");
-        $read(); // 354
-
-        $subject = "Your {$role_label} Verification Code: {$otp_code} - i-AdminConnect";
-        $headers = [
-            "From: =?UTF-8?B?" . base64_encode($from_name) . "?= <{$user}>",
-            "To: <{$to_email}>",
-            "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=",
-            "MIME-Version: 1.0",
-            "Content-Type: text/html; charset=UTF-8",
-            "Content-Transfer-Encoding: 8bit",
-            "Date: " . date('r'),
-            "X-Mailer: i-AdminConnect-PHP"
-        ];
-
-        $payload = implode("\r\n", $headers) . "\r\n\r\n" . $html_body . "\r\n.\r\n";
-        fputs($socket, $payload);
-        $final_res = $read();
-        $send("QUIT");
-        fclose($socket);
-
-        if (substr($final_res, 0, 3) === '250') {
-            return [
-                'success' => true,
-                'mode' => 'live',
-                'otp' => $otp_code,
-                'message' => "Verification code sent to your Gmail ({$to_email})! Please check your inbox or spam folder."
-            ];
-        } else {
-            return [
-                'success' => false,
-                'mode' => 'demo',
-                'otp' => $otp_code,
-                'message' => "Message rejected by server: {$final_res}"
-            ];
-        }
+        $stmt = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $user_id,
+            $tracking_number,
+            $title,
+            $message,
+            $location ?: "Office of the Registrar"
+        ]);
     } catch (Exception $e) {
-        if (is_resource($socket)) fclose($socket);
+        error_log("Failed to insert in-app notification: " . $e->getMessage());
+    }
+
+    // 2. Fetch User Registered Email and Name
+    $user_stmt = $pdo->prepare("SELECT email, full_name, role FROM users WHERE id = ? LIMIT 1");
+    $user_stmt->execute([$user_id]);
+    $user = $user_stmt->fetch();
+
+    if (!$user || empty($user['email'])) {
         return [
             'success' => false,
-            'mode' => 'demo',
-            'otp' => $otp_code,
-            'message' => "Error sending email: " . $e->getMessage()
+            'message' => 'User or email address not found.'
+        ];
+    }
+
+    // 3. Dispatch Live Real-Time Email
+    try {
+        return send_request_status_email(
+            $user['email'],
+            $user['full_name'],
+            $tracking_number,
+            $document_type,
+            $status,
+            $message,
+            $location
+        );
+    } catch (Exception $e) {
+        error_log("Failed to send status update email: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => $e->getMessage()
         ];
     }
 }

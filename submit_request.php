@@ -100,7 +100,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
             }
 
-            $success_msg = "Your request for <strong>{$type_name}</strong> (<strong>{$tracking_num}</strong>) has been submitted to the <strong>{$target_office}</strong>. You will receive a notification once your document is processed. No fee required.";
+            // In-app notification for requester
+            $notif_insert->execute([
+                $user_id,
+                $tracking_num,
+                "Request {$tracking_num} Submitted",
+                "Your request for {$type_name} has been submitted to {$target_office}. Awaiting administrative review.",
+                $target_office
+            ]);
+
+            // Real-Time Email Notification for requester
+            require_once __DIR__ . '/includes/mailer.php';
+            $u_stmt = $pdo->prepare("SELECT email FROM users WHERE id = ? LIMIT 1");
+            $u_stmt->execute([$user_id]);
+            $u_email = $u_stmt->fetchColumn();
+            if (!empty($u_email)) {
+                send_request_status_email(
+                    $u_email,
+                    $user_name,
+                    $tracking_num,
+                    $type_name,
+                    'Submitted',
+                    "Your request has been successfully submitted to the {$target_office}. Awaiting administrative review.",
+                    $target_office
+                );
+            }
+
+            $success_msg = "Your request for <strong>{$type_name}</strong> (<strong>{$tracking_num}</strong>) has been submitted to the <strong>{$target_office}</strong>. A confirmation has been sent to your registered email. No fee required.";
         }
     }
 }

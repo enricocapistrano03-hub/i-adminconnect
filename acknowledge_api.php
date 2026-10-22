@@ -49,6 +49,8 @@ $now_str = date('F j, Y g:i A');
 $stmt_up = $pdo->prepare("UPDATE requests SET status = 'Released', remarks = ?, updated_at = NOW() WHERE id = ?");
 $stmt_up->execute(["Document acknowledged and claimed by requester on {$now_str}.", $req['id']]);
 
+require_once __DIR__ . '/includes/mailer.php';
+
 // Audit log
 log_audit_action($pdo, $user_name, strtoupper($user_role), "Acknowledged receipt of request {$tracking_number} ({$req['request_type_name']})");
 
@@ -62,6 +64,31 @@ foreach ($staff_stmt->fetchAll() as $staff) {
         "Request {$tracking_number} Acknowledged & Received",
         "{$user_name} has acknowledged and confirmed receipt of document request {$tracking_number}."
     ]);
+}
+
+// In-app notification for requester
+$notif_insert->execute([
+    $req['user_id'],
+    $tracking_number,
+    "Document Released & Received: {$tracking_number}",
+    "Your request for {$req['request_type_name']} has been completed and marked as Released.",
+    'Office of the Registrar'
+]);
+
+// Real-Time Email Notification for requester
+$u_stmt = $pdo->prepare("SELECT email, full_name FROM users WHERE id = ? LIMIT 1");
+$u_stmt->execute([$req['user_id']]);
+$u_rec = $u_stmt->fetch();
+if ($u_rec && !empty($u_rec['email'])) {
+    send_request_status_email(
+        $u_rec['email'],
+        $u_rec['full_name'],
+        $tracking_number,
+        $req['request_type_name'],
+        'Released',
+        "Document acknowledged and released on {$now_str}. Thank you for using i-AdminConnect!",
+        'Office of the Registrar'
+    );
 }
 
 echo json_encode([

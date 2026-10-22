@@ -1,13 +1,14 @@
 <?php
 $page_title_custom = '<div class="breadcrumb-nav">Dashboard &gt; Request &gt; Request Details</div><h1>Request Details</h1><p>Review and process the selected administrative request.</p>';
 require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/mailer.php';
 
 if ($user_role !== 'admin' && $user_role !== 'registrar') {
     die("<div class='content-card'><h2>Access Denied</h2><p>Registrar or Administrator privileges required.</p></div>");
 }
 
 $req_id = (int)($_GET['id'] ?? 0);
-$stmt = $pdo->prepare("SELECT r.*, u.full_name, u.role as requester_role, rt.name as request_type_name 
+$stmt = $pdo->prepare("SELECT r.*, u.full_name, u.email as requester_email, u.role as requester_role, rt.name as request_type_name 
     FROM requests r
     JOIN users u ON r.user_id = u.id
     JOIN request_types rt ON r.request_type_id = rt.id
@@ -38,8 +39,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message) VALUES (?, ?, ?, ?)");
         $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Under Review", $notif_msg]);
 
+        // Send Real-Time Email Notification
+        $mail_info = '';
+        if (!empty($req['requester_email'])) {
+            $m_res = send_request_status_email(
+                $req['requester_email'],
+                $req['full_name'],
+                $req['tracking_number'],
+                $req['request_type_name'],
+                'Under Review',
+                'Requirements verified. Your request is now under administrative review.',
+                'Office of the Registrar'
+            );
+            if ($m_res['success']) {
+                $mail_info = " &bull; Real-time email sent to <strong>{$req['requester_email']}</strong>";
+            }
+        }
+
         log_audit_action($pdo, $user_name, $actor_role, "Moved Request {$req['tracking_number']} to Under Review");
-        $alert_msg = "Request status updated to <strong>Under Review</strong>.";
+        $alert_msg = "Request status updated to <strong>Under Review</strong>.{$mail_info}";
         $req['status'] = 'Under Review';
         $req['current_stage'] = 2;
 
@@ -51,8 +69,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message) VALUES (?, ?, ?, ?)");
         $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Processing", $notif_msg]);
 
+        // Send Real-Time Email Notification
+        $mail_info = '';
+        if (!empty($req['requester_email'])) {
+            $m_res = send_request_status_email(
+                $req['requester_email'],
+                $req['full_name'],
+                $req['tracking_number'],
+                $req['request_type_name'],
+                'Processing',
+                'Document is currently being prepared and encoded.',
+                'Office of the Registrar'
+            );
+            if ($m_res['success']) {
+                $mail_info = " &bull; Real-time email sent to <strong>{$req['requester_email']}</strong>";
+            }
+        }
+
         log_audit_action($pdo, $user_name, $actor_role, "Moved Request {$req['tracking_number']} to Processing");
-        $alert_msg = "Request status updated to <strong>Processing</strong>.";
+        $alert_msg = "Request status updated to <strong>Processing</strong>.{$mail_info}";
         $req['status'] = 'Processing';
         $req['current_stage'] = 3;
 
@@ -66,9 +101,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Please visit the Registrar\'s Office to claim your document.')");
         $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Ready for Release", $notif_msg]);
 
+        // Send Real-Time Email Notification
+        $mail_info = '';
+        if (!empty($req['requester_email'])) {
+            $m_res = send_request_status_email(
+                $req['requester_email'],
+                $req['full_name'],
+                $req['tracking_number'],
+                $req['request_type_name'],
+                'Ready for Release',
+                'Your request has been approved and marked Ready for Release. Please proceed to the Registrar\'s Office to claim your document. No fee required.',
+                'Office of the Registrar'
+            );
+            if ($m_res['success']) {
+                $mail_info = " &bull; Real-time notification email sent to <strong>{$req['requester_email']}</strong>";
+            }
+        }
+
         log_audit_action($pdo, $user_name, $actor_role, "Approved Request {$req['tracking_number']} ({$req['request_type_name']}) - Ready for Release");
 
-        $alert_msg = "Request Approved Successfully! You have marked request <strong>{$req['tracking_number']}</strong> as Ready for Release. The requester has received an automated notification.";
+        $alert_msg = "Request Approved Successfully! You have marked request <strong>{$req['tracking_number']}</strong> as Ready for Release.{$mail_info}";
         $req['status'] = 'Ready for Release';
         $req['current_stage'] = 4;
 
@@ -77,11 +129,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare($update_sql);
         $stmt->execute([$remarks ?: 'Please re-upload a clear copy of required documents.', $req_id]);
 
-        $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message) VALUES (?, ?, ?, ?)");
+        $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Registrar\'s Office')");
         $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Needs Revision", "Your request needs revision: " . ($remarks ?: 'Please verify documents.')]);
 
+        // Send Real-Time Email Notification
+        $mail_info = '';
+        if (!empty($req['requester_email'])) {
+            $m_res = send_request_status_email(
+                $req['requester_email'],
+                $req['full_name'],
+                $req['tracking_number'],
+                $req['request_type_name'],
+                'Returned for Revision',
+                $remarks ?: 'Please re-upload a clear copy of required documents via My Requests portal.',
+                'Registrar\'s Office'
+            );
+            if ($m_res['success']) {
+                $mail_info = " &bull; Real-time alert email sent to <strong>{$req['requester_email']}</strong>";
+            }
+        }
+
         log_audit_action($pdo, $user_name, $actor_role, "Returned Request {$req['tracking_number']} for Revision");
-        $alert_msg = "Request Returned for Revision. Requester has been notified.";
+        $alert_msg = "Request Returned for Revision. Requester has been notified via portal & email.{$mail_info}";
         $req['status'] = 'Returned for Revision';
 
     } elseif ($action === 'reject') {
@@ -92,8 +161,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message) VALUES (?, ?, ?, ?)");
         $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Rejected", "Your request was rejected: " . ($remarks ?: 'Requirements incomplete.')]);
 
+        // Send Real-Time Email Notification
+        $mail_info = '';
+        if (!empty($req['requester_email'])) {
+            $m_res = send_request_status_email(
+                $req['requester_email'],
+                $req['full_name'],
+                $req['tracking_number'],
+                $req['request_type_name'],
+                'Rejected',
+                $remarks ?: 'Request rejected due to incomplete requirements.',
+                'Office of the Registrar'
+            );
+            if ($m_res['success']) {
+                $mail_info = " &bull; Notice email sent to <strong>{$req['requester_email']}</strong>";
+            }
+        }
+
         log_audit_action($pdo, $user_name, $actor_role, "Rejected Request {$req['tracking_number']}");
-        $alert_msg = "Request has been rejected.";
+        $alert_msg = "Request has been rejected. Requester has been notified via email.{$mail_info}";
         $req['status'] = 'Rejected';
     }
 }

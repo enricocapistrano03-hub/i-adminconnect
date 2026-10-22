@@ -151,6 +151,18 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
         <span style="background: #dcfce7; color: #15803d; font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 6px;">Verified</span>
       </div>
     </div>
+    <?php if (!empty($req['remarks'])): ?>
+    <div style="grid-column: span 2;">
+      <div class="details-item-label">Current Remarks / Feedback</div>
+      <div class="details-item-val" style="color: #b45309; font-weight: 600;"><?= htmlspecialchars($req['remarks']) ?></div>
+    </div>
+    <?php endif; ?>
+    <?php if (!empty($req['additional_notes'])): ?>
+    <div style="grid-column: span 2;">
+      <div class="details-item-label">Additional / Revision Notes</div>
+      <div class="details-item-val" style="white-space: pre-line;"><?= htmlspecialchars($req['additional_notes']) ?></div>
+    </div>
+    <?php endif; ?>
   </div>
 
   <!-- Smart Guard Verification Alert (Slide 16) -->
@@ -173,10 +185,10 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
     <input type="hidden" name="action" id="action-type" value="">
     <input type="hidden" name="remarks" id="action-remarks" value="">
 
-    <?php if ($req['status'] === 'Pending'): ?>
+    <?php if ($req['status'] === 'Pending' || $req['status'] === 'Returned for Revision'): ?>
       <button type="button" class="btn-primary-cta" style="background: #0284c7; padding: 10px 18px; font-size: 0.9rem;" onclick="submitAction('review')">Mark Under Review</button>
     <?php endif; ?>
-    <?php if ($req['status'] === 'Pending' || $req['status'] === 'Under Review'): ?>
+    <?php if ($req['status'] === 'Pending' || $req['status'] === 'Under Review' || $req['status'] === 'Returned for Revision'): ?>
       <button type="button" class="btn-primary-cta" style="background: #0d9488; padding: 10px 18px; font-size: 0.9rem;" onclick="submitAction('process')">Set to Processing</button>
     <?php endif; ?>
     <?php if ($req['status'] !== 'Ready for Release' && $req['status'] !== 'Released'): ?>

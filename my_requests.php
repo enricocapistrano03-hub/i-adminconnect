@@ -46,7 +46,12 @@ $my_requests = $stmt->fetchAll();
               <td><?= htmlspecialchars(mb_strimwidth($req['purpose'], 0, 45, '...')) ?></td>
               <td><span class="badge-status <?= $status_class ?>"><?= htmlspecialchars($req['status']) ?></span></td>
               <td>
-                <button type="button" class="btn-action-track" onclick="openTrackerModal('<?= htmlspecialchars($req['tracking_number'], ENT_QUOTES) ?>')">Track</button>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <button type="button" class="btn-action-track" onclick="openTrackerModal('<?= htmlspecialchars($req['tracking_number'], ENT_QUOTES) ?>')">Track</button>
+                  <?php if ($req['status'] === 'Returned for Revision'): ?>
+                    <a href="edit_request.php?ref=<?= urlencode($req['tracking_number']) ?>" class="btn-action-edit" title="Re-upload or edit document">Edit</a>
+                  <?php endif; ?>
+                </div>
               </td>
             </tr>
           <?php endforeach; ?>

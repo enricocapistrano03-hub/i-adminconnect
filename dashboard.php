@@ -18,7 +18,7 @@ if ($user_role === 'registrar') {
 // Fetch stats for this user
 $stmt = $pdo->prepare("SELECT 
     COUNT(*) as total,
-    SUM(CASE WHEN status IN ('Pending', 'Under Review', 'Submitted') THEN 1 ELSE 0 END) as pending,
+    SUM(CASE WHEN status IN ('Pending', 'Under Review', 'Submitted', 'Returned for Revision') THEN 1 ELSE 0 END) as pending,
     SUM(CASE WHEN status IN ('Ready for Release', 'Released') THEN 1 ELSE 0 END) as completed,
     SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected
     FROM requests WHERE user_id = ?");
@@ -91,7 +91,12 @@ $recent_requests = $stmt->fetchAll();
               <td><?= htmlspecialchars($date_str) ?></td>
               <td><span class="badge-status <?= $status_class ?>"><?= htmlspecialchars($req['status']) ?></span></td>
               <td>
-                <button type="button" class="btn-action-track" onclick="openTrackerModal('<?= htmlspecialchars($req['tracking_number'], ENT_QUOTES) ?>')">Track</button>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <button type="button" class="btn-action-track" onclick="openTrackerModal('<?= htmlspecialchars($req['tracking_number'], ENT_QUOTES) ?>')">Track</button>
+                  <?php if ($req['status'] === 'Returned for Revision'): ?>
+                    <a href="edit_request.php?ref=<?= urlencode($req['tracking_number']) ?>" class="btn-action-edit" title="Re-upload or edit document">Edit</a>
+                  <?php endif; ?>
+                </div>
               </td>
             </tr>
           <?php endforeach; ?>

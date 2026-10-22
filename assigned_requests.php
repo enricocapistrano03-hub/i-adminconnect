@@ -58,6 +58,7 @@ $assigned_requests = $stmt->fetchAll();
           <option value="ALL">All Statuses</option>
           <option value="Pending" <?= $status_filter === 'Pending' ? 'selected' : '' ?>>Pending</option>
           <option value="Under Review" <?= $status_filter === 'Under Review' ? 'selected' : '' ?>>Under Review</option>
+          <option value="Returned for Revision" <?= $status_filter === 'Returned for Revision' ? 'selected' : '' ?>>Returned for Revision</option>
           <option value="Processing" <?= $status_filter === 'Processing' ? 'selected' : '' ?>>Processing</option>
           <option value="Ready for Release" <?= $status_filter === 'Ready for Release' ? 'selected' : '' ?>>Ready for Release</option>
           <option value="Released" <?= $status_filter === 'Released' ? 'selected' : '' ?>>Released</option>

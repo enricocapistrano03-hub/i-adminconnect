@@ -38,7 +38,8 @@ echo json_encode([
     'remarks' => $req['remarks'] ?: 'Your request is in progress.',
     'attachedFile' => $req['attached_filename'],
     'fileSize' => $req['file_size_kb'],
-    'canAcknowledge' => ($req['status'] === 'Ready for Release')
+    'canAcknowledge' => ($req['status'] === 'Ready for Release'),
+    'canEdit' => ($req['status'] === 'Returned for Revision')
 ]);
 exit();
 ?>

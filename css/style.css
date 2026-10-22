@@ -453,6 +453,12 @@ body {
   color: var(--status-released-text);
 }
 
+.badge-status.returned-for-revision {
+  background-color: #ffedd5;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
 /* Action Buttons */
 .btn-action-track {
   background-color: #0284c7;
@@ -468,6 +474,27 @@ body {
 
 .btn-action-track:hover {
   background-color: #0369a1;
+}
+
+.btn-action-edit {
+  background-color: #f59e0b;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.15s;
+}
+
+.btn-action-edit:hover {
+  background-color: #d97706;
+  color: white;
 }
 
 .btn-action-view {

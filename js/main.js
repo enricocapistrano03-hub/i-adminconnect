@@ -182,6 +182,22 @@ function renderTrackerContent(req) {
       ` : ''}
     </div>
 
+    ${(req.canEdit || req.status === 'Returned for Revision') ? `
+      <div id="revision-container" style="margin-top: 15px; padding: 14px 16px; background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div style="flex: 1; min-width: 240px;">
+          <div style="font-weight: 800; color: #b45309; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
+            <span>⚠️</span> Action Required: Revision Requested
+          </div>
+          <div style="font-size: 0.84rem; color: #78350f; margin-top: 4px; line-height: 1.45;">
+            <strong>Instructions:</strong> ${req.remarks}
+          </div>
+        </div>
+        <a href="edit_request.php?ref=${encodeURIComponent(req.id)}" class="btn-primary-cta" style="background: #d97706; padding: 9px 18px; font-size: 0.88rem; font-weight: 700; text-decoration: none; color: white; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(217,119,6,0.25);">
+          ✏️ Edit & Re-upload Document
+        </a>
+      </div>
+    ` : ''}
+
     ${req.canAcknowledge ? `
       <div id="ack-container" style="margin-top: 15px; padding: 14px 16px; background: #ecfdf5; border: 1px solid #6ee7b7; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <div>

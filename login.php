@@ -630,12 +630,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
                   <option value="Junior High School (General)">Junior High School (General)</option>
                   <option value="STEM Strand">STEM Strand</option>
                   <option value="ABM Strand">ABM Strand</option>
-                  <option value="HUMSS Strand">HUMSS Strand</option>
-                  <option value="TVL Strand">TVL Strand</option>
-                  <option value="BS Information Technology">BS Information Technology</option>
-                  <option value="BS Computer Science">BS Computer Science</option>
-                  <option value="BS Business Administration">BS Business Administration</option>
-                  <option value="Bachelor of Elementary Education">Bachelor of Elementary Education</option>
                 </select>
               </div>
             </div>

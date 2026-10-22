@@ -619,7 +619,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
 
                 <div class="login-input-group">
                   <label>Section *</label>
-                  <input type="text" name="section" id="inp_section" class="login-input" placeholder="e.g. Diamond / BSIT 3-A" autocomplete="off">
+                  <input type="text" name="section" id="inp_section" class="login-input" placeholder="e.g. 7/BABBAGE" autocomplete="off">
                 </div>
               </div>
 

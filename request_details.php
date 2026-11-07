@@ -271,16 +271,23 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
     <input type="hidden" name="action" id="action-type" value="">
     <input type="hidden" name="remarks" id="action-remarks" value="">
 
-    <?php if ($req['status'] === 'Pending' || $req['status'] === 'Returned for Revision'): ?>
-      <button type="button" class="btn-primary-cta" style="background: #0284c7; padding: 10px 18px; font-size: 0.9rem;" onclick="submitAction('review')">Mark Under Review</button>
+    <?php if ($user_role === 'admin'): ?>
+      <?php if ($req['status'] === 'Pending' || $req['status'] === 'Returned for Revision'): ?>
+        <button type="button" class="btn-primary-cta" style="background: #0284c7; padding: 10px 18px; font-size: 0.9rem;" onclick="submitAction('review')">Mark Under Review</button>
+      <?php endif; ?>
+      <?php if ($req['status'] === 'Pending' || $req['status'] === 'Under Review' || $req['status'] === 'Returned for Revision'): ?>
+        <button type="button" class="btn-primary-cta" style="background: #0d9488; padding: 10px 18px; font-size: 0.9rem;" onclick="submitAction('process')">Set to Processing</button>
+      <?php endif; ?>
     <?php endif; ?>
-    <?php if ($req['status'] === 'Pending' || $req['status'] === 'Under Review' || $req['status'] === 'Returned for Revision'): ?>
-      <button type="button" class="btn-primary-cta" style="background: #0d9488; padding: 10px 18px; font-size: 0.9rem;" onclick="submitAction('process')">Set to Processing</button>
-    <?php endif; ?>
+
     <?php if ($req['status'] !== 'Ready for Release' && $req['status'] !== 'Released'): ?>
       <button type="button" class="btn-action-approve" onclick="submitAction('approve')">Mark Ready for Release</button>
     <?php endif; ?>
-    <button type="button" class="btn-action-revise" onclick="submitAction('revise')">Return for Revision</button>
+
+    <?php if ($user_role === 'admin'): ?>
+      <button type="button" class="btn-action-revise" onclick="submitAction('revise')">Return for Revision</button>
+    <?php endif; ?>
+
     <button type="button" class="btn-action-reject" onclick="submitAction('reject')">Reject</button>
     <a href="<?= $back_url ?>" class="btn-action-back" style="text-decoration: none; display: inline-flex; align-items: center;">Back</a>
   </form>

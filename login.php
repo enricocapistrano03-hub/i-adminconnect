@@ -42,7 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             // Check status if available
             if (isset($user['status']) && $user['status'] !== 'Active') {
                 if ($user['status'] === 'Pending') {
-                    $error = "Your Registrar account is currently PENDING ADMINISTRATOR APPROVAL. You will be able to log in once an Administrator activates your account.";
+                    $role_label = ucfirst($user['role'] ?? 'User');
+                    $error = "Your {$role_label} account is currently PENDING ADMINISTRATOR APPROVAL. You will be able to log in once an Administrator activates your account.";
                 } else {
                     $error = "Your account status is currently '" . htmlspecialchars($user['status']) . "'. Please contact the Administrator.";
                 }
@@ -112,12 +113,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please enter a valid email address (e.g. your_name@gmail.com).';
         $active_tab = 'register';
+    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{4,}$/', $password)) {
+        $error = 'Password must be at least 4 characters and contain at least 1 lowercase letter, 1 uppercase letter, 1 number, and 1 special character.';
+        $active_tab = 'register';
     } else {
-        // Check if email or ID number already registered
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? OR id_number = ? LIMIT 1");
-        $stmt->execute([$email, $id_number]);
-        if ($stmt->fetch()) {
-            $error = 'An account with this Email or ID/Employee Number is already registered.';
+        // Check if email or LRN/Employee ID already registered in database
+        $stmt_check = $pdo->prepare("SELECT email, id_number FROM users WHERE email = ? OR id_number = ? LIMIT 1");
+        $stmt_check->execute([$email, $id_number]);
+        $existing = $stmt_check->fetch();
+        if ($existing) {
+            if (strcasecmp($existing['id_number'], $id_number) === 0) {
+                $id_label = ($reg_role === 'student') ? 'LRN / Student ID' : 'Employee ID Number';
+                $error = "The {$id_label} '{$id_number}' is already registered in the system. Existing accounts cannot re-register.";
+            } else {
+                $error = "An account with the email '{$email}' is already registered.";
+            }
             $active_tab = 'register';
         } else {
             // Generate 6-digit OTP
@@ -208,9 +218,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $clean_username .= rand(10, 99);
                 }
 
-                // If registrar, status is 'Pending' (Option B: Requires Admin Approval)
-                // If student or teacher, status is 'Active'
-                $user_status = ($reg_role === 'registrar') ? 'Pending' : 'Active';
+                // All self-registered roles (Student, Teacher, Registrar) require Administrator Approval
+                $user_status = 'Pending';
 
                 // Insert user into users table
                 $ins_user = $pdo->prepare("INSERT INTO users (username, password, full_name, email, role, id_number, department, section, year_level, course, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -229,34 +238,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 ]);
                 $new_id = $pdo->lastInsertId();
 
-                if ($reg_role === 'registrar') {
-                    log_audit_action($pdo, $data['full_name'], 'REGISTRAR', 'Registrar account registered and email OTP verified. Status: PENDING ADMINISTRATOR APPROVAL.');
+                $role_title = ucfirst($reg_role);
+                log_audit_action($pdo, $data['full_name'], strtoupper($reg_role), "{$role_title} account registered ({$data['id_number']}) and email OTP verified. Status: PENDING ADMINISTRATOR APPROVAL.");
 
-                    // Notify Administrators
-                    $admin_stmt = $pdo->query("SELECT id FROM users WHERE role = 'admin'");
-                    foreach ($admin_stmt->fetchAll() as $adm) {
-                        $pdo->prepare("INSERT INTO notifications (user_id, title, message, location) VALUES (?, 'New Registrar Registration', ?, 'User Management')")
-                            ->execute([$adm['id'], "Registrar {$data['full_name']} has verified their email and is awaiting account approval."]);
-                    }
-
-                    unset($_SESSION['otp_pending']);
-                    $_SESSION['flash_success'] = '✅ Email verified successfully! Your Registrar account has been registered and is now PENDING ADMINISTRATOR APPROVAL. You will be able to log in once an Administrator activates your account.';
-                    header("Location: login.php");
-                    exit();
-                } else {
-                    log_audit_action($pdo, $data['full_name'], strtoupper($reg_role), ucfirst($reg_role) . ' account registered and email OTP verified successfully');
-
-                    // Auto-login registered student or teacher
-                    $_SESSION['user_id'] = $new_id;
-                    $_SESSION['username'] = $clean_username;
-                    $_SESSION['full_name'] = $data['full_name'];
-                    $_SESSION['role'] = $reg_role;
-                    $_SESSION['department'] = $data['department'];
-
-                    unset($_SESSION['otp_pending']);
-                    header("Location: dashboard.php");
-                    exit();
+                // Notify Administrators of the new registration
+                $admin_stmt = $pdo->query("SELECT id FROM users WHERE role = 'admin'");
+                $id_type_label = ($reg_role === 'student') ? 'LRN' : 'Employee ID';
+                foreach ($admin_stmt->fetchAll() as $adm) {
+                    $pdo->prepare("INSERT INTO notifications (user_id, title, message, location) VALUES (?, ?, ?, 'User Management')")
+                        ->execute([
+                            $adm['id'], 
+                            "New {$role_title} Registration",
+                            "{$role_title} {$data['full_name']} ({$id_type_label}: {$data['id_number']}) verified email and is awaiting account approval."
+                        ]);
                 }
+
+                unset($_SESSION['otp_pending']);
+                $_SESSION['flash_success'] = "✅ Email verified successfully! Your {$role_title} account has been registered and is now PENDING ADMINISTRATOR APPROVAL. You will be able to log in once an Administrator approves and activates your account.";
+                header("Location: login.php");
+                exit();
 
             } elseif ($pending_type === 'forgot_password') {
                 // Pass to step: reset_password
@@ -328,6 +328,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $current_step = 'reset_password';
     } elseif ($new_pass !== $confirm_pass) {
         $error = 'Passwords do not match.';
+        $current_step = 'reset_password';
+    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{4,}$/', $new_pass)) {
+        $error = 'New password must be at least 4 characters and contain at least 1 lowercase letter, 1 uppercase letter, 1 number, and 1 special character.';
         $current_step = 'reset_password';
     } else {
         $upd = $pdo->prepare("UPDATE users SET password = ? WHERE email = ?");
@@ -508,8 +511,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
           <input type="hidden" name="action" value="set_new_password">
 
           <div class="login-input-group">
-            <label>New Password</label>
-            <input type="password" name="new_password" class="login-input" placeholder="Enter new password" required autocomplete="new-password">
+            <label>New Password <span style="font-size: 0.74rem; font-weight: normal; opacity: 0.9;">(4+ chars: lowercase + uppercase + number + special char)</span></label>
+            <input type="password" name="new_password" class="login-input" placeholder="e.g. Pass@123" required autocomplete="new-password">
           </div>
 
           <div class="login-input-group">
@@ -584,8 +587,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
             <div id="fields_student">
               <div class="login-grid-2">
                 <div class="login-input-group">
-                  <label>Student ID Number *</label>
-                  <input type="text" name="student_id" id="inp_student_id" class="login-input" placeholder="e.g. 2024-0012" autocomplete="off">
+                  <label>LRN / Student ID Number *</label>
+                  <input type="text" name="student_id" id="inp_student_id" class="login-input" placeholder="e.g. 136512345678" autocomplete="off">
                 </div>
                 <div class="login-input-group">
                   <label>Full Name *</label>
@@ -638,7 +641,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
             <div id="fields_teacher" style="display: none;">
               <div class="login-grid-2">
                 <div class="login-input-group">
-                  <label>Employee Number *</label>
+                  <label>Employee ID Number *</label>
                   <input type="text" name="teacher_emp_no" id="inp_teacher_emp_no" class="login-input" placeholder="e.g. EMP-2024-088" autocomplete="off">
                 </div>
                 <div class="login-input-group">
@@ -669,7 +672,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
             <div id="fields_registrar" style="display: none;">
               <div class="login-grid-2">
                 <div class="login-input-group">
-                  <label>Staff / Employee ID *</label>
+                  <label>Registrar Employee ID *</label>
                   <input type="text" name="registrar_emp_no" id="inp_registrar_emp_no" class="login-input" placeholder="e.g. REG-0012" autocomplete="off">
                 </div>
                 <div class="login-input-group">
@@ -690,16 +693,20 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
                 <label>Office / Department</label>
                 <input type="text" class="login-input" value="Office of the Registrar" readonly style="background: rgba(255,255,255,0.85); color: #0f172a; cursor: not-allowed; font-weight: 600;">
               </div>
+            </div>
 
-              <div style="background: rgba(254, 243, 199, 0.95); border: 1px solid #f59e0b; color: #92400e; padding: 10px 14px; border-radius: 10px; font-size: 0.78rem; line-height: 1.4; margin-bottom: 15px;">
-                🛡️ <strong>Admin Approval Notice:</strong> After email verification, Registrar accounts require Administrator approval before accessing student records.
-              </div>
+            <!-- Administrator Approval Notice for All Registrations -->
+            <div style="background: rgba(254, 243, 199, 0.95); border: 1.5px solid #f59e0b; color: #92400e; padding: 12px 14px; border-radius: 10px; font-size: 0.8rem; line-height: 1.45; margin-bottom: 16px;">
+              🛡️ <strong>Admin Approval Notice:</strong> Lahat ng bagong account (Student, Teacher, Registrar) ay daraan sa verification at nangangailangan ng <strong>Administrator Approval</strong> bago makapag-login at mag-access sa portal.
             </div>
 
             <!-- COMMON PASSWORD FIELD -->
             <div class="login-input-group">
-              <label>Password *</label>
-              <input type="password" name="password" id="inp_password" class="login-input" placeholder="Create a secure password" required autocomplete="new-password">
+              <label>Password * <span style="font-size: 0.76rem; font-weight: normal; opacity: 0.9;">(At least 4 chars: Lowercase + Uppercase + Number + Special Char)</span></label>
+              <input type="password" name="password" id="inp_password" class="login-input" placeholder="e.g. Pass@123" required autocomplete="new-password">
+              <small style="color: rgba(255,255,255,0.88); font-size: 0.74rem; display: block; margin-top: 4px;">
+                Rule: 1 lowercase (a-z) + 1 uppercase (A-Z) + 1 number (0-9) + 1 special character (!@#$%^&*)
+              </small>
             </div>
 
             <button type="submit" class="btn-login-submit" style="margin-top: 6px; background: linear-gradient(135deg, #00bfa5 0%, #0d9488 100%);">

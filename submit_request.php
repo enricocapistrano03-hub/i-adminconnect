@@ -55,9 +55,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $now_str = date('F j, Y g:i A');
 
+            // Automatic status set to 'Processing' (Stage 3) upon submission as requested by the panel
             $insert_sql = "INSERT INTO requests 
-                (tracking_number, user_id, request_type_id, purpose, additional_notes, attached_filename, file_size_kb, file_verified, status, current_stage, stage1_time, remarks) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'Pending', 1, ?, 'Request submitted. Awaiting administrative review.')";
+                (tracking_number, user_id, request_type_id, purpose, additional_notes, attached_filename, file_size_kb, file_verified, status, current_stage, stage1_time, stage3_time, remarks) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'Processing', 3, ?, ?, 'Request received. Document is currently being processed and prepared.')";
             $stmt = $pdo->prepare($insert_sql);
             $stmt->execute([
                 $tracking_num,
@@ -67,11 +68,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $notes,
                 $uploaded_file_name,
                 $file_size_formatted,
+                $now_str,
                 $now_str
             ]);
 
             // Audit log
-            log_audit_action($pdo, $user_name, $user_role, "Submitted New Request {$tracking_num}");
+            log_audit_action($pdo, $user_name, $user_role, "Submitted New Request {$tracking_num} (Auto-Set to Processing)");
 
             // Fetch request type name for alert
             $stmt = $pdo->prepare("SELECT name FROM request_types WHERE id = ?");
@@ -94,8 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $notif_insert->execute([
                     $staff['id'],
                     $tracking_num,
-                    "New Request {$tracking_num} Received",
-                    "{$user_name} submitted a new request for {$type_name}.",
+                    "New Request {$tracking_num} in Processing",
+                    "{$user_name} submitted a request for {$type_name}. Auto-set to Processing.",
                     $target_loc
                 ]);
             }
@@ -104,8 +106,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $notif_insert->execute([
                 $user_id,
                 $tracking_num,
-                "Request {$tracking_num} Submitted",
-                "Your request for {$type_name} has been submitted to {$target_office}. Awaiting administrative review.",
+                "Request {$tracking_num} Processing",
+                "Your request for {$type_name} has been submitted to {$target_office} and is now being processed.",
                 $target_office
             ]);
 
@@ -120,13 +122,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $user_name,
                     $tracking_num,
                     $type_name,
-                    'Submitted',
-                    "Your request has been successfully submitted to the {$target_office}. Awaiting administrative review.",
+                    'Processing',
+                    "Your request has been received and automatically set to Processing by the {$target_office}.",
                     $target_office
                 );
             }
 
-            $success_msg = "Your request for <strong>{$type_name}</strong> (<strong>{$tracking_num}</strong>) has been submitted to the <strong>{$target_office}</strong>. A confirmation has been sent to your registered email. No fee required.";
+            $success_msg = "Your request for <strong>{$type_name}</strong> (<strong>{$tracking_num}</strong>) has been submitted and is now <strong>Processing</strong> by the <strong>{$target_office}</strong>. A confirmation has been sent to your registered email. No fee required.";
         }
     }
 }

@@ -148,86 +148,68 @@ foreach ($allAnnouncements as $ann) {
   <section class="landing-section" id="school-info">
     <div class="section-header fade-up">
       <span class="section-tag">Campus Guide</span>
-      <h2 class="section-title">School Information &amp; Campus Directory</h2>
+      <h2 class="section-title">School Information &amp; Pillars</h2>
       <p class="section-subtitle">
-        Find your way around our campus grounds, locate administrative service windows, and review official operating hours.
+        Core Values, Mission, Vision, and Official Office Hours of Taguig Science High School.
       </p>
     </div>
 
-    <div class="school-info-grid">
+    <div class="school-info-grid stagger-parent">
       
-      <!-- Interactive Visual Campus Map Panel (Real Aerial Campus Picture) -->
-      <div class="interactive-map-panel">
-        <div class="campus-map-art" id="campusMapContainer">
-          
-          <!-- Aerial 3D Campus Photographic Map (Optimized for 60fps smooth scroll) -->
-          <img src="assets/campus_optimized.jpg" alt="Official Campus Map" class="campus-map-img" loading="eager" decoding="async">
-          
-          <!-- Subtle depth overlay -->
-          <div style="position: absolute; inset: 0; background: radial-gradient(circle at center, transparent 45%, rgba(15, 23, 42, 0.4) 100%); pointer-events: none;"></div>
-
-
+      <!-- Core Values -->
+      <div class="glass-card mv-card" style="border-left-color: #06b6d4;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <span style="font-size: 1.35rem;">🎯</span>
+          <h3 style="margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 800;">Core Values</h3>
         </div>
+        <ul style="margin: 0; padding-left: 20px; font-size: 0.92rem; color: #475569; line-height: 1.8;">
+          <li>Maka-Diyos</li>
+          <li>Maka-Tao</li>
+          <li>Makakalikasan</li>
+          <li>Makabansa</li>
+        </ul>
       </div>
 
-      <!-- School Vision, Mission & Operating Hours Column -->
-      <div style="display: flex; flex-direction: column; justify-content: space-between;" class="stagger-parent">
-        
-        <!-- Mission & Vision Glass Cards -->
-  <div class="glass-card mv-card" style="border-left-color: #35f5f2;">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-            <span style="font-size: 1.3rem;">🎯</span>
-            <h3 style="margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 800;">Core Values</h3>
-          </div>
-          <p style="margin: 0; font-size: 0.92rem; color: #475569; line-height: 1.6;">
-            <li>Maka-Diyos</li>
-            <li>Maka-Tao</li>
-            <li>Makakalikasan</li>
-            <li>Makabansa</li>
-          </ul>
-         </div>
-
-
-                <!-- Mission & Vision Glass Cards -->
-        <div class="glass-card mv-card">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-            <span style="font-size: 1.3rem;">🎯</span>
-            <h3 style="margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 800;">Our Mission</h3>
-          </div>
-          <p style="margin: 0; font-size: 0.92rem; color: #475569; line-height: 1.6;">
-            The department aims to protect and promote every Filipino's right to quality, equitable, culture-based, and complete basic education through a collaborative environment involving students, teachers, administrators, and the community.
-          </p>
+      <!-- Our Mission -->
+      <div class="glass-card mv-card" style="border-left-color: #2A7C13;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <span style="font-size: 1.35rem;">📜</span>
+          <h3 style="margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 800;">Our Mission</h3>
         </div>
+        <p style="margin: 0; font-size: 0.9rem; color: #475569; line-height: 1.65;">
+          The department aims to protect and promote every Filipino's right to quality, equitable, culture-based, and complete basic education through a collaborative environment involving students, teachers, administrators, and the community.
+        </p>
+      </div>
 
-        <div class="glass-card mv-card" style="border-left-color: #0284c7;">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-            <span style="font-size: 1.3rem;">🌟</span>
-            <h3 style="margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 800;">Our Vision</h3>
-          </div>
-          <p style="margin: 0; font-size: 0.92rem; color: #475569; line-height: 1.6;">
-            DepEd dreams of patriotic Filipinos with the values and competencies to reach their full potential and contribute to nation-building, supported by a continuously improving learner-centered institution.
-          </p>
+      <!-- Our Vision -->
+      <div class="glass-card mv-card" style="border-left-color: #0284c7;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+          <span style="font-size: 1.35rem;">🌟</span>
+          <h3 style="margin: 0; font-size: 1.15rem; color: #0f172a; font-weight: 800;">Our Vision</h3>
         </div>
-        
+        <p style="margin: 0; font-size: 0.9rem; color: #475569; line-height: 1.65;">
+          DepEd dreams of patriotic Filipinos with the values and competencies to reach their full potential and contribute to nation-building, supported by a continuously improving learner-centered institution.
+        </p>
+      </div>
 
-        
+    </div>
 
-        <!-- Official Operating Hours Banner -->
-        <div class="operating-hours-box">
-          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-            <span style="font-size: 1.25rem;">⏰</span>
-            <h4 style="margin: 0; font-size: 1rem; color: #166534; font-weight: 800;">Official Office Hours</h4>
-          </div>
-          <div style="font-size: 0.9rem; color: #1e293b; font-weight: 600;">
+    <!-- Official Office Hours (Full-Width Horizontal Bar sa Baba) -->
+    <div class="glass-card operating-hours-banner fade-up">
+      <div class="hours-banner-main">
+        <div class="hours-icon-badge">⏰</div>
+        <div>
+          <h3 class="hours-title">Official Office Hours</h3>
+          <div class="hours-schedule">
             Monday to Friday &bull; 8:00 AM &ndash; 5:00 PM
           </div>
-          <div style="font-size: 0.8rem; color: #4b5563; margin-top: 4px;">
-            *Online request submissions in i-AdminConnect are accepted 24/7. Physical claiming windows operate during official campus hours.
-          </div>
         </div>
-
       </div>
-
+      <div class="hours-banner-aside">
+        <p class="hours-note">
+          *Online request submissions in <strong>i-AdminConnect</strong> are accepted 24/7. Physical claiming windows operate during official campus hours.
+        </p>
+      </div>
     </div>
 
     <!-- ======================================================================== -->
@@ -246,16 +228,16 @@ foreach ($allAnnouncements as $ann) {
         
         <!-- Leadership Card 1: School Principal -->
         <div class="glass-card leadership-card" onclick="openLeadershipModal('principal')">
-          <div class="leadership-card-badge">School Prinsipal</div>
+          <div class="leadership-card-badge">School Principal</div>
           <div class="leadership-avatar-wrapper">
-            <img src="assets/Donald.PNG" alt="School Principal" class="leadership-avatar-img" onerror="this.src='assets/image1.jpeg'">
+            <img src="assets/Donald.png" alt="School Principal" class="leadership-avatar-img" onerror="this.src='assets/image1.jpeg'">
             <div class="leadership-deped-seal">🏛️</div>
           </div>
           <div class="leadership-card-body">
             <h4 class="leadership-name">Donald S. Bruno</h4>
             <div class="leadership-role-title">School Principal &bull; TagSci</div>
             <p class="leadership-quote">
-              &ldquo; INSERT MESSAGE HERE &rdquo;
+              &ldquo;Leadership is not just about giving directions, but also about guiding, inspiring, and bringing out the best in others. Every challenge is an opportunity to learn, and every success is a result of teamwork and dedication. Let us continue to serve with integrity, patience, and commitment to providing quality education for our learners.&rdquo;
             </p>
             <button type="button" class="btn-read-message">
               <span>📜 Read Welcome Message</span>
@@ -266,16 +248,15 @@ foreach ($allAnnouncements as $ann) {
 
         <!-- Leadership Card 2: Assistant School Principal -->
         <div class="glass-card leadership-card" onclick="openLeadershipModal('asst_principal')">
-          <div class="leadership-card-badge" style="background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;">Assitant School Principal</div>
+          <div class="leadership-card-badge" style="background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;">Assistant School Principal</div>
           <div class="leadership-avatar-wrapper" style="border-color: #38bdf8;">
             <img src="assets/Assistant.jpg" alt="Assistant School Principal" class="leadership-avatar-img" onerror="this.src='assets/image1.jpeg'">
-            
           </div>
           <div class="leadership-card-body">
             <h4 class="leadership-name">Janeth G. Mamasigan</h4>
-            <div class="leadership-role-title">Assistant School Principal  &bull; TagSci</div>
+            <div class="leadership-role-title">Assistant School Principal &bull; TagSci</div>
             <p class="leadership-quote">
-              &ldquo;INSERT MESSAGE HERE.&rdquo;
+              &ldquo;Education is a shared responsibility that requires dedication, understanding, and teamwork. As we continue our journey, let us always remember that our efforts, no matter how small, can make a lasting difference in the lives of our students. Let us work together with passion, respect, and a heart committed to service.&rdquo;
             </p>
             <button type="button" class="btn-read-message" style="background: linear-gradient(135deg, #0284c7 0%, #0d3b66 100%);">
               <span>📜 Read Welcome Message</span>
@@ -504,44 +485,7 @@ foreach ($allAnnouncements as $ann) {
       </div>
     </div>
 
-    <!-- Development Team Showcase -->
-    <div style="margin-top: 60px;" class="fade-up">
-      <div style="text-align: center; margin-bottom: 30px;">
-        <h3 style="font-size: 1.45rem; font-weight: 800; color: #0f172a; margin: 0;">Project Development Team</h3>
-        <p style="font-size: 0.92rem; color: #64748b; margin-top: 6px;">
-          Meet the research authors and software development team behind i-AdminConnect.
-        </p>
-      </div>
 
-      <div class="team-grid stagger-parent">
-        <div class="glass-card team-card">
-          <div class="team-avatar">
-            <img src="assets/capistrano.PNG" alt="Enrico C. Capistrano" class="team-avatar-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-            <span class="team-avatar-fallback" style="display:none;">EC</span>
-          </div>
-          <h4 style="margin: 0 0 4px 0; font-size: 0.98rem; font-weight: 800; color: #0f172a;">Enrico C. Capistrano</h4>
-          <span style="font-size: 0.76rem; color: #2A7C13; font-weight: 700;">Research Author</span>
-        </div>
-
-        <div class="glass-card team-card">
-          <div class="team-avatar">
-            <img src="assets/edwin_cruz.JPG" alt="Edwin E. Cruz" class="team-avatar-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-            <span class="team-avatar-fallback" style="display:none;">EC</span>
-          </div>
-          <h4 style="margin: 0 0 4px 0; font-size: 0.98rem; font-weight: 800; color: #0f172a;">Edwin E. Cruz</h4>
-          <span style="font-size: 0.76rem; color: #2A7C13; font-weight: 700;">Research Author</span>
-        </div>
-
-        <div class="glass-card team-card">
-          <div class="team-avatar">
-            <img src="assets/Fatima.JPEG" alt="Erginia Fatima G. Diansuy" class="team-avatar-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-            <span class="team-avatar-fallback" style="display:none;">ED</span>
-          </div>
-          <h4 style="margin: 0 0 4px 0; font-size: 0.98rem; font-weight: 800; color: #0f172a;">Erginia Fatima G. Diansuy</h4>
-          <span style="font-size: 0.76rem; color: #2A7C13; font-weight: 700;">Research Author</span>
-        </div>
-      </div>
-    </div>
 
     <!-- Campus Helpdesk & Contact Information -->
     <div style="margin-top: 50px;" class="fade-up">
@@ -657,7 +601,10 @@ foreach ($allAnnouncements as $ann) {
 
     <div class="footer-bottom">
       <div>
-        &copy; <?= date('Y') ?> i-AdminConnect Portal &bull; Office of the Registrar and Administration. All rights reserved.
+        <div>&copy; <?= date('Y') ?> i-AdminConnect Portal &bull; Office of the Registrar and Administration. All rights reserved.</div>
+        <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 6px;">
+          Project Development Team: Enrico C. Capistrano &bull; Edwin E. Cruz &bull; Erginia Fatima G. Diansuy
+        </div>
       </div>
       <div>
         <a href="#home" style="color: #38bdf8; text-decoration: none; font-weight: 700;">&uarr; Back to Top</a>
@@ -824,30 +771,30 @@ foreach ($allAnnouncements as $ann) {
       principal: {
         pill: "Office of the School Principal",
         name: "Donald S. Bruno",
-        title: "School Principal• Taguig Science High School",
-        avatar: "assets/Donald.PNG",
-        greeting: "To Our Dear TagSci Learners, Respected Faculty, Supportive Parents, and Alumni,",
+        title: "School Principal • Taguig Science High School",
+        avatar: "assets/Donald.png",
+        greeting: "To Our Dear TagSci Learners, Respected Faculty, Supportive Parents, and Community,",
         paragraphs: [
-          "1st sentence sample message here",
-          "2nd sentence sample message here.",
-          "3rd sentence sample message here"
+          "Leadership is not just about giving directions, but also about guiding, inspiring, and bringing out the best in others.",
+          "Every challenge is an opportunity to learn, and every success is a result of teamwork and dedication.",
+          "Let us continue to serve with integrity, patience, and commitment to providing quality education for our learners."
         ],
         sigName: "Donald S. Bruno",
         sigTitle: "School Principal • Division of Taguig City and Pateros"
       },
       asst_principal: {
-        pill: "Assistant School Principal",
-        name: "Janeth G. Mamansag",
-        title: "Assistant School Principal  • Taguig Science High School",
-        avatar: "assets/Assistant.JPG",
+        pill: "Office of the Assistant School Principal",
+        name: "Janeth G. Mamasigan",
+        title: "Assistant School Principal • Taguig Science High School",
+        avatar: "assets/Assistant.jpg",
         greeting: "Warm Greetings to the Entire TagSci Academic Community,",
         paragraphs: [
-          "1st sentence sample message here.",
-          "2nd sentence sample message here.",
-          "3rd sentence sample message here"
+          "Education is a shared responsibility that requires dedication, understanding, and teamwork.",
+          "As we continue our journey, let us always remember that our efforts, no matter how small, can make a lasting difference in the lives of our students.",
+          "Let us work together with passion, respect, and a heart committed to service."
         ],
-        sigName: "Janeth G. Mamansag",
-        sigTitle: "Assistant School Principal  • Taguig Science High School"
+        sigName: "Janeth G. Mamasigan",
+        sigTitle: "Assistant School Principal • Taguig Science High School"
       }
     };
 
@@ -923,8 +870,8 @@ foreach ($allAnnouncements as $ann) {
       <div class="leadership-modal-footer">
         <div class="leadership-modal-signature">
           <div class="lead-sig-line"></div>
-          <div class="lead-sig-name" id="leadModalSigName">Dr. Maria Elena S. Santos</div>
-          <div class="lead-sig-sub" id="leadModalSigSub">Official Academic Directives &bull; DepEd Division of Taguig City and Pateros</div>
+          <div class="lead-sig-name" id="leadModalSigName">Donald S. Bruno</div>
+          <div class="lead-sig-sub" id="leadModalSigSub">School Principal &bull; Division of Taguig City and Pateros</div>
         </div>
         <button type="button" class="btn-close-modal" onclick="closeLeadershipModal()">Close Message</button>
       </div>

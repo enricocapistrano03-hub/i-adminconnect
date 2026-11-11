@@ -28,7 +28,7 @@ if ($user_role === 'registrar') {
     $scope_title = 'All';
 }
 
-$query = "SELECT r.tracking_number, u.full_name, u.role, rt.name as request_type, r.status, r.purpose, r.created_at, r.stage4_time
+$query = "SELECT r.tracking_number, u.full_name, u.role, rt.name as request_type, r.copies, r.status, r.purpose, r.created_at, r.stage4_time
           FROM requests r
           JOIN users u ON r.user_id = u.id
           JOIN request_types rt ON r.request_type_id = rt.id
@@ -68,7 +68,7 @@ $output = fopen('php://output', 'w');
 // Add UTF-8 BOM so Excel on Windows displays characters properly
 fputs($output, "\xEF\xBB\xBF");
 
-fputcsv($output, ['Tracking ID', 'Requester Name', 'Role', 'Document Type', 'Purpose', 'Status', 'Date Submitted', 'Completion Date']);
+fputcsv($output, ['Tracking ID', 'Requester Name', 'Role', 'Document Type', 'Copies', 'Purpose', 'Status', 'Date Submitted', 'Completion Date']);
 
 foreach ($rows as $row) {
     fputcsv($output, [
@@ -76,6 +76,7 @@ foreach ($rows as $row) {
         $row['full_name'],
         strtoupper($row['role']),
         $row['request_type'],
+        (int)($row['copies'] ?? 1),
         $row['purpose'],
         $row['status'],
         date('F j, Y g:i A', strtotime($row['created_at'])),

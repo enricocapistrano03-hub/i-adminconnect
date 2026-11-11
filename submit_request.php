@@ -5,6 +5,27 @@ require_once __DIR__ . '/includes/header.php';
 $success_msg = '';
 $error_msg = '';
 
+$is_teacher = ($user_role === 'teacher');
+
+// Role-specific field labels and placeholders
+if ($is_teacher) {
+    $purpose_label = 'Purpose / Reason <span style="color: #ef4444;">*</span>';
+    $purpose_placeholder = 'e.g., DepEd Promotion / Ranking, GSIS / Pag-IBIG Loan, Visa Application, Step Increment, Retirement, etc.';
+    $purpose_hint = 'Specify the official intent or recipient organization (e.g., DepEd Division Office, GSIS, Embassy, Financial Institution).';
+
+    $notes_label = 'Additional Notes & Specific Instructions <span style="font-weight: normal; color: #64748b;">(WITH SALARY BREAKDOWN, INCLUSIVE DATES / SCHOOL YEAR, ADDRESSED TO)</span>';
+    $notes_placeholder = 'e.g., With compensation breakdown; Addressed to GSIS Taguig; Covering SY 2022–2025; For Step Increment...';
+    $notes_hint = 'Indicate specific inclusions (e.g., with gross salary breakdown, inclusive school years/dates, or whom the document should be addressed to).';
+} else {
+    $purpose_label = 'Purpose / Reason <span style="color: #ef4444;">*</span>';
+    $purpose_placeholder = 'e.g., College Admission, Scholarship Application, Transfer to Another School, Employment, etc.';
+    $purpose_hint = 'Specify the purpose of this request (e.g., College Entrance Exam, Scholarship, Transferee).';
+
+    $notes_label = 'Additional Notes <span style="font-weight: normal; color: #64748b;">(RECENT SECTION, SPECIFIC SCHOOL / TRANSFEREE UNIVERSITY)</span>';
+    $notes_placeholder = 'e.g., Section 10-Einstein, transferring to PUP Manila, special instructions...';
+    $notes_hint = 'Mention your recent grade level, section, school year, or destination university/company.';
+}
+
 // Available document types for this user role
 $stmt = $pdo->prepare("SELECT * FROM request_types WHERE target_role = ? OR target_role = 'both' ORDER BY id ASC");
 $stmt->execute([$user_role]);
@@ -12,6 +33,7 @@ $available_types = $stmt->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $doc_type_id = (int)($_POST['doc_type_id'] ?? 0);
+    $copies = max(1, min(10, (int)($_POST['copies'] ?? 1)));
     $purpose = trim($_POST['purpose'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
 
@@ -57,13 +79,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Automatic status set to 'Processing' (Stage 3) upon submission as requested by the panel
             $insert_sql = "INSERT INTO requests 
-                (tracking_number, user_id, request_type_id, purpose, additional_notes, attached_filename, file_size_kb, file_verified, status, current_stage, stage1_time, stage3_time, remarks) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'Processing', 3, ?, ?, 'Request received. Document is currently being processed and prepared.')";
+                (tracking_number, user_id, request_type_id, copies, purpose, additional_notes, attached_filename, file_size_kb, file_verified, status, current_stage, stage1_time, stage3_time, remarks) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'Processing', 3, ?, ?, 'Request received. Document is currently being processed and prepared.')";
             $stmt = $pdo->prepare($insert_sql);
             $stmt->execute([
                 $tracking_num,
                 $user_id,
                 $doc_type_id,
+                $copies,
                 $purpose,
                 $notes,
                 $uploaded_file_name,
@@ -73,7 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             // Audit log
-            log_audit_action($pdo, $user_name, $user_role, "Submitted New Request {$tracking_num} (Auto-Set to Processing)");
+            $copy_txt = $copies > 1 ? " ({$copies} copies)" : " (1 copy)";
+            log_audit_action($pdo, $user_name, $user_role, "Submitted New Request {$tracking_num}{$copy_txt} (Auto-Set to Processing)");
 
             // Fetch request type name for alert
             $stmt = $pdo->prepare("SELECT name FROM request_types WHERE id = ?");
@@ -97,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $staff['id'],
                     $tracking_num,
                     "New Request {$tracking_num} in Processing",
-                    "{$user_name} submitted a request for {$type_name}. Auto-set to Processing.",
+                    "{$user_name} submitted a request for {$type_name}{$copy_txt}. Auto-set to Processing.",
                     $target_loc
                 ]);
             }
@@ -107,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user_id,
                 $tracking_num,
                 "Request {$tracking_num} Processing",
-                "Your request for {$type_name} has been submitted to {$target_office} and is now being processed.",
+                "Your request for {$type_name}{$copy_txt} has been submitted to {$target_office} and is now being processed.",
                 $target_office
             ]);
 
@@ -121,14 +145,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $u_email,
                     $user_name,
                     $tracking_num,
-                    $type_name,
+                    "{$type_name}{$copy_txt}",
                     'Processing',
                     "Your request has been received and automatically set to Processing by the {$target_office}.",
                     $target_office
                 );
             }
 
-            $success_msg = "Your request for <strong>{$type_name}</strong> (<strong>{$tracking_num}</strong>) has been submitted and is now <strong>Processing</strong> by the <strong>{$target_office}</strong>. A confirmation has been sent to your registered email. No fee required.";
+            $success_msg = "Your request for <strong>{$type_name}</strong>{$copy_txt} &mdash; Tracking: <strong>{$tracking_num}</strong> has been submitted and is now <strong>Processing</strong> by the <strong>{$target_office}</strong>. A confirmation has been sent to your registered email. No fee required.";
         }
     }
 }
@@ -157,40 +181,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <select name="doc_type_id" id="doc_type_id" class="form-control" required onchange="updateRequirements(this)">
         <option value="">Select Document Type...</option>
         <?php foreach ($available_types as $t): ?>
-          <option value="<?= $t['id'] ?>" data-req='<?= htmlspecialchars($t['requirements'], ENT_QUOTES) ?>' data-name="<?= htmlspecialchars($t['name']) ?>">
+          <option value="<?= $t['id'] ?>" data-code="<?= htmlspecialchars($t['code']) ?>" data-req='<?= htmlspecialchars($t['requirements'], ENT_QUOTES) ?>' data-name="<?= htmlspecialchars($t['name']) ?>">
             <?= htmlspecialchars($t['name']) ?>
           </option>
         <?php endforeach; ?>
       </select>
     </div>
 
-    <!-- Dynamic Requirements Panel (Slide 11, 13) -->
+    <!-- Dynamic Requirements & Document Guide Panel -->
     <div class="form-group">
-      <label class="form-label">Requirements</label>
+      <label class="form-label">Requirements & Guidelines</label>
       <div id="requirements-box" class="form-control" style="background: #f8fafc; min-height: 48px; display: flex; align-items: center;">
-        <span style="color: #94a3b8; font-size: 0.9rem;">Select a document type to view the requirements</span>
+        <span style="color: #94a3b8; font-size: 0.9rem;">Select a document type to view the requirements and guidelines</span>
       </div>
     </div>
 
+    <!-- Number of Copies (Available for both Teachers and Students) -->
     <div class="form-group">
-      <label class="form-label">Purpose / Reason <span style="color: #ef4444;">*</span></label>
+      <label class="form-label">Number of Copies <span style="color: #ef4444;">*</span></label>
+      <div style="display: flex; align-items: center; gap: 10px; max-width: 220px;">
+        <input 
+          type="number" 
+          name="copies" 
+          id="copies" 
+          class="form-control" 
+          value="1" 
+          min="1" 
+          max="10" 
+          required 
+          style="font-weight: 700; width: 90px; text-align: center; font-size: 1rem;"
+        />
+        <span style="font-size: 0.9rem; font-weight: 600; color: #475569;">copy / copies</span>
+      </div>
+      <small style="color: #64748b; font-size: 0.78rem; display: block; margin-top: 5px;">
+        Indicate how many official physical copies you require (Default: 1 copy, Maximum: 10 copies).
+      </small>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label"><?= $purpose_label ?></label>
       <input 
         type="text" 
         name="purpose" 
         class="form-control" 
-        placeholder="e.g., For promotion, Job application, College Admission, etc." 
+        placeholder="<?= htmlspecialchars($purpose_placeholder) ?>" 
         required 
       />
+      <small style="color: #64748b; font-size: 0.78rem; display: block; margin-top: 4px;"><?= $purpose_hint ?></small>
     </div>
 
     <div class="form-group">
-      <label class="form-label">Additional Notes <span style="font-weight: normal; color: #64748b;">(RECENT SECTION,SPECIFIC SCHOOL/UNIVERSITY)</span></label>
+      <label class="form-label"><?= $notes_label ?></label>
       <input 
         type="text" 
         name="notes" 
         class="form-control" 
-        placeholder="Any special instructions..." 
+        placeholder="<?= htmlspecialchars($notes_placeholder) ?>" 
       />
+      <small style="color: #64748b; font-size: 0.78rem; display: block; margin-top: 4px;"><?= $notes_hint ?></small>
     </div>
 
     <div class="form-group">
@@ -203,7 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <span id="file-chosen-text" style="font-size: 0.9rem; color: #64748b;">No file selected.</span>
       </div>
 
-      <!-- Smart Guard Bar (Slide 10, 11) -->
+      <!-- Smart Guard Bar -->
       <div id="smart-guard-box" class="smart-guard-box">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -220,6 +268,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
+// Document-specific guidance and reminders
+const docGuidance = {
+  // Teacher Documents
+  'COE': {
+    badge: 'Faculty Guide',
+    badgeColor: '#1e40af',
+    badgeBg: '#dbeafe',
+    text: '<strong>Certificate of Employment (COE):</strong> In <em>Additional Notes</em>, state if you require <strong>With Compensation Breakdown (Gross Monthly Salary)</strong> or <strong>Without Compensation</strong>, and the addressed institution (e.g., Bank loan, Visa application, GSIS).'
+  },
+  'LC': {
+    badge: 'Faculty Guide',
+    badgeColor: '#1e40af',
+    badgeBg: '#dbeafe',
+    text: '<strong>Leave Credits:</strong> Specify the inclusive calendar years or purpose in <em>Additional Notes</em> (e.g., Terminal Leave, Transfer to another Division, Vacation/Sick Leave Monetization).'
+  },
+  'SR': {
+    badge: 'Faculty Guide',
+    badgeColor: '#1e40af',
+    badgeBg: '#dbeafe',
+    text: '<strong>Service Record:</strong> State if requested for Step Increment, Loyalty Pay, Promotion / Ranking, or GSIS / Retirement processing, and the inclusive years needed.'
+  },
+  'CR': {
+    badge: 'Faculty Guide',
+    badgeColor: '#1e40af',
+    badgeBg: '#dbeafe',
+    text: '<strong>Certificate of Rating:</strong> Specify the exact School Year(s) and IPCRF rating period (e.g., SY 2023–2024, SY 2024–2025) and submission purpose (e.g., Promotion, ERF Reclassification).'
+  },
+
+  // Student Documents
+  'F137': {
+    badge: 'Student Guide',
+    badgeColor: '#065f46',
+    badgeBg: '#d1fae5',
+    text: '<strong>Form 137 / SF10:</strong> Provide the exact name and address of the receiving school/university and your last attended Grade & Section at TagSci in <em>Additional Notes</em>.'
+  },
+  'COG': {
+    badge: 'Student Guide',
+    badgeColor: '#065f46',
+    badgeBg: '#d1fae5',
+    text: '<strong>Certificate of Grades:</strong> State the specific Grade Level, School Year, and grading quarters/semester needed.'
+  },
+  'COE_ST': {
+    badge: 'Student Guide',
+    badgeColor: '#065f46',
+    badgeBg: '#d1fae5',
+    text: '<strong>Certificate of Enrollment:</strong> State your current grade level and section for official enrollment validation.'
+  },
+  'GMC': {
+    badge: 'Student Guide',
+    badgeColor: '#065f46',
+    badgeBg: '#d1fae5',
+    text: '<strong>Good Moral Certificate:</strong> Specify if needed for College Admission, Scholarship Application, or Internship in the <em>Purpose</em> field.'
+  }
+};
+
 function updateRequirements(select) {
   const selectedOption = select.options[select.selectedIndex];
   const box = document.getElementById('requirements-box');
@@ -227,11 +330,12 @@ function updateRequirements(select) {
   if (!select.value) {
     box.className = 'form-control';
     box.style.background = '#f8fafc';
-    box.innerHTML = '<span style="color: #94a3b8; font-size: 0.9rem;">Select a document type to view the requirements</span>';
+    box.innerHTML = '<span style="color: #94a3b8; font-size: 0.9rem;">Select a document type to view the requirements and guidelines</span>';
     return;
   }
 
   const name = selectedOption.getAttribute('data-name');
+  const code = selectedOption.getAttribute('data-code');
   const reqData = selectedOption.getAttribute('data-req');
   let reqs = [];
   try {
@@ -248,6 +352,16 @@ function updateRequirements(select) {
   });
   html += `<li><span style="color: #16a34a; font-weight: bold;">💰</span> Fee: NO fee required</li></ul>`;
   html += `<span class="fee-badge">Fee: FREE</span>`;
+
+  // Attach dynamic role-based guide tip if available
+  if (docGuidance[code]) {
+    const tip = docGuidance[code];
+    html += `<div style="margin-top: 12px; background: #ffffff; border: 1px solid #cbd5e1; border-left: 4px solid ${tip.badgeColor}; border-radius: 6px; padding: 10px 14px; font-size: 0.83rem; color: #334155; line-height: 1.5;">
+      <span style="display: inline-block; font-weight: 700; color: ${tip.badgeColor}; background: ${tip.badgeBg}; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; margin-right: 6px; text-transform: uppercase;">💡 ${tip.badge}</span>
+      ${tip.text}
+    </div>`;
+  }
+
   box.innerHTML = html;
 }
 

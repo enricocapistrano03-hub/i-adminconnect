@@ -94,7 +94,14 @@ $all_requests = $stmt->fetchAll();
               <td><strong><?= htmlspecialchars($row['tracking_number']) ?></strong></td>
               <td><?= htmlspecialchars($row['student_or_teacher_name']) ?></td>
               <td><?= ucfirst($row['requester_role']) ?></td>
-              <td><?= htmlspecialchars($row['request_type_name']) ?></td>
+              <td>
+                <?= htmlspecialchars($row['request_type_name']) ?>
+                <?php if ((int)($row['copies'] ?? 1) > 1): ?>
+                  <span style="font-size: 0.72rem; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">
+                    <?= (int)$row['copies'] ?> copies
+                  </span>
+                <?php endif; ?>
+              </td>
               <td><span class="badge-status <?= $status_class ?>"><?= htmlspecialchars($row['status']) ?></span></td>
               <td><?= htmlspecialchars($date_str) ?></td>
               <td>

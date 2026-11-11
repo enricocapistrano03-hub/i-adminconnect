@@ -28,6 +28,7 @@ if ($req['current_stage'] == 4) $percent = 100;
 echo json_encode([
     'id' => $req['tracking_number'],
     'requestType' => $req['request_type_name'],
+    'copies' => (int)($req['copies'] ?? 1),
     'status' => $req['status'],
     'currentStage' => (int)$req['current_stage'],
     'percent' => $percent,

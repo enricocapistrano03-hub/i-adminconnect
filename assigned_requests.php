@@ -106,7 +106,14 @@ $assigned_requests = $stmt->fetchAll();
               <td><strong><?= htmlspecialchars($req['tracking_number']) ?></strong></td>
               <td><?= htmlspecialchars($req['student_or_teacher_name']) ?></td>
               <td><span style="font-size: 0.78rem; font-weight: 700; color: #64748b;"><?= strtoupper($req['requester_role']) ?></span></td>
-              <td><?= htmlspecialchars($req['request_type_name']) ?></td>
+              <td>
+                <?= htmlspecialchars($req['request_type_name']) ?>
+                <?php if ((int)($req['copies'] ?? 1) > 1): ?>
+                  <span style="font-size: 0.72rem; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">
+                    <?= (int)$req['copies'] ?> copies
+                  </span>
+                <?php endif; ?>
+              </td>
               <td><?= htmlspecialchars(mb_strimwidth($req['purpose'], 0, 35, '...')) ?></td>
               <td><span class="badge-status <?= $status_class ?>"><?= htmlspecialchars($req['status']) ?></span></td>
               <td style="color: #64748b; font-size: 0.82rem;"><?= $date_str ?></td>

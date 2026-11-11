@@ -151,6 +151,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'edit_user') {
     }
 }
 
+// 4. Handle Manually Adding New User (Admin Feature)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add_user') {
+    $full_name = trim($_POST['full_name'] ?? '');
+    $email = trim(strtolower($_POST['email'] ?? ''));
+    $id_number = trim($_POST['id_number'] ?? '');
+    $role = trim(strtolower($_POST['role'] ?? 'student'));
+    $department = trim($_POST['department'] ?? '');
+    $section = trim($_POST['section'] ?? '');
+    $year_level = trim($_POST['year_level'] ?? '');
+    $password = trim($_POST['password'] ?? '');
+    $status = trim($_POST['status'] ?? 'Active');
+
+    $allowed_roles = ['student', 'teacher', 'registrar', 'admin'];
+    $allowed_statuses = ['Active', 'Pending', 'Inactive', 'Dropped'];
+
+    if (empty($full_name) || empty($email) || empty($password)) {
+        $error_msg = "Please provide Full Name, Email Address, and Initial Password.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error_msg = "Please provide a valid email address.";
+    } elseif (!in_array($role, $allowed_roles)) {
+        $error_msg = "Invalid role selected.";
+    } elseif (!in_array($status, $allowed_statuses)) {
+        $error_msg = "Invalid account status.";
+    } else {
+        // Check email uniqueness
+        $chk_email = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+        $chk_email->execute([$email]);
+        if ($chk_email->fetch()) {
+            $error_msg = "That email address is already in use by another account.";
+        } else {
+            // Check ID Number uniqueness if provided
+            $id_conflict = false;
+            if (!empty($id_number)) {
+                $chk_id = $pdo->prepare("SELECT id FROM users WHERE id_number = ? LIMIT 1");
+                $chk_id->execute([$id_number]);
+                $id_conflict = (bool)$chk_id->fetch();
+            }
+
+            if ($id_conflict) {
+                $error_msg = "That ID / Employee Number is already assigned to another account.";
+            } else {
+                // Formulate clean username from email prefix
+                $email_prefix = explode('@', $email)[0];
+                $clean_username = preg_replace('/[^a-zA-Z0-9._-]/', '', strtolower($email_prefix));
+                if (empty($clean_username)) {
+                    $clean_username = 'user' . rand(100, 999);
+                }
+                $chk_u = $pdo->prepare("SELECT id FROM users WHERE username = ? LIMIT 1");
+                $chk_u->execute([$clean_username]);
+                if ($chk_u->fetch()) {
+                    $clean_username .= rand(10, 99);
+                }
+
+                $course_val = ($role === 'student' ? $department : null);
+
+                $ins = $pdo->prepare("INSERT INTO users (username, password, full_name, email, role, id_number, department, section, year_level, course, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $ins->execute([
+                    $clean_username,
+                    $password,
+                    $full_name,
+                    $email,
+                    $role,
+                    $id_number,
+                    $department,
+                    $section,
+                    $year_level,
+                    $course_val,
+                    $status
+                ]);
+
+                log_audit_action($pdo, $user_name, 'ADMIN', "Manually created new {$role} account: {$full_name} ({$email})");
+                $success_msg = "New " . ucfirst($role) . " account for <strong>" . htmlspecialchars($full_name) . "</strong> has been created successfully with status <strong>" . htmlspecialchars($status) . "</strong>!";
+            }
+        }
+    }
+}
+
 // Fetch all users with search filter
 $search = trim($_GET['search'] ?? '');
 $role_filter = trim($_GET['role_filter'] ?? 'ALL');
@@ -196,10 +273,13 @@ $all_users = $stmt->fetchAll();
         Registered student, teacher, registrar, and administrator accounts in the institution.
       </p>
     </div>
-    <div>
-      <span style="background: #0284c7; color: white; padding: 6px 14px; border-radius: 20px; font-size: 0.82rem; font-weight: 700;">
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <span style="background: #0284c7; color: white; padding: 7px 15px; border-radius: 20px; font-size: 0.82rem; font-weight: 700;">
         Total: <?= count($all_users) ?> Users
       </span>
+      <button type="button" class="btn-primary-cta" onclick="openAddUserModal()" style="background: #16a34a; padding: 8px 18px; font-size: 0.86rem; display: inline-flex; align-items: center; gap: 7px; border: none; cursor: pointer; border-radius: 9px; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);">
+        <span style="font-size: 1rem;">➕</span> <span>Add User</span>
+      </button>
     </div>
   </div>
 
@@ -388,7 +468,145 @@ $all_users = $stmt->fetchAll();
   </div>
 </div>
 
+<!-- ============================================================================== -->
+<!-- ADD USER MODAL (ADMIN ONLY)                                                    -->
+<!-- ============================================================================== -->
+<div id="addUserModal" class="user-modal-overlay">
+  <div class="user-modal-card">
+    <div class="user-modal-header">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 1.4rem;">➕</span>
+        <div>
+          <h3 style="margin: 0; font-size: 1.2rem; color: #0f172a; font-weight: 800;">Add New User Account</h3>
+          <p style="margin: 2px 0 0 0; font-size: 0.82rem; color: #64748b;">Create authorized student, teacher, registrar, or admin profile</p>
+        </div>
+      </div>
+      <button type="button" class="modal-close-btn" onclick="closeAddUserModal()">&times;</button>
+    </div>
+
+    <form method="POST" action="users.php" autocomplete="off">
+      <input type="hidden" name="action" value="add_user">
+
+      <div class="user-modal-body">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+          <div class="form-group">
+            <label class="form-label">Account Role <span style="color: #ef4444;">*</span></label>
+            <select name="role" id="add_modal_role" class="form-control" required onchange="handleRoleChangeAddUser(this.value)">
+              <option value="student" selected>Student</option>
+              <option value="teacher">Teacher</option>
+              <option value="registrar">Registrar</option>
+              <option value="admin">Administrator</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Initial Status <span style="color: #ef4444;">*</span></label>
+            <select name="status" class="form-control" required>
+              <option value="Active" selected>Active (Can login immediately)</option>
+              <option value="Pending">Pending Approval</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label" id="add_modal_id_label">ID / LRN / Employee Number</label>
+          <input type="text" name="id_number" id="add_modal_id_number" class="form-control" placeholder="e.g. 654651 (Student LRN / ID)">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Full Name <span style="color: #ef4444;">*</span></label>
+          <input type="text" name="full_name" class="form-control" required placeholder="e.g. Maria Clara S. Santos">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Email Address <span style="color: #ef4444;">*</span></label>
+          <input type="email" name="email" class="form-control" required placeholder="e.g. user@gmail.com or user@school.edu.ph">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label" id="add_modal_dept_label">Program / Academic Strand</label>
+          <input type="text" name="department" id="add_modal_department" class="form-control" placeholder="e.g. STEM Strand, Junior High School (General)">
+        </div>
+
+        <!-- Student-Specific Fields: Year Level & Section -->
+        <div id="add_modal_student_fields" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+          <div class="form-group">
+            <label class="form-label">Year Level</label>
+            <input type="text" name="year_level" id="add_modal_year_level" class="form-control" placeholder="e.g. Grade 7, Grade 11">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Section</label>
+            <input type="text" name="section" id="add_modal_section" class="form-control" placeholder="e.g. 7-Pascal, 11-Curie">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label">Initial Password <span style="color: #ef4444;">*</span></label>
+          <input type="text" name="password" class="form-control" required value="TagSci@2026" placeholder="e.g. TagSci@2026">
+          <small style="color: #64748b; font-size: 0.76rem; display: block; margin-top: 4px;">
+            Default initial password. The user can log in with this password right away.
+          </small>
+        </div>
+      </div>
+
+      <div class="user-modal-footer">
+        <button type="button" class="btn-primary-cta" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; box-shadow: none;" onclick="closeAddUserModal()">Cancel</button>
+        <button type="submit" class="btn-primary-cta" style="background: #16a34a; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);">➕ Create Account</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
+function openAddUserModal() {
+  const modal = document.getElementById('addUserModal');
+  if (modal) {
+    modal.classList.add('active');
+  }
+}
+
+function closeAddUserModal() {
+  const modal = document.getElementById('addUserModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+function handleRoleChangeAddUser(role) {
+  const studentFields = document.getElementById('add_modal_student_fields');
+  const deptLabel = document.getElementById('add_modal_dept_label');
+  const deptInput = document.getElementById('add_modal_department');
+  const idLabel = document.getElementById('add_modal_id_label');
+  const idInput = document.getElementById('add_modal_id_number');
+
+  if (role === 'student') {
+    if (studentFields) studentFields.style.display = 'grid';
+    if (deptLabel) deptLabel.textContent = 'Program / Academic Strand';
+    if (deptInput) { deptInput.value = ''; deptInput.placeholder = 'e.g. STEM Strand, Junior High School (General)'; }
+    if (idLabel) idLabel.textContent = 'Student LRN / ID Number';
+    if (idInput) idInput.placeholder = 'e.g. 654651';
+  } else if (role === 'teacher') {
+    if (studentFields) studentFields.style.display = 'none';
+    if (deptLabel) deptLabel.textContent = 'Grade Level / Department';
+    if (deptInput) { deptInput.value = ''; deptInput.placeholder = 'e.g. Junior High School, Senior High School'; }
+    if (idLabel) idLabel.textContent = 'Teacher Employee ID Number';
+    if (idInput) idInput.placeholder = 'e.g. EMP-2026-001';
+  } else if (role === 'registrar') {
+    if (studentFields) studentFields.style.display = 'none';
+    if (deptLabel) deptLabel.textContent = 'Office';
+    if (deptInput) { deptInput.value = 'Office of the Registrar'; deptInput.placeholder = 'Office of the Registrar'; }
+    if (idLabel) idLabel.textContent = 'Registrar Employee Number';
+    if (idInput) idInput.placeholder = 'e.g. REG-001';
+  } else if (role === 'admin') {
+    if (studentFields) studentFields.style.display = 'none';
+    if (deptLabel) deptLabel.textContent = 'Office';
+    if (deptInput) { deptInput.value = 'Administration'; deptInput.placeholder = 'Administration'; }
+    if (idLabel) idLabel.textContent = 'Admin Employee Number';
+    if (idInput) idInput.placeholder = 'e.g. ADM-001';
+  }
+}
+
 function openEditUserModal(user) {
   document.getElementById('modal_edit_id').value = user.id;
   document.getElementById('modal_id_number').value = user.id_number || '';
@@ -409,12 +627,18 @@ function closeEditUserModal() {
 
 // Close on escape key
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeEditUserModal();
+  if (e.key === 'Escape') {
+    closeEditUserModal();
+    closeAddUserModal();
+  }
 });
 
 // Close when clicking outside modal card
 document.getElementById('editUserModal')?.addEventListener('click', (e) => {
   if (e.target.id === 'editUserModal') closeEditUserModal();
+});
+document.getElementById('addUserModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'addUserModal') closeAddUserModal();
 });
 </script>
 

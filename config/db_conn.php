@@ -23,6 +23,17 @@ try {
     ]);
     // Ensure MySQL session operates on Philippine Time (UTC+8)
     $pdo->exec("SET time_zone = '+08:00'");
+
+    // Auto-migrate schema updates if missing (e.g., copies column in requests)
+    try {
+        $pdo->query("SELECT copies FROM requests LIMIT 1");
+    } catch (Exception $e) {
+        try {
+            $pdo->exec("ALTER TABLE requests ADD COLUMN copies INT NOT NULL DEFAULT 1 AFTER request_type_id");
+        } catch (Exception $ex) {
+            // Table may not exist yet or column concurrently added
+        }
+    }
 } catch (PDOException $e) {
     // Helpful message if database hasn't been imported yet in phpMyAdmin
     die("<div style='font-family: sans-serif; padding: 20px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 8px; margin: 40px auto; max-width: 600px; color: #991b1b;'>

@@ -6,6 +6,8 @@
 require_once __DIR__ . '/config/db_conn.php';
 require_once __DIR__ . '/includes/mailer.php';
 
+/** @var PDO $pdo */
+
 $error = '';
 $success = '';
 
@@ -416,14 +418,14 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
       <!-- ==================================================================== -->
       <?php if ($current_step === 'otp' && isset($_SESSION['otp_pending'])): ?>
         <?php 
-          $pending = $_SESSION['otp_pending']; 
-          $is_demo = ($pending['mail_status'] === 'demo');
+          $pending = $_SESSION['otp_pending'] ?? []; 
+          $is_demo = (($pending['mail_status'] ?? '') === 'demo');
         ?>
 
         <div style="text-align: center; margin-bottom: 20px;">
           <h3 style="margin: 0; color: #ffffff; font-size: 1.3rem; text-shadow: 0 2px 6px rgba(0,0,0,0.6);">Enter Verification Code</h3>
           <p style="font-size: 0.86rem; color: rgba(255,255,255,0.92); margin: 8px 0 0 0; text-shadow: 0 1px 3px rgba(0,0,0,0.6);">
-            An OTP has been sent to <strong style="color: #38bdf8;"><?= htmlspecialchars($pending['email']) ?></strong>.
+            An OTP has been sent to <strong style="color: #38bdf8;"><?= htmlspecialchars($pending['email'] ?? '') ?></strong>.
           </p>
         </div>
 
@@ -433,15 +435,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
             <div style="font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
               <span>⚡</span> <span>Demo Mode (Configure Gmail for Live Sending):</span>
             </div>
-            <div style="color: #334155; line-height: 1.4;"><?= htmlspecialchars($pending['mail_msg']) ?></div>
+            <div style="color: #334155; line-height: 1.4;"><?= htmlspecialchars($pending['mail_msg'] ?? '') ?></div>
             <div style="margin-top: 8px; font-size: 0.92rem; background: #ffffff; padding: 6px 10px; border-radius: 8px; border: 1px dashed #3b82f6;">
-              Generated OTP: <strong style="letter-spacing: 3px; color: #1d4ed8; font-size: 1.2rem;"><?= htmlspecialchars($pending['demo_otp']) ?></strong>
+              Generated OTP: <strong style="letter-spacing: 3px; color: #1d4ed8; font-size: 1.2rem;"><?= htmlspecialchars($pending['demo_otp'] ?? '') ?></strong>
             </div>
             <div style="margin-top: 6px; font-size: 0.74rem; color: #64748b;">(To deliver to student inboxes, put your Gmail & App Password in <code>config/mail_config.php</code>)</div>
           </div>
         <?php else: ?>
           <div style="background: rgba(240, 253, 244, 0.95); border: 1.5px solid #86efac; border-radius: 12px; padding: 12px 14px; margin-bottom: 18px; font-size: 0.84rem; color: #166534; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-            ✅ <?= htmlspecialchars($pending['mail_msg']) ?>
+            ✅ <?= htmlspecialchars($pending['mail_msg'] ?? '') ?>
           </div>
         <?php endif; ?>
 

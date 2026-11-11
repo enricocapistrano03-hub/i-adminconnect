@@ -76,6 +76,7 @@ CREATE TABLE `requests` (
   `tracking_number` varchar(50) NOT NULL,
   `user_id` int(11) NOT NULL,
   `request_type_id` int(11) NOT NULL,
+  `copies` int(11) NOT NULL DEFAULT 1,
   `purpose` text NOT NULL,
   `additional_notes` text DEFAULT NULL,
   `attached_filename` varchar(255) DEFAULT NULL,
@@ -99,14 +100,14 @@ CREATE TABLE `requests` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Seed Requests from PPT Slides
-INSERT INTO `requests` (`id`, `tracking_number`, `user_id`, `request_type_id`, `purpose`, `additional_notes`, `attached_filename`, `file_size_kb`, `file_verified`, `status`, `current_stage`, `stage1_time`, `stage2_time`, `stage3_time`, `stage4_time`, `remarks`, `created_at`) VALUES
-(1, 'RQ-001', 1, 1, 'For Visa Application at the US Embassy', 'Urgent processing requested', 'COE_Request_Letter_MariaReyes.pdf', '130 KB', 1, 'Ready for Release', 4, 'July 20, 2026 9:00 AM', 'July 21, 2026 10:30 AM', 'July 22, 2026 11:00 AM', 'July 23, 2026 2:10 PM', 'Document is ready for release. Please proceed to the office.', '2026-07-20 01:00:00'),
-(2, 'RQ-010', 1, 4, 'Faculty Promotion and Salary Increment', '', 'Rating_Doc_2026.pdf', '115 KB', 1, 'Processing', 3, 'July 21, 2026 10:15 AM', 'July 21, 2026 2:30 PM', 'July 22, 2026 9:00 AM', NULL, 'Document being reviewed and printed by Registrar.', '2026-07-21 02:15:00'),
-(3, 'RQ-012', 1, 3, 'GSIS Loan Application Requirement', '', 'GSIS_Requirement_MR.pdf', '180 KB', 0, 'Rejected', 2, 'July 21, 2026 2:00 PM', 'July 22, 2026 9:15 AM', NULL, NULL, 'Incomplete attachments. Please resubmit updated appointment document.', '2026-07-21 06:00:00'),
-(4, 'RQ-015', 1, 2, 'Maternity/Vacation leave credits validation', '', 'Leave_Credits_Doc.pdf', '95 KB', 1, 'Pending', 1, 'July 25, 2026 8:30 AM', NULL, NULL, NULL, 'Request submitted. Awaiting administrative review.', '2026-07-25 00:30:00'),
-(5, 'RQ-014', 2, 5, 'For college application at University of the Philippines', 'Direct delivery to UP Registrar if possible', 'Form 137_Request_Letter_Juandelacruz.pdf', '113 KB', 1, 'Pending', 1, 'July 25, 2026 3:45 PM', NULL, NULL, NULL, 'Request submitted and queued for evaluation.', '2026-07-25 07:45:00'),
-(6, 'RQ-012-ST', 2, 7, 'Internship requirement for company', '', 'Enrollment_Cert_Doc.pdf', '120 KB', 0, 'Rejected', 2, 'July 21, 2026 1:20 PM', 'July 22, 2026 10:00 AM', NULL, NULL, 'Invalid COR submitted. Please provide registration form with university stamp.', '2026-07-21 05:20:00'),
-(7, 'RQ-010-ST', 2, 8, 'Scholarship application requirement', '', 'GoodMoral_Request.pdf', '105 KB', 1, 'Ready for Release', 4, 'July 20, 2026 11:00 AM', 'July 21, 2026 9:00 AM', 'July 21, 2026 1:00 PM', 'July 22, 2026 3:30 PM', 'Good Moral certificate ready. Claim at Guidance & Registrar window 2.', '2026-07-20 03:00:00');
+INSERT INTO `requests` (`id`, `tracking_number`, `user_id`, `request_type_id`, `copies`, `purpose`, `additional_notes`, `attached_filename`, `file_size_kb`, `file_verified`, `status`, `current_stage`, `stage1_time`, `stage2_time`, `stage3_time`, `stage4_time`, `remarks`, `created_at`) VALUES
+(1, 'RQ-001', 1, 1, 1, 'For Visa Application at the US Embassy', 'Urgent processing requested', 'COE_Request_Letter_MariaReyes.pdf', '130 KB', 1, 'Ready for Release', 4, 'July 20, 2026 9:00 AM', 'July 21, 2026 10:30 AM', 'July 22, 2026 11:00 AM', 'July 23, 2026 2:10 PM', 'Document is ready for release. Please proceed to the office.', '2026-07-20 01:00:00'),
+(2, 'RQ-010', 1, 4, 2, 'Faculty Promotion and Salary Increment', '', 'Rating_Doc_2026.pdf', '115 KB', 1, 'Processing', 3, 'July 21, 2026 10:15 AM', 'July 21, 2026 2:30 PM', 'July 22, 2026 9:00 AM', NULL, 'Document being reviewed and printed by Registrar.', '2026-07-21 02:15:00'),
+(3, 'RQ-012', 1, 3, 1, 'GSIS Loan Application Requirement', '', 'GSIS_Requirement_MR.pdf', '180 KB', 0, 'Rejected', 2, 'July 21, 2026 2:00 PM', 'July 22, 2026 9:15 AM', NULL, NULL, 'Incomplete attachments. Please resubmit updated appointment document.', '2026-07-21 06:00:00'),
+(4, 'RQ-015', 1, 2, 1, 'Maternity/Vacation leave credits validation', '', 'Leave_Credits_Doc.pdf', '95 KB', 1, 'Pending', 1, 'July 25, 2026 8:30 AM', NULL, NULL, NULL, 'Request submitted. Awaiting administrative review.', '2026-07-25 00:30:00'),
+(5, 'RQ-014', 2, 5, 1, 'For college application at University of the Philippines', 'Direct delivery to UP Registrar if possible', 'Form 137_Request_Letter_Juandelacruz.pdf', '113 KB', 1, 'Pending', 1, 'July 25, 2026 3:45 PM', NULL, NULL, NULL, 'Request submitted and queued for evaluation.', '2026-07-25 07:45:00'),
+(6, 'RQ-012-ST', 2, 7, 2, 'Internship requirement for company', '', 'Enrollment_Cert_Doc.pdf', '120 KB', 0, 'Rejected', 2, 'July 21, 2026 1:20 PM', 'July 22, 2026 10:00 AM', NULL, NULL, 'Invalid COR submitted. Please provide registration form with university stamp.', '2026-07-21 05:20:00'),
+(7, 'RQ-010-ST', 2, 8, 1, 'Scholarship application requirement', '', 'GoodMoral_Request.pdf', '105 KB', 1, 'Ready for Release', 4, 'July 20, 2026 11:00 AM', 'July 21, 2026 9:00 AM', 'July 21, 2026 1:00 PM', 'July 22, 2026 3:30 PM', 'Good Moral certificate ready. Claim at Guidance & Registrar window 2.', '2026-07-20 03:00:00');
 
 -- --------------------------------------------------------
 -- Table structure for table `notifications`

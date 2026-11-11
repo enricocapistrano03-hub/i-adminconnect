@@ -213,6 +213,14 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
       <div class="details-item-val"><?= htmlspecialchars($req['request_type_name']) ?></div>
     </div>
     <div>
+      <div class="details-item-label">Number of Copies</div>
+      <div class="details-item-val">
+        <span style="font-weight: 700; color: #047857; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; border: 1px solid #a7f3d0; font-size: 0.88rem;">
+          📄 <?= (int)($req['copies'] ?? 1) ?> <?= ((int)($req['copies'] ?? 1) > 1) ? 'Copies' : 'Copy' ?>
+        </span>
+      </div>
+    </div>
+    <div>
       <div class="details-item-label"><?= strtoupper($req['requester_role']) ?></div>
       <div class="details-item-val"><?= htmlspecialchars($req['full_name']) ?></div>
     </div>

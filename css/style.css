@@ -2193,12 +2193,80 @@ body.landing-page-body * {
   box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
 }
 
-/* 3. Section: School Info & Campus Map */
+/* 3. Section: School Info Horizontal Pillars (3 Columns + Full-Width Hours Banner) */
 .school-info-grid {
   display: grid;
-  grid-template-columns: 1.25fr 1fr;
-  gap: 32px;
-  align-items: start;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.school-info-grid .glass-card {
+  padding: 26px 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  margin-bottom: 0;
+}
+
+.operating-hours-banner {
+  margin-top: 24px;
+  padding: 22px 30px;
+  border-left: 5px solid #16a34a;
+  background: linear-gradient(135deg, rgba(240, 253, 244, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(22, 101, 52, 0.08);
+}
+
+.hours-banner-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 320px;
+}
+
+.hours-icon-badge {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  background: #dcfce7;
+  color: #166534;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+
+.hours-title {
+  margin: 0 0 4px 0;
+  font-size: 1.15rem;
+  color: #166534;
+  font-weight: 800;
+}
+
+.hours-schedule {
+  font-size: 0.95rem;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.hours-banner-aside {
+  flex: 1;
+  border-left: 1px solid #bbf7d0;
+  padding-left: 28px;
+}
+
+.hours-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #4b5563;
+  line-height: 1.55;
 }
 
 .interactive-map-panel {
@@ -2657,6 +2725,8 @@ body.landing-page-body * {
   .landing-hero h1 { font-size: 2.4rem; }
   .hero-stats-row { grid-template-columns: repeat(2, 1fr); }
   .school-info-grid { grid-template-columns: 1fr; }
+  .operating-hours-banner { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .hours-banner-aside { border-left: none; padding-left: 0; border-top: 1px solid #bbf7d0; padding-top: 14px; width: 100%; }
   .flowchart-grid { grid-template-columns: repeat(2, 1fr); }
   .downloadable-grid { grid-template-columns: repeat(2, 1fr); }
   .announcements-grid { grid-template-columns: repeat(2, 1fr); }
@@ -2665,6 +2735,8 @@ body.landing-page-body * {
 }
 
 @media (max-width: 768px) {
+  .school-info-grid { grid-template-columns: 1fr; }
+  .operating-hours-banner { padding: 18px 20px; }
   .landing-nav-links { display: none; }
   .landing-nav-links.mobile-active {
     display: flex;

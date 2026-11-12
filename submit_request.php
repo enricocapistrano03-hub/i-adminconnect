@@ -40,8 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($doc_type_id <= 0 || empty($purpose)) {
         $error_msg = 'Please select a document type and fill in the purpose.';
     } else {
-        $uploaded_file_name = 'Document.pdf';
-        $file_size_formatted = '120 KB';
+        $uploaded_file_name = null;
+        $file_size_formatted = null;
+        $file_verified = 0;
 
         // Process File Upload if attached
         if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
@@ -64,6 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $file_size_formatted = $file_size > 1024 * 1024 
                         ? round($file_size / (1024 * 1024), 1) . ' MB' 
                         : round($file_size / 1024) . ' KB';
+                    $file_verified = 1;
                 }
             }
         }
@@ -80,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Automatic status set to 'Processing' (Stage 3) upon submission as requested by the panel
             $insert_sql = "INSERT INTO requests 
                 (tracking_number, user_id, request_type_id, copies, purpose, additional_notes, attached_filename, file_size_kb, file_verified, status, current_stage, stage1_time, stage3_time, remarks) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'Processing', 3, ?, ?, 'Request received. Document is currently being processed and prepared.')";
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Processing', 3, ?, ?, 'Request received. Document is currently being processed and prepared.')";
             $stmt = $pdo->prepare($insert_sql);
             $stmt->execute([
                 $tracking_num,
@@ -91,6 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $notes,
                 $uploaded_file_name,
                 $file_size_formatted,
+                $file_verified,
                 $now_str,
                 $now_str
             ]);
@@ -242,21 +245,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <div class="form-group">
-      <label class="form-label">Attach Supporting Document <span style="font-weight: normal; color: #64748b;">(PDF, JPG, PNG — Max 5MB)</span></label>
+      <label class="form-label">
+        Attach Supporting Document <span style="font-weight: normal; color: #64748b;">(Optional — Only if required by document)</span>
+      </label>
       <div style="display: flex; align-items: center; gap: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 12px;">
         <label for="attachment" style="background: #e2e8f0; border: 1px solid #cbd5e1; padding: 6px 16px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #1e293b;">
           Browse...
         </label>
         <input type="file" name="attachment" id="attachment" style="display: none;" onchange="validateSmartGuard(this)" />
-        <span id="file-chosen-text" style="font-size: 0.9rem; color: #64748b;">No file selected.</span>
+        <span id="file-chosen-text" style="font-size: 0.9rem; color: #64748b;">No file selected (Optional).</span>
       </div>
+      <small style="color: #64748b; font-size: 0.78rem; display: block; margin-top: 5px;">
+        Uploading a file is optional. Form 137 / SF10 typically requires a formal Request Letter from your transfer school. Good Moral, COE, and other requests do not require attachments.
+      </small>
 
       <!-- Smart Guard Bar -->
       <div id="smart-guard-box" class="smart-guard-box">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
         </svg>
-        <span id="smart-guard-text">Smart Guard: No file uploaded yet. Allowed formats: PDF, JPG, PNG..</span>
+        <span id="smart-guard-text">Smart Guard: Optional. If attaching a file, allowed formats: PDF, JPG, PNG (Max 5MB).</span>
       </div>
     </div>
 

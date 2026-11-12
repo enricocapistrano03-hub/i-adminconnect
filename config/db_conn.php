@@ -34,6 +34,13 @@ try {
             // Table may not exist yet or column concurrently added
         }
     }
+
+    // Clean up phantom 'Document.pdf' placeholder data where no file actually exists
+    try {
+        $pdo->exec("UPDATE requests SET attached_filename = NULL, file_size_kb = NULL, file_verified = 0 WHERE attached_filename = 'Document.pdf'");
+    } catch (Exception $e) {
+        // Silently ignore if table not yet loaded
+    }
 } catch (PDOException $e) {
     // Helpful message if database hasn't been imported yet in phpMyAdmin
     die("<div style='font-family: sans-serif; padding: 20px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 8px; margin: 40px auto; max-width: 600px; color: #991b1b;'>

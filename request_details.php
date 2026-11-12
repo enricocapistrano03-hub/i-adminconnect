@@ -232,17 +232,33 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
       <div class="details-item-label">Purpose</div>
       <div class="details-item-val"><?= htmlspecialchars($req['purpose']) ?></div>
     </div>
+    <?php
+    $has_real_attachment = false;
+    $attached_fn = trim($req['attached_filename'] ?? '');
+    if (!empty($attached_fn) && $attached_fn !== 'Document.pdf') {
+        $uploads_dir = __DIR__ . '/uploads/';
+        $clean_fn = preg_replace('/[^a-zA-Z0-9._-]/', '_', $attached_fn);
+        if (file_exists($uploads_dir . $attached_fn) || file_exists($uploads_dir . $clean_fn)) {
+            $has_real_attachment = true;
+        } else {
+            $matches = glob($uploads_dir . '*' . $clean_fn);
+            if (!empty($matches)) {
+                $has_real_attachment = true;
+            }
+        }
+    }
+    ?>
     <div style="grid-column: span 2;">
       <div class="details-item-label">Attached File</div>
       <div class="details-item-val" style="display: flex; align-items: center; gap: 8px;">
-        <?php if (!empty($req['attached_filename'])): ?>
+        <?php if ($has_real_attachment): ?>
           <a href="view_file.php?id=<?= $req['id'] ?>" target="_blank" class="attachment-preview-btn" title="Click to view file in new tab">
             📎 <?= htmlspecialchars($req['attached_filename']) ?> (<?= htmlspecialchars($req['file_size_kb'] ?? 'File') ?>) ↗
           </a>
+          <span style="background: #dcfce7; color: #15803d; font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 6px;">Verified</span>
         <?php else: ?>
-          <span style="color: #94a3b8;">None</span>
+          <span style="color: #64748b; font-size: 0.9rem; font-weight: 500;">None (No attachment required)</span>
         <?php endif; ?>
-        <span style="background: #dcfce7; color: #15803d; font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 6px;">Verified</span>
       </div>
     </div>
     <?php if (!empty($req['remarks'])): ?>
@@ -259,12 +275,14 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
     <?php endif; ?>
   </div>
 
-  <!-- Smart Guard Verification Alert (Slide 16) -->
-  <div class="smart-guard-box" style="background: #ecfdf5; border-color: #a7f3d0; margin-bottom: 15px;">
-    <div>
-      <strong>File Verified:</strong> The <?= strtolower($req['requester_role']) ?> uploaded the correct file (<strong><?= htmlspecialchars($req['attached_filename'] ?? 'document') ?></strong>). All requirements are complete.
+  <?php if ($has_real_attachment): ?>
+    <!-- Smart Guard Verification Alert (Shown ONLY when a supporting file was actually uploaded) -->
+    <div class="smart-guard-box" style="background: #ecfdf5; border-color: #a7f3d0; margin-bottom: 15px;">
+      <div>
+        <strong>File Verified:</strong> The <?= strtolower($req['requester_role']) ?> uploaded the supporting document (<strong><?= htmlspecialchars($req['attached_filename']) ?></strong>). All requirements are complete.
+      </div>
     </div>
-  </div>
+  <?php endif; ?>
 
   <!-- Fee Panel (Slide 16) -->
   <div class="requirements-panel" style="background: #f0fdf4; border-color: #bbf7d0; margin-bottom: 25px;">

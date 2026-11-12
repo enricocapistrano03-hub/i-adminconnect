@@ -66,112 +66,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $active_tab = 'login';
             }
         } else {
-            $error = 'No account found with those credentials. If you are a new student, please register.';
+            $error = 'No account found with those credentials. Please check your LRN, Username, or Email, or coordinate with the School Administrator.';
             $active_tab = 'login';
         }
     }
 }
 
 // ------------------------------------------------------------------------------
-// 2. PROCESS: Multi-Role Registration (Student, Teacher, Registrar) & Send OTP
+// 2. PROCESS: Online Self-Registration Disabled (Managed by Administrator)
 // ------------------------------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'register') {
-    $reg_role = trim($_POST['reg_role'] ?? 'student');
-    $password = trim($_POST['password'] ?? '');
-
-    if ($reg_role === 'teacher') {
-        $full_name = trim($_POST['full_name_teacher'] ?? '');
-        $id_number = trim($_POST['teacher_emp_no'] ?? '');
-        $email = trim(strtolower($_POST['email_teacher'] ?? ''));
-        $department = trim($_POST['teacher_grade_level'] ?? '');
-        $section = '';
-        $year_level = '';
-        $course = '';
-        $is_valid = (!empty($full_name) && !empty($id_number) && !empty($email) && !empty($department) && !empty($password));
-    } elseif ($reg_role === 'registrar') {
-        $full_name = trim($_POST['full_name_registrar'] ?? '');
-        $id_number = trim($_POST['registrar_emp_no'] ?? '');
-        $email = trim(strtolower($_POST['email_registrar'] ?? ''));
-        $department = 'Office of the Registrar';
-        $section = '';
-        $year_level = '';
-        $course = '';
-        $is_valid = (!empty($full_name) && !empty($id_number) && !empty($email) && !empty($password));
-    } else { // Student
-        $reg_role = 'student';
-        $full_name = trim($_POST['full_name_student'] ?? '');
-        $id_number = trim($_POST['student_id'] ?? '');
-        $email = trim(strtolower($_POST['email_student'] ?? ''));
-        $department = trim($_POST['course'] ?? '');
-        $section = trim($_POST['section'] ?? '');
-        $year_level = trim($_POST['year_level'] ?? '');
-        $course = trim($_POST['course'] ?? '');
-        $is_valid = (!empty($full_name) && !empty($id_number) && !empty($email) && !empty($section) && !empty($year_level) && !empty($course) && !empty($password));
-    }
-
-    if (!$is_valid) {
-        $error = 'All required registration fields for ' . ucfirst($reg_role) . ' must be filled in.';
-        $active_tab = 'register';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Please enter a valid email address (e.g. your_name@gmail.com).';
-        $active_tab = 'register';
-    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{4,}$/', $password)) {
-        $error = 'Password must be at least 4 characters and contain at least 1 lowercase letter, 1 uppercase letter, 1 number, and 1 special character.';
-        $active_tab = 'register';
-    } else {
-        // Check if email or LRN/Employee ID already registered in database
-        $stmt_check = $pdo->prepare("SELECT email, id_number FROM users WHERE email = ? OR id_number = ? LIMIT 1");
-        $stmt_check->execute([$email, $id_number]);
-        $existing = $stmt_check->fetch();
-        if ($existing) {
-            if (strcasecmp($existing['id_number'], $id_number) === 0) {
-                $id_label = ($reg_role === 'student') ? 'LRN / Student ID' : 'Employee ID Number';
-                $error = "The {$id_label} '{$id_number}' is already registered in the system. Existing accounts cannot re-register.";
-            } else {
-                $error = "An account with the email '{$email}' is already registered.";
-            }
-            $active_tab = 'register';
-        } else {
-            // Generate 6-digit OTP
-            $otp = sprintf("%06d", random_int(100000, 999999));
-
-            // Package registration payload
-            $temp_data = json_encode([
-                'reg_role' => $reg_role,
-                'full_name' => $full_name,
-                'id_number' => $id_number,
-                'email' => $email,
-                'department' => $department,
-                'section' => $section,
-                'year_level' => $year_level,
-                'course' => $course,
-                'password' => $password,
-            ]);
-
-            // Clear previous pending OTPs for this email
-            $pdo->prepare("DELETE FROM otp_verifications WHERE email = ? AND type = 'registration'")->execute([$email]);
-
-            // Save OTP to database with 10-minute expiry
-            $ins = $pdo->prepare("INSERT INTO otp_verifications (email, otp_code, type, temp_data, expires_at) VALUES (?, ?, 'registration', ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))");
-            $ins->execute([$email, $otp, $temp_data]);
-
-            // Send Real Email via SMTP
-            $mail_res = send_otp_email($email, $otp, 'registration', $full_name, $reg_role);
-
-            $_SESSION['otp_pending'] = [
-                'email' => $email,
-                'type' => 'registration',
-                'full_name' => $full_name,
-                'reg_role' => $reg_role,
-                'mail_status' => $mail_res['success'] ? 'sent' : 'demo',
-                'mail_msg' => $mail_res['message'],
-                'demo_otp' => $mail_res['otp'] ?? '',
-            ];
-
-            header("Location: login.php?step=otp");
-            exit();
-        }
-    }
+    $error = 'Online self-registration is closed. Accounts are pre-registered by the School Administration.';
 }
 
 // ------------------------------------------------------------------------------
@@ -526,199 +431,47 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
         </form>
 
       <!-- ==================================================================== -->
-      <!-- VIEW D: STANDARD TABBED VIEW (LOGIN OR REGISTER)                     -->
+      <!-- VIEW D: STANDARD SIGN IN VIEW                                        -->
       <!-- ==================================================================== -->
       <?php else: ?>
 
-        <!-- Tab Switcher (Sign In vs Register) -->
-        <div class="auth-nav-tabs">
-          <button type="button" class="auth-tab-btn <?= $active_tab === 'login' ? 'active' : '' ?>" onclick="switchAuthTab('login')">
-            Sign In
-          </button>
-          <button type="button" class="auth-tab-btn <?= $active_tab === 'register' ? 'active' : '' ?>" onclick="switchAuthTab('register')">
-            Register
-          </button>
+        <!-- Sign In Header -->
+        <div style="text-align: center; margin-bottom: 22px;">
+          <h2 style="margin: 0; color: #ffffff; font-size: 1.35rem; font-weight: 800; letter-spacing: -0.3px; text-shadow: 0 2px 6px rgba(0,0,0,0.5);">
+            Portal Sign In
+          </h2>
+          <p style="margin: 6px 0 0 0; color: rgba(255,255,255,0.88); font-size: 0.84rem;">
+            Sign in with your authorized school credentials
+          </p>
         </div>
 
-        <!-- 1. SIGN IN FORM -->
-        <div id="tab-login-content" style="<?= $active_tab === 'login' ? 'display: block;' : 'display: none;' ?>">
-          <form method="POST" action="login.php" autocomplete="off">
-            <input type="hidden" name="action" value="login">
+        <!-- SIGN IN FORM -->
+        <form method="POST" action="login.php" autocomplete="off">
+          <input type="hidden" name="action" value="login">
 
-            <div class="login-input-group">
-              <label>Username or Email</label>
-              <input type="text" name="portal_user" id="login_portal_user" class="login-input" placeholder="Enter your username or email" value="" required autocomplete="new-password">
-            </div>
-
-            <div class="login-input-group">
-              <label>Password</label>
-              <input type="password" name="portal_pass" id="login_portal_pass" class="login-input" placeholder="Enter your password" value="" required autocomplete="new-password">
-            </div>
-
-            <div class="login-options-row">
-              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: #ffffff;">
-                <input type="checkbox" name="remember"> Remember Me
-              </label>
-              <a href="login.php?step=forgot" style="color: #38bdf8; font-weight: 700; text-decoration: none;">Forgot Password?</a>
-            </div>
-
-            <button type="submit" class="btn-login-submit">LOGIN</button>
-          </form>
-
-          <div style="margin-top: 22px; font-size: 0.84rem; color: #ffffff;">
-            Don't have an account? <a href="#" onclick="switchAuthTab('register'); return false;" style="color: #38bdf8; font-weight: 700; text-decoration: none;">Create an account here</a>
+          <div class="login-input-group">
+            <label>LRN, Username, or Email</label>
+            <input type="text" name="portal_user" id="login_portal_user" class="login-input" placeholder="Enter your LRN, Username, or Email" value="" required autocomplete="new-password">
           </div>
-        </div>
 
-        <!-- 2. MULTI-ROLE REGISTRATION FORM (STUDENT, TEACHER, REGISTRAR) -->
-        <div id="tab-register-content" style="<?= $active_tab === 'register' ? 'display: block;' : 'display: none;' ?>">
-          <form method="POST" action="login.php" autocomplete="off" id="reg-form">
-            <input type="hidden" name="action" value="register">
-
-            <!-- Role Dropdown Selector -->
-            <div class="login-input-group" style="margin-bottom: 14px;">
-              <label style="color: #ffffff; font-weight: 700;">Register As <span style="color: #38bdf8;">*</span></label>
-              <select name="reg_role" id="reg_role_select" class="login-input" required onchange="toggleRegRole(this.value)" style="font-weight: 700; background: rgba(255,255,255,0.95); color: #0f172a;">
-                <option value="student" selected>🎓 Student</option>
-                <option value="teacher">👨‍🏫 Teacher</option>
-                <option value="registrar">🏛️ Registrar</option>
-              </select>
-            </div>
-
-            <!-- 2.1 STUDENT SPECIFIC FIELDS -->
-            <div id="fields_student">
-              <div class="login-grid-2">
-                <div class="login-input-group">
-                  <label>LRN / Student ID Number *</label>
-                  <input type="text" name="student_id" id="inp_student_id" class="login-input" placeholder="e.g. 136512345678" autocomplete="off">
-                </div>
-                <div class="login-input-group">
-                  <label>Full Name *</label>
-                  <input type="text" name="full_name_student" id="inp_full_name_student" class="login-input" placeholder="e.g. Juan Dela Cruz" autocomplete="off">
-                </div>
-              </div>
-
-              <div class="login-input-group">
-                <label>Student Gmail / Email *</label>
-                <input type="email" name="email_student" id="inp_email_student" class="login-input" placeholder="e.g. student@gmail.com" autocomplete="off">
-                <small style="color: rgba(255,255,255,0.85); font-size: 0.74rem; display: block; margin-top: 3px;">
-                  OTP verification code will be sent to this email.
-                </small>
-              </div>
-
-              <div class="login-grid-2">
-                <div class="login-input-group">
-                  <label>Year Level *</label>
-                  <select name="year_level" id="inp_year_level" class="login-input">
-                    <option value="">Select Year Level</option>
-                    <option value="Grade 7">Grade 7</option>
-                    <option value="Grade 8">Grade 8</option>
-                    <option value="Grade 9">Grade 9</option>
-                    <option value="Grade 10">Grade 10</option>
-                    <option value="Grade 11">Grade 11 ABM</option>
-                    <option value="Grade 11">Grade 11 STEM</option>
-                    <option value="Grade 12">Grade 12 ABM</option>
-                    <option value="Grade 12">Grade 12 STEM</option>
-                  </select>
-                </div>
-
-                <div class="login-input-group">
-                  <label>Section *</label>
-                  <input type="text" name="section" id="inp_section" class="login-input" placeholder="e.g. 7/BABBAGE" autocomplete="off">
-                </div>
-              </div>
-
-              <div class="login-input-group">
-                <label>Course / Strand *</label>
-                <select name="course" id="inp_course" class="login-input">
-                  <option value="">Select Course / Strand</option>
-                  <option value="Junior High School (General)">Junior High School (General)</option>
-                  <option value="STEM Strand">STEM Strand</option>
-                  <option value="ABM Strand">ABM Strand</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- 2.2 TEACHER SPECIFIC FIELDS -->
-            <div id="fields_teacher" style="display: none;">
-              <div class="login-grid-2">
-                <div class="login-input-group">
-                  <label>Employee ID Number *</label>
-                  <input type="text" name="teacher_emp_no" id="inp_teacher_emp_no" class="login-input" placeholder="e.g. EMP-2024-088" autocomplete="off">
-                </div>
-                <div class="login-input-group">
-                  <label>Full Name *</label>
-                  <input type="text" name="full_name_teacher" id="inp_full_name_teacher" class="login-input" placeholder="e.g. Maria Clara, LPT" autocomplete="off">
-                </div>
-              </div>
-
-              <div class="login-input-group">
-                <label>Teacher Gmail / Email *</label>
-                <input type="email" name="email_teacher" id="inp_email_teacher" class="login-input" placeholder="e.g. teacher@gmail.com" autocomplete="off">
-                <small style="color: rgba(255,255,255,0.85); font-size: 0.74rem; display: block; margin-top: 3px;">
-                  OTP verification code will be sent to this email.
-                </small>
-              </div>
-
-              <div class="login-input-group">
-                <label>Grade Level / Department *</label>
-                <select name="teacher_grade_level" id="inp_teacher_grade_level" class="login-input">
-                  <option value="">Select Grade Level / Department</option>
-                  <option value="Junior High School">Junior High School (JHS)</option>
-                  <option value="Senior High School">Senior High School (SHS)</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- 2.3 REGISTRAR SPECIFIC FIELDS -->
-            <div id="fields_registrar" style="display: none;">
-              <div class="login-grid-2">
-                <div class="login-input-group">
-                  <label>Registrar Employee ID *</label>
-                  <input type="text" name="registrar_emp_no" id="inp_registrar_emp_no" class="login-input" placeholder="e.g. REG-0012" autocomplete="off">
-                </div>
-                <div class="login-input-group">
-                  <label>Full Name *</label>
-                  <input type="text" name="full_name_registrar" id="inp_full_name_registrar" class="login-input" placeholder="e.g. Sofia Andres" autocomplete="off">
-                </div>
-              </div>
-
-              <div class="login-input-group">
-                <label>Registrar Gmail / Email *</label>
-                <input type="email" name="email_registrar" id="inp_email_registrar" class="login-input" placeholder="e.g. registrar@gmail.com" autocomplete="off">
-                <small style="color: rgba(255,255,255,0.85); font-size: 0.74rem; display: block; margin-top: 3px;">
-                  OTP verification code will be sent to this email.
-                </small>
-              </div>
-
-              <div class="login-input-group">
-                <label>Office / Department</label>
-                <input type="text" class="login-input" value="Office of the Registrar" readonly style="background: rgba(255,255,255,0.85); color: #0f172a; cursor: not-allowed; font-weight: 600;">
-              </div>
-            </div>
-
-            <!-- Administrator Approval Notice for All Registrations -->
-            <div style="background: rgba(254, 243, 199, 0.95); border: 1.5px solid #f59e0b; color: #92400e; padding: 12px 14px; border-radius: 10px; font-size: 0.8rem; line-height: 1.45; margin-bottom: 16px;">
-              🛡️ <strong>Admin Approval Notice:</strong> Lahat ng bagong account (Student, Teacher, Registrar) ay daraan sa verification at nangangailangan ng <strong>Administrator Approval</strong> bago makapag-login at mag-access sa portal.
-            </div>
-
-            <!-- COMMON PASSWORD FIELD -->
-            <div class="login-input-group">
-              <label>Password * <span style="font-size: 0.76rem; font-weight: normal; opacity: 0.9;">(At least 4 chars: Lowercase + Uppercase + Number + Special Char)</span></label>
-              <input type="password" name="password" id="inp_password" class="login-input" placeholder="e.g. Pass@123" required autocomplete="new-password">
-              <small style="color: rgba(255,255,255,0.88); font-size: 0.74rem; display: block; margin-top: 4px;">
-                Rule: 1 lowercase (a-z) + 1 uppercase (A-Z) + 1 number (0-9) + 1 special character (!@#$%^&*)
-              </small>
-            </div>
-
-            <button type="submit" class="btn-login-submit" style="margin-top: 6px; background: linear-gradient(135deg, #00bfa5 0%, #0d9488 100%);">
-              REGISTER & SEND OTP
-            </button>
-          </form>
-
-          <div style="margin-top: 18px; font-size: 0.84rem; color: #ffffff;">
-            Already have an account? <a href="#" onclick="switchAuthTab('login'); return false;" style="color: #38bdf8; font-weight: 700; text-decoration: none;">Sign In here</a>
+          <div class="login-input-group">
+            <label>Password</label>
+            <input type="password" name="portal_pass" id="login_portal_pass" class="login-input" placeholder="Enter your password" value="" required autocomplete="new-password">
           </div>
+
+          <div class="login-options-row">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: #ffffff;">
+              <input type="checkbox" name="remember"> Remember Me
+            </label>
+            <a href="login.php?step=forgot" style="color: #38bdf8; font-weight: 700; text-decoration: none;">Forgot Password?</a>
+          </div>
+
+          <button type="submit" class="btn-login-submit">LOGIN TO PORTAL</button>
+        </form>
+
+        <!-- Institutional Account Notice -->
+        <div style="margin-top: 24px; font-size: 0.82rem; color: rgba(255,255,255,0.92); line-height: 1.45; text-align: center; background: rgba(255,255,255,0.1); padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18);">
+          🛡️ <strong>Authorized Accounts Only:</strong> Accounts are pre-enrolled by the school. If you cannot access your account, please coordinate with the <strong>School Administrator</strong> or <strong>Registrar</strong>.
         </div>
 
       <?php endif; ?>
@@ -726,47 +479,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
     </div>
   </div>
 
-  <!-- JavaScript for Tab Switching and 6-Box OTP Auto-Focus / Backspace Behavior -->
+  <!-- JavaScript for 6-Box OTP Auto-Focus / Backspace Behavior & Form Management -->
   <script>
-    function switchAuthTab(tab) {
-      const loginContent = document.getElementById('tab-login-content');
-      const regContent = document.getElementById('tab-register-content');
-      const tabBtns = document.querySelectorAll('.auth-tab-btn');
-
-      if (!loginContent || !regContent) return;
-
-      if (tab === 'login') {
-        loginContent.style.display = 'block';
-        regContent.style.display = 'none';
-        tabBtns[0].classList.add('active');
-        tabBtns[1].classList.remove('active');
-      } else {
-        loginContent.style.display = 'none';
-        regContent.style.display = 'block';
-        tabBtns[1].classList.add('active');
-        tabBtns[0].classList.remove('active');
-      }
-    }
-
-    function toggleRegRole(role) {
-      const fStudent = document.getElementById('fields_student');
-      const fTeacher = document.getElementById('fields_teacher');
-      const fRegistrar = document.getElementById('fields_registrar');
-
-      if (fStudent) fStudent.style.display = (role === 'student') ? 'block' : 'none';
-      if (fTeacher) fTeacher.style.display = (role === 'teacher') ? 'block' : 'none';
-      if (fRegistrar) fRegistrar.style.display = (role === 'registrar') ? 'block' : 'none';
-
-      // Toggle required attributes dynamically
-      const studentReq = ['inp_student_id', 'inp_full_name_student', 'inp_email_student', 'inp_year_level', 'inp_section', 'inp_course'];
-      const teacherReq = ['inp_teacher_emp_no', 'inp_full_name_teacher', 'inp_email_teacher', 'inp_teacher_grade_level'];
-      const registrarReq = ['inp_registrar_emp_no', 'inp_full_name_registrar', 'inp_email_registrar'];
-
-      studentReq.forEach(id => { const el = document.getElementById(id); if (el) el.required = (role === 'student'); });
-      teacherReq.forEach(id => { const el = document.getElementById(id); if (el) el.required = (role === 'teacher'); });
-      registrarReq.forEach(id => { const el = document.getElementById(id); if (el) el.required = (role === 'registrar'); });
-    }
-
     // Auto-focus and backspace behavior for the 6-Box OTP
     document.addEventListener('DOMContentLoaded', function() {
       const otpInputs = document.querySelectorAll('.otp-box-digit');
@@ -836,12 +550,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
       setTimeout(clearLoginInputs, 50);
       setTimeout(clearLoginInputs, 200);
       window.addEventListener('pageshow', clearLoginInputs);
-
-      // Initialize registration role fields
-      const regSelect = document.getElementById('reg_role_select');
-      if (regSelect) {
-        toggleRegRole(regSelect.value);
-      }
     });
   </script>
 </body>

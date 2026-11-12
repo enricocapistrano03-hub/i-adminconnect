@@ -77,7 +77,7 @@ foreach ($allAnnouncements as $ann) {
       <div style="display: flex; align-items: center; gap: 12px;">
         <a href="login.php" class="btn-landing-login">
           <span>🔐</span>
-          <span>Sign In / Register</span>
+          <span>Portal Sign In</span>
           <span style="font-size: 1.1rem; line-height: 1;">&rarr;</span>
         </a>
 

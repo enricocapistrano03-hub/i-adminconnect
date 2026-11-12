@@ -10,6 +10,7 @@ $action = $_GET['action'] ?? ($_POST['action'] ?? '');
 $target_id = (int)($_GET['id'] ?? ($_POST['target_id'] ?? 0));
 $success_msg = '';
 $error_msg = '';
+$bulk_summary = null;
 
 // 1. Handle Approval of Pending Registrar/User
 if ($action === 'approve' && $target_id > 0) {
@@ -228,6 +229,115 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add_user') {
     }
 }
 
+// 5. Handle Bulk Upload of Users (CSV file or Direct Paste)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'bulk_upload') {
+    $default_role = trim(strtolower($_POST['default_role'] ?? 'student'));
+    $default_status = trim($_POST['default_status'] ?? 'Active');
+    $raw_input = '';
+
+    if (!in_array($default_role, ['student', 'teacher', 'registrar'])) {
+        $default_role = 'student';
+    }
+    if (!in_array($default_status, ['Active', 'Pending'])) {
+        $default_status = 'Active';
+    }
+
+    // Check if file was uploaded
+    if (isset($_FILES['csv_file']) && $_FILES['csv_file']['error'] === UPLOAD_ERR_OK) {
+        $file_tmp = $_FILES['csv_file']['tmp_name'];
+        $file_name = $_FILES['csv_file']['name'];
+        $ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+
+        if (!in_array($ext, ['csv', 'txt'])) {
+            $error_msg = "Invalid file format. Please upload a valid .csv file.";
+        } else {
+            $raw_input = @file_get_contents($file_tmp);
+        }
+    } else {
+        $error_msg = "Please select a valid CSV spreadsheet file (.csv) to upload.";
+    }
+
+    if (empty($error_msg) && !empty($raw_input)) {
+        require_once __DIR__ . '/includes/bulk_user_parser.php';
+        $parsed_users = parse_bulk_users_input($raw_input, $default_role, $default_status);
+
+        if (empty($parsed_users)) {
+            $error_msg = "No valid user records could be recognized. Please make sure required columns (such as Full Name, Email, and LRN / ID) are included.";
+        } else {
+            $inserted_count = 0;
+            $updated_count = 0;
+            $skipped_count = 0;
+            $error_details = [];
+
+            $stmt_ins = $pdo->prepare("INSERT INTO users 
+                (username, password, full_name, email, role, id_number, department, section, year_level, course, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                    password = VALUES(password),
+                    full_name = VALUES(full_name),
+                    role = VALUES(role),
+                    id_number = VALUES(id_number),
+                    department = VALUES(department),
+                    section = VALUES(section),
+                    year_level = VALUES(year_level),
+                    course = VALUES(course),
+                    status = VALUES(status)");
+
+            foreach ($parsed_users as $idx => $u) {
+                try {
+                    // Prevent username collision with another user's email
+                    $username = $u['username'];
+                    $chk_u = $pdo->prepare("SELECT id, email FROM users WHERE username = ? LIMIT 1");
+                    $chk_u->execute([$username]);
+                    $found_user = $chk_u->fetch();
+                    if ($found_user && strtolower($found_user['email']) !== strtolower($u['email'])) {
+                        $username = $username . rand(10, 999);
+                    }
+
+                    $stmt_ins->execute([
+                        $username,
+                        $u['password'],
+                        $u['full_name'],
+                        $u['email'],
+                        $u['role'],
+                        $u['id_number'],
+                        $u['department'],
+                        $u['section'],
+                        $u['year_level'],
+                        $u['course'],
+                        $u['status']
+                    ]);
+
+                    $rc = $stmt_ins->rowCount();
+                    if ($rc === 1) {
+                        $inserted_count++;
+                    } else {
+                        // rowCount is 2 on update or 0 if row unchanged
+                        $updated_count++;
+                    }
+                } catch (Exception $e) {
+                    $skipped_count++;
+                    $error_details[] = "Row #" . ($idx + 1) . " (" . htmlspecialchars($u['full_name']) . "): " . $e->getMessage();
+                }
+            }
+
+            $total_processed = count($parsed_users);
+            $total_saved = $inserted_count + $updated_count;
+            log_audit_action($pdo, $user_name, 'ADMIN', "Bulk user import: {$total_saved} processed ({$inserted_count} new, {$updated_count} updated)");
+
+            $bulk_summary = [
+                'total' => $total_processed,
+                'inserted' => $inserted_count,
+                'updated' => $updated_count,
+                'skipped' => $skipped_count,
+                'errors' => $error_details
+            ];
+
+            $success_msg = "Bulk user upload completed successfully! Processed <strong>{$total_processed}</strong> records: <strong>{$inserted_count}</strong> newly created and <strong>{$updated_count}</strong> updated/synced into the database.";
+        }
+    }
+}
+
 // Fetch all users with search filter
 $search = trim($_GET['search'] ?? '');
 $role_filter = trim($_GET['role_filter'] ?? 'ALL');
@@ -253,7 +363,50 @@ $all_users = $stmt->fetchAll();
 ?>
 
 <div class="content-card">
-  <?php if (!empty($success_msg)): ?>
+  <?php if (!empty($bulk_summary)): ?>
+    <div style="background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%); border: 1.5px solid #86efac; border-radius: 14px; padding: 20px; margin-bottom: 24px; box-shadow: 0 4px 15px rgba(22, 163, 74, 0.08);">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.8rem;">🎉</span>
+          <div>
+            <h3 style="margin: 0; color: #166534; font-size: 1.15rem; font-weight: 800;">Bulk Import Operation Complete!</h3>
+            <p style="margin: 2px 0 0 0; color: #15803d; font-size: 0.88rem;">All records have been synchronized and successfully saved into the MySQL database.</p>
+          </div>
+        </div>
+        <span style="background: #16a34a; color: white; padding: 5px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 700;">Live Synced to DB</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px;">
+        <div style="background: white; border-radius: 10px; padding: 12px; border: 1px solid #bbf7d0; text-align: center;">
+          <div style="font-size: 1.5rem; font-weight: 800; color: #0f172a;"><?= $bulk_summary['total'] ?></div>
+          <div style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Processed</div>
+        </div>
+        <div style="background: white; border-radius: 10px; padding: 12px; border: 1px solid #bbf7d0; text-align: center;">
+          <div style="font-size: 1.5rem; font-weight: 800; color: #16a34a;"><?= $bulk_summary['inserted'] ?></div>
+          <div style="font-size: 0.75rem; color: #15803d; font-weight: 700; text-transform: uppercase;">New Created</div>
+        </div>
+        <div style="background: white; border-radius: 10px; padding: 12px; border: 1px solid #bbf7d0; text-align: center;">
+          <div style="font-size: 1.5rem; font-weight: 800; color: #0284c7;"><?= $bulk_summary['updated'] ?></div>
+          <div style="font-size: 0.75rem; color: #0369a1; font-weight: 700; text-transform: uppercase;">Updated / Synced</div>
+        </div>
+        <?php if ($bulk_summary['skipped'] > 0): ?>
+          <div style="background: white; border-radius: 10px; padding: 12px; border: 1px solid #fecaca; text-align: center;">
+            <div style="font-size: 1.5rem; font-weight: 800; color: #dc2626;"><?= $bulk_summary['skipped'] ?></div>
+            <div style="font-size: 0.75rem; color: #b91c1c; font-weight: 700; text-transform: uppercase;">Skipped / Warnings</div>
+          </div>
+        <?php endif; ?>
+      </div>
+      <?php if (!empty($bulk_summary['errors'])): ?>
+        <div style="margin-top: 14px; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 10px 14px; font-size: 0.82rem; color: #be123c;">
+          <strong>Warnings on skipped rows:</strong>
+          <ul style="margin: 4px 0 0 16px; padding: 0;">
+            <?php foreach (array_slice($bulk_summary['errors'], 0, 5) as $err): ?>
+              <li><?= htmlspecialchars($err) ?></li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
+      <?php endif; ?>
+    </div>
+  <?php elseif (!empty($success_msg)): ?>
     <div class="alert-success-banner" style="margin-bottom: 20px;">
       <div style="font-weight: 800; font-size: 1rem; margin-bottom: 4px;">✅ Operation Successful!</div>
       <div><?= $success_msg ?></div>
@@ -277,6 +430,9 @@ $all_users = $stmt->fetchAll();
       <span style="background: #0284c7; color: white; padding: 7px 15px; border-radius: 20px; font-size: 0.82rem; font-weight: 700;">
         Total: <?= count($all_users) ?> Users
       </span>
+      <button type="button" class="btn-primary-cta" onclick="openBulkUploadModal()" style="background: #0284c7; padding: 8px 18px; font-size: 0.86rem; display: inline-flex; align-items: center; gap: 7px; border: none; cursor: pointer; border-radius: 9px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);">
+        <span style="font-size: 1rem;">📁</span> <span>Bulk Upload</span>
+      </button>
       <button type="button" class="btn-primary-cta" onclick="openAddUserModal()" style="background: #16a34a; padding: 8px 18px; font-size: 0.86rem; display: inline-flex; align-items: center; gap: 7px; border: none; cursor: pointer; border-radius: 9px; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);">
         <span style="font-size: 1rem;">➕</span> <span>Add User</span>
       </button>
@@ -558,7 +714,113 @@ $all_users = $stmt->fetchAll();
   </div>
 </div>
 
+<!-- ============================================================================== -->
+<!-- BULK UPLOAD MODAL (ADMIN ONLY)                                                 -->
+<!-- ============================================================================== -->
+<div id="bulkUploadModal" class="user-modal-overlay">
+  <div class="user-modal-card" style="max-width: 660px;">
+    <div class="user-modal-header">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 1.4rem;">📁</span>
+        <div>
+          <h3 style="margin: 0; font-size: 1.2rem; color: #0f172a; font-weight: 800;">Bulk Upload User Accounts</h3>
+          <p style="margin: 2px 0 0 0; font-size: 0.82rem; color: #64748b;">Batch import student or teacher accounts directly into the database</p>
+        </div>
+      </div>
+      <button type="button" class="modal-close-btn" onclick="closeBulkUploadModal()">&times;</button>
+    </div>
+
+    <form method="POST" action="users.php" enctype="multipart/form-data">
+      <input type="hidden" name="action" value="bulk_upload">
+
+      <div class="user-modal-body">
+        <!-- Download Starter Template Box -->
+        <div style="background: #f0fdf4; border: 1.5px dashed #86efac; border-radius: 12px; padding: 14px 16px; margin-bottom: 18px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+            <div style="font-weight: 700; font-size: 0.9rem; color: #166534; display: flex; align-items: center; gap: 6px;">
+              <span>📥</span> <span>Download Official CSV Templates</span>
+            </div>
+            <span style="font-size: 0.75rem; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 6px; font-weight: 600;">Excel / Sheets Ready</span>
+          </div>
+          <p style="font-size: 0.82rem; color: #15803d; margin: 0 0 10px 0; line-height: 1.4;">
+            Fill in student or teacher records using our pre-formatted spreadsheet template. You can upload batches out-of-order or by section.
+          </p>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="download_template.php?type=students" download="students_template.csv" class="btn-primary-cta" style="background: #16a34a; font-size: 0.82rem; padding: 7px 14px; text-decoration: none; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;">
+              <span>🎓</span> <span>Download Student Template (.csv)</span>
+            </a>
+            <a href="download_template.php?type=teachers" download="teachers_template.csv" class="btn-primary-cta" style="background: #0284c7; font-size: 0.82rem; padding: 7px 14px; text-decoration: none; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;">
+              <span>👨‍🏫</span> <span>Download Teacher Template (.csv)</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Target Role & Default Status -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;">
+          <div class="form-group">
+            <label class="form-label">Default Account Role <span style="color: #ef4444;">*</span></label>
+            <select name="default_role" class="form-control" required>
+              <option value="student" selected>Student (TagSci Students)</option>
+              <option value="teacher">Teacher (Faculty Members)</option>
+              <option value="registrar">Registrar Personnel</option>
+            </select>
+            <small style="color: #64748b; font-size: 0.74rem;">If a role column exists in the CSV, it will take precedence.</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Initial Account Status <span style="color: #ef4444;">*</span></label>
+            <select name="default_status" class="form-control" required>
+              <option value="Active" selected>Active (Can login immediately)</option>
+              <option value="Pending">Pending Approval</option>
+            </select>
+            <small style="color: #64748b; font-size: 0.74rem;">Active accounts do not need approval.</small>
+          </div>
+        </div>
+
+        <!-- File Upload Section -->
+        <div style="background: #f8fafc; border: 2px dashed #93c5fd; border-radius: 12px; padding: 18px; margin-bottom: 16px; text-align: center;">
+          <div style="font-size: 2rem; margin-bottom: 6px;">📂</div>
+          <label class="form-label" style="font-size: 0.95rem; font-weight: 700; color: #0f172a; margin-bottom: 4px; display: block;">Select Prepared CSV File (.csv) <span style="color: #ef4444;">*</span></label>
+          <p style="font-size: 0.8rem; color: #64748b; margin: 0 0 12px 0;">
+            Choose the filled-out template file saved from Microsoft Excel, Google Sheets, or WPS Office.
+          </p>
+          <input type="file" name="csv_file" id="bulk_csv_file" accept=".csv, .txt" required class="form-control" style="max-width: 380px; margin: 0 auto; padding: 10px; background: #ffffff; border: 1.5px solid #cbd5e1; cursor: pointer;">
+        </div>
+
+        <!-- Column Rules & Security Notice -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; font-size: 0.8rem; color: #475569;">
+          <div style="font-weight: 700; color: #0f172a; margin-bottom: 4px;">💡 Automatic Field Intelligence:</div>
+          <ul style="margin: 0 0 0 16px; padding: 0; line-height: 1.5;">
+            <li><strong>Password:</strong> If left blank, automatically generated as <code>&lt;LRN&gt;@&lt;LastName&gt;</code> (e.g. <code>425818190003@Ado</code>), which meets all password rules.</li>
+            <li><strong>Username:</strong> If left blank, automatically derived from email prefix or <code>firstname.lastname</code>.</li>
+            <li><strong>Safe Updates:</strong> If an account with the same email already exists, its details (section, year level, etc.) will be cleanly updated without duplicate errors.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="user-modal-footer">
+        <button type="button" class="btn-primary-cta" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; box-shadow: none;" onclick="closeBulkUploadModal()">Cancel</button>
+        <button type="submit" class="btn-primary-cta" style="background: #0284c7; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);">🚀 Start Bulk Import</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
+function openBulkUploadModal() {
+  const modal = document.getElementById('bulkUploadModal');
+  if (modal) {
+    modal.classList.add('active');
+  }
+}
+
+function closeBulkUploadModal() {
+  const modal = document.getElementById('bulkUploadModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
 function openAddUserModal() {
   const modal = document.getElementById('addUserModal');
   if (modal) {
@@ -630,6 +892,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeEditUserModal();
     closeAddUserModal();
+    closeBulkUploadModal();
   }
 });
 
@@ -639,6 +902,9 @@ document.getElementById('editUserModal')?.addEventListener('click', (e) => {
 });
 document.getElementById('addUserModal')?.addEventListener('click', (e) => {
   if (e.target.id === 'addUserModal') closeAddUserModal();
+});
+document.getElementById('bulkUploadModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'bulkUploadModal') closeBulkUploadModal();
 });
 </script>
 

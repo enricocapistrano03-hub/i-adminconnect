@@ -10,3 +10,11 @@ Desktop.ini
 # Large raw archive/temp files
 *.log
 *.tmp
+
+# Temporary scratch conversion files
+parse_students.py
+raw_students.txt
+
+# Uploaded documents / attachments (keep folder structure)
+uploads/*
+!uploads/.gitkeep

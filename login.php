@@ -36,8 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $error = 'Please enter both username/email and password.';
         $active_tab = 'login';
     } else {
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? OR email = ? LIMIT 1");
-        $stmt->execute([$username_or_email, $username_or_email]);
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? OR email = ? OR id_number = ? LIMIT 1");
+        $stmt->execute([$username_or_email, $username_or_email, $username_or_email]);
         $user = $stmt->fetch();
 
         if ($user) {

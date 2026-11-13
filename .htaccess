@@ -1,0 +1,32 @@
+# ==============================================================================
+# i-AdminConnect Apache / LiteSpeed Configuration
+# ==============================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1. Enforce Canonical Domain: Redirect www.iadminconnect.com -> https://iadminconnect.com
+    RewriteCond %{HTTP_HOST} ^www\.iadminconnect\.com$ [NC]
+    RewriteRule ^(.*)$ https://iadminconnect.com/$1 [R=301,L]
+
+    # 2. Force HTTPS
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+# Disable Directory Browsing
+Options -Indexes
+
+# Upload file size settings (for hosts supporting php_value in .htaccess)
+<IfModule mod_php.c>
+    php_value upload_max_filesize 20M
+    php_value post_max_size 25M
+</IfModule>
+<IfModule mod_php7.c>
+    php_value upload_max_filesize 20M
+    php_value post_max_size 25M
+</IfModule>
+<IfModule mod_php8.c>
+    php_value upload_max_filesize 20M
+    php_value post_max_size 25M
+</IfModule>

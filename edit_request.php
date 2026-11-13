@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     foreach ($files_to_process as $i => $f) {
-        $file_orig_name = basename($f['name']);
+        $file_orig_name = preg_replace('/[\'"`\\\\;<>^~#$%&*+=\[\]{}|]/', '_', basename($f['name']));
         $file_size = (int)$f['size'];
         $file_ext = strtolower(pathinfo($file_orig_name, PATHINFO_EXTENSION));
 
@@ -354,14 +354,29 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+function sanitizeFileName(name) {
+  // Replace quotes, apostrophes, and potentially unsafe characters with underscores to prevent WAF / ModSecurity 403 blocks
+  return name.replace(/['"`\\;<>^~#$%&*+=[\]{}|]/g, '_');
+}
+
 function handleFilesSelected(input) {
   const newFiles = Array.from(input.files || []);
   if (newFiles.length === 0) return;
 
   newFiles.forEach(nf => {
-    const exists = selectedFiles.some(f => f.name === nf.name && f.size === nf.size);
+    let fileToAdd = nf;
+    // Sanitize filename to prevent ModSecurity / LiteSpeed WAF 403 triggers (e.g. Student's ID.jpg)
+    if (/['"`\\;<>^~#$%&*+=[\]{}|]/.test(nf.name)) {
+      const cleanName = sanitizeFileName(nf.name);
+      try {
+        fileToAdd = new File([nf], cleanName, { type: nf.type, lastModified: nf.lastModified });
+      } catch (e) {
+        fileToAdd = nf;
+      }
+    }
+    const exists = selectedFiles.some(f => f.name === fileToAdd.name && f.size === fileToAdd.size);
     if (!exists) {
-      selectedFiles.push(nf);
+      selectedFiles.push(fileToAdd);
     }
   });
 
@@ -382,7 +397,15 @@ function syncAndRenderFiles() {
 
   if (window.DataTransfer) {
     const dt = new DataTransfer();
-    selectedFiles.forEach(f => dt.items.add(f));
+    selectedFiles.forEach(f => {
+      let fileToAdd = f;
+      if (/['"`\\;<>^~#$%&*+=[\]{}|]/.test(f.name)) {
+        try {
+          fileToAdd = new File([f], sanitizeFileName(f.name), { type: f.type, lastModified: f.lastModified });
+        } catch (e) {}
+      }
+      dt.items.add(fileToAdd);
+    });
     input.files = dt.files;
   }
 
@@ -449,6 +472,29 @@ function syncAndRenderFiles() {
 function validateSmartGuard(input) {
   handleFilesSelected(input);
 }
+
+// Ensure all attached files are sanitized right before form submission
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function() {
+      const input = document.getElementById('attachment');
+      if (input && window.DataTransfer && selectedFiles.length > 0) {
+        const dt = new DataTransfer();
+        selectedFiles.forEach(f => {
+          let fileToAdd = f;
+          if (/['"`\\;<>^~#$%&*+=[\]{}|]/.test(f.name)) {
+            try {
+              fileToAdd = new File([f], sanitizeFileName(f.name), { type: f.type, lastModified: f.lastModified });
+            } catch(e) {}
+          }
+          dt.items.add(fileToAdd);
+        });
+        input.files = dt.files;
+      }
+    });
+  }
+});
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

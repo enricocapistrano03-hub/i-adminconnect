@@ -6,6 +6,13 @@
 // Set system timezone to Philippine Standard Time (PST / Asia/Manila, UTC+8)
 date_default_timezone_set('Asia/Manila');
 
+// Canonical Non-WWW Redirection on Production (Prevents 403 Forbidden / CORS / Session mismatch)
+if (!empty($_SERVER['HTTP_HOST']) && strpos(strtolower($_SERVER['HTTP_HOST']), 'www.iadminconnect.com') === 0) {
+    $redirect_url = 'https://iadminconnect.com' . ($_SERVER['REQUEST_URI'] ?? '/');
+    header('Location: ' . $redirect_url, true, 301);
+    exit();
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }

@@ -24,7 +24,8 @@ $files = [
     'reports.php',
     'dashboard.php',
     'css/style.css',
-    'includes/mailer.php'
+    'includes/mailer.php',
+    '.htaccess'
 ];
 
 $ctx = stream_context_create([

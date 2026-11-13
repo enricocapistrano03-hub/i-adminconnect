@@ -250,7 +250,7 @@ foreach ($allAnnouncements as $ann) {
         <div class="glass-card leadership-card" onclick="openLeadershipModal('asst_principal')">
           <div class="leadership-card-badge" style="background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe;">Assistant School Principal</div>
           <div class="leadership-avatar-wrapper" style="border-color: #38bdf8;">
-            <img src="assets/Assistant.jpg" alt="Assistant School Principal" class="leadership-avatar-img" onerror="this.src='assets/image1.jpeg'">
+            <img src="assets/Assistant.png" alt="Assistant School Principal" class="leadership-avatar-img" onerror="if(this.src.indexOf('.png') !== -1){this.src='assets/Assistant.jpg';}else{this.src='assets/image1.jpeg';}">
           </div>
           <div class="leadership-card-body">
             <h4 class="leadership-name">Janeth G. Mamasigan</h4>

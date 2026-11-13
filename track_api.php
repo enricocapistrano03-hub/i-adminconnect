@@ -36,8 +36,13 @@ if ($status === 'Pending') {
 } elseif ($status === 'Completed' || $status === 'Released') {
     $current_stage = 4;
     $percent = 100;
+} elseif ($status === 'Rejected') {
+    $current_stage = 3;
+    $percent = 100;
+} elseif ($status === 'Returned for Revision') {
+    $current_stage = 2;
+    $percent = 50;
 } else {
-    // Returned for Revision or Rejected
     $percent = ($current_stage >= 3) ? 75 : 50;
 }
 
@@ -67,7 +72,10 @@ echo json_encode([
     'fileSize' => !empty($attachments) ? (count($attachments) > 1 ? $req['file_size_kb'] : $attachments[0]['size']) : null,
     'canAcknowledge' => ($req['status'] === 'Ready for Release'),
     'canEdit' => ($req['status'] === 'Returned for Revision'),
-    'isCompleted' => $is_completed
+    'isCompleted' => $is_completed,
+    'isRejected' => ($status === 'Rejected'),
+    'isRevision' => ($status === 'Returned for Revision'),
+    'lastUpdate' => date('F j, Y g:i A', strtotime($req['updated_at'] ?: $req['created_at']))
 ]);
 exit();
 ?>

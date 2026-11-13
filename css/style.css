@@ -835,6 +835,30 @@ body {
   box-shadow: 0 0 0 5px rgba(2, 132, 199, 0.2);
 }
 
+.step-node.rejected .step-circle {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.25);
+}
+
+.step-node.rejected .step-title {
+  color: #dc2626;
+  font-weight: 800;
+}
+
+.step-node.revision .step-circle {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #ffffff;
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.25);
+}
+
+.step-node.revision .step-title {
+  color: #b45309;
+  font-weight: 800;
+}
+
 .step-title {
   font-size: 0.78rem;
   font-weight: 700;

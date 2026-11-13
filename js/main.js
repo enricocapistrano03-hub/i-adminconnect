@@ -105,19 +105,42 @@ function renderTrackerContent(req) {
   if (!modalBody) return;
 
   const statusClass = req.status.toLowerCase().replace(/\s+/g, '-');
+  const isRejected = (req.status === 'Rejected' || req.isRejected);
+  const isRevision = (req.status === 'Returned for Revision' || req.isRevision);
 
-  const steps = [
-    { num: 1, title: 'Submitted', time: req.stage1 || '—' },
-    { num: 2, title: 'Processing', time: req.stage2 || '—' },
-    { num: 3, title: 'Ready for Release', time: req.stage3 || '—' },
-    { num: 4, title: 'Completed', time: req.stage4 || '—' }
-  ];
+  let steps = [];
+  if (isRejected) {
+    steps = [
+      { num: 1, title: 'Submitted', time: req.stage1 || '—', state: 'completed' },
+      { num: 2, title: 'Processing', time: req.stage2 || req.stage1 || '—', state: 'completed' },
+      { num: 3, title: 'Rejected', time: req.lastUpdate || req.stage2 || '—', state: 'rejected' }
+    ];
+  } else if (isRevision) {
+    steps = [
+      { num: 1, title: 'Submitted', time: req.stage1 || '—', state: 'completed' },
+      { num: 2, title: 'Needs Revision', time: req.lastUpdate || req.stage2 || '—', state: 'revision' }
+    ];
+  } else {
+    steps = [
+      { num: 1, title: 'Submitted', time: req.stage1 || '—' },
+      { num: 2, title: 'Processing', time: req.stage2 || '—' },
+      { num: 3, title: 'Ready for Release', time: req.stage3 || '—' },
+      { num: 4, title: 'Completed', time: req.stage4 || '—' }
+    ];
+  }
 
   let stepperHtml = '';
   steps.forEach(step => {
-    let stateClass = '';
+    let stateClass = step.state || '';
     let iconOrNum = step.num;
-    if (step.num < req.currentStage || (step.num === 4 && req.currentStage === 4)) {
+
+    if (step.state === 'rejected') {
+      stateClass = 'rejected';
+      iconOrNum = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+    } else if (step.state === 'revision') {
+      stateClass = 'revision';
+      iconOrNum = `<span style="font-size: 1rem;">⚠️</span>`;
+    } else if (step.state === 'completed' || step.num < req.currentStage || (step.num === 4 && req.currentStage === 4)) {
       stateClass = 'completed';
       iconOrNum = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
     } else if (step.num === req.currentStage) {
@@ -132,6 +155,23 @@ function renderTrackerContent(req) {
       </div>
     `;
   });
+
+  let trackFillStyle = `width: ${Math.max(0, (req.percent - 25) * 1.33)}%;`;
+  let progressFillStyle = `width: ${req.percent}%;`;
+  let progressIcon = '📦';
+  let progressText = `${req.percent}%`;
+
+  if (isRejected) {
+    trackFillStyle = 'width: 100%; background: #ef4444;';
+    progressFillStyle = 'width: 100%; background: #ef4444;';
+    progressIcon = '❌';
+    progressText = 'Closed (Rejected)';
+  } else if (isRevision) {
+    trackFillStyle = 'width: 50%; background: #f59e0b;';
+    progressFillStyle = 'width: 50%; background: #f59e0b;';
+    progressIcon = '⚠️';
+    progressText = 'Action Required';
+  }
 
   modalBody.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
@@ -153,21 +193,27 @@ function renderTrackerContent(req) {
 
     <div class="stepper-container">
       <div class="stepper-track-bg"></div>
-      <div class="stepper-track-fill" style="width: ${Math.max(0, (req.percent - 25) * 1.33)}%;"></div>
+      <div class="stepper-track-fill" style="${trackFillStyle}"></div>
       ${stepperHtml}
     </div>
 
     <div class="progress-container">
-      <div style="font-size: 1rem;">📦</div>
+      <div style="font-size: 1rem;">${progressIcon}</div>
       <div class="progress-bar-bg">
-        <div class="progress-bar-fill" style="width: ${req.percent}%;"></div>
+        <div class="progress-bar-fill" style="${progressFillStyle}"></div>
       </div>
-      <div class="progress-percentage">${req.percent}%</div>
+      <div class="progress-percentage" style="${isRejected ? 'color: #dc2626; font-weight: 800;' : ''}">${progressText}</div>
     </div>
+
+    ${isRejected ? `
+      <div style="margin-bottom: 15px; padding: 12px 16px; background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 10px; color: #991b1b; font-size: 0.88rem; line-height: 1.45;">
+        <strong>❌ Request Rejected:</strong> This document request was declined by the Registrar's Office. Reason: <em>${req.remarks || 'Incomplete requirements'}</em>.
+      </div>
+    ` : ''}
 
     <div class="tracking-info-box">
       <div style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: #64748b; margin-bottom: 6px;">
-        <span>🕒</span> <strong>Last update:</strong> ${req.stage4 || req.stage3 || req.stage2 || req.stage1 || 'Recent'}
+        <span>🕒</span> <strong>Last update:</strong> ${req.lastUpdate || req.stage4 || req.stage3 || req.stage2 || req.stage1 || 'Recent'}
       </div>
       <div style="font-size: 0.92rem; color: #0f172a; line-height: 1.45;">
         <strong>🚩 Status:</strong> <span class="badge-status ${statusClass}" style="padding: 2px 10px; font-size: 0.75rem;">${req.status}</span> — ${req.remarks}

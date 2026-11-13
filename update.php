@@ -88,4 +88,5 @@ echo "</div>";
 
 echo "</div></body></html>";
 
-@unlink(__FILE__);
+// Keep update.php available for future fast updates
+

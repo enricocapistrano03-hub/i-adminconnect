@@ -10,10 +10,23 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$db_host = "localhost";
-$db_user = "root";
-$db_pass = "";
-$db_name = "i_adminconnect_db";
+// Determine database credentials based on environment (Hostinger Production vs Localhost XAMPP)
+$is_hostinger = (
+    (isset($_SERVER['SERVER_NAME']) && (strpos($_SERVER['SERVER_NAME'], 'iadminconnect.com') !== false || strpos($_SERVER['SERVER_NAME'], 'hostinger') !== false)) ||
+    (isset($_SERVER['HTTP_HOST']) && (strpos($_SERVER['HTTP_HOST'], 'iadminconnect.com') !== false || strpos($_SERVER['HTTP_HOST'], 'hostinger') !== false))
+);
+
+if ($is_hostinger) {
+    $db_host = "localhost";
+    $db_user = "u840449196_usr_eMgyuJkY";
+    $db_pass = "8ns|TEHkH/C";
+    $db_name = "u840449196_db_eMgyuJkY";
+} else {
+    $db_host = "localhost";
+    $db_user = "root";
+    $db_pass = "";
+    $db_name = "i_adminconnect_db";
+}
 
 try {
     $pdo = new PDO("mysql:host={$db_host};dbname={$db_name};charset=utf8mb4", $db_user, $db_pass, [

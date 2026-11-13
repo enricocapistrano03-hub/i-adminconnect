@@ -308,7 +308,7 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
         <label for="attachment" style="background: #e2e8f0; border: 1px solid #cbd5e1; padding: 8px 18px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; cursor: pointer; color: #1e293b; display: inline-flex; align-items: center; gap: 6px;">
           📁 Browse Document(s)...
         </label>
-        <input type="file" name="attachments[]" id="attachment" multiple style="display: none;" onchange="validateSmartGuard(this)" />
+        <input type="file" name="attachments[]" id="attachment" multiple style="display: none;" onchange="handleFilesSelected(this)" />
         <span id="file-chosen-text" style="font-size: 0.9rem; color: #64748b;">No new file selected yet. You can select multiple documents at once.</span>
       </div>
       <div id="file-list-preview" style="display: none; margin-top: 10px; gap: 6px; flex-wrap: wrap;"></div>
@@ -344,14 +344,50 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
 </div>
 
 <script>
-function validateSmartGuard(input) {
-  const files = input.files;
+let selectedFiles = [];
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function handleFilesSelected(input) {
+  const newFiles = Array.from(input.files || []);
+  if (newFiles.length === 0) return;
+
+  newFiles.forEach(nf => {
+    const exists = selectedFiles.some(f => f.name === nf.name && f.size === nf.size);
+    if (!exists) {
+      selectedFiles.push(nf);
+    }
+  });
+
+  syncAndRenderFiles();
+}
+
+function removeSelectedFile(index) {
+  selectedFiles.splice(index, 1);
+  syncAndRenderFiles();
+}
+
+function syncAndRenderFiles() {
+  const input = document.getElementById('attachment');
   const label = document.getElementById('file-chosen-text');
   const box = document.getElementById('smart-guard-box');
   const text = document.getElementById('smart-guard-text');
   const preview = document.getElementById('file-list-preview');
 
-  if (!files || files.length === 0) {
+  if (window.DataTransfer) {
+    const dt = new DataTransfer();
+    selectedFiles.forEach(f => dt.items.add(f));
+    input.files = dt.files;
+  }
+
+  if (selectedFiles.length === 0) {
+    input.value = '';
     label.textContent = 'No new file selected yet. You can select multiple documents at once.';
     if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
     box.style.backgroundColor = '#d1fae5';
@@ -367,31 +403,30 @@ function validateSmartGuard(input) {
   let hasError = false;
   let errorMsg = '';
 
-  for (let i = 0; i < files.length; i++) {
-    const f = files[i];
+  selectedFiles.forEach((f, idx) => {
     const ext = f.name.split('.').pop().toLowerCase();
     totalBytes += f.size;
 
     if (!allowed.includes(ext)) {
       hasError = true;
       errorMsg = `Invalid format for "${f.name}". Allowed formats: PDF, JPG, PNG. ❌`;
-      break;
-    }
-    if (f.size > 10 * 1024 * 1024) {
+    } else if (f.size > 10 * 1024 * 1024) {
       hasError = true;
       errorMsg = `File "${f.name}" exceeds 10MB limit. ❌`;
-      break;
     }
 
     const sz = f.size > 1024 * 1024 ? (f.size / (1024 * 1024)).toFixed(1) + ' MB' : Math.round(f.size / 1024) + ' KB';
-    fileListHtml += `<div style="display: inline-flex; align-items: center; gap: 6px; background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 6px; font-size: 0.82rem; color: #1e293b; margin-right: 6px; margin-bottom: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
-      📄 <strong>${f.name}</strong> <span style="color: #64748b;">(${sz})</span>
-    </div>`;
-  }
+    fileListHtml += `
+      <div style="display: inline-flex; align-items: center; gap: 8px; background: #ffffff; border: 1.5px solid #cbd5e1; padding: 5px 10px; border-radius: 8px; font-size: 0.84rem; color: #1e293b; margin-right: 6px; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <span>📄 <strong>${escapeHtml(f.name)}</strong> <span style="color: #64748b;">(${sz})</span></span>
+        <button type="button" onclick="removeSelectedFile(${idx})" title="Alisin ang dokumentong ito" style="background: #fee2e2; border: 1px solid #fca5a5; color: #dc2626; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; cursor: pointer; padding: 0; line-height: 1;">✕</button>
+      </div>
+    `;
+  });
 
   if (hasError) {
-    label.textContent = `${files.length} document(s) chosen`;
-    if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
+    label.textContent = `${selectedFiles.length} document(s) chosen`;
+    if (preview) { preview.innerHTML = fileListHtml; preview.style.display = 'flex'; }
     box.style.backgroundColor = '#fee2e2';
     box.style.borderColor = '#fca5a5';
     box.style.color = '#b91c1c';
@@ -400,7 +435,7 @@ function validateSmartGuard(input) {
   }
 
   const totalFmt = totalBytes > 1024 * 1024 ? (totalBytes / (1024 * 1024)).toFixed(1) + ' MB' : Math.round(totalBytes / 1024) + ' KB';
-  label.innerHTML = `<strong>${files.length} ${files.length > 1 ? 'Documents' : 'Document'} Selected</strong> (Total: ${totalFmt})`;
+  label.innerHTML = `<strong>${selectedFiles.length} ${selectedFiles.length > 1 ? 'Documents' : 'Document'} Selected</strong> (Total: ${totalFmt})`;
   if (preview) {
     preview.innerHTML = fileListHtml;
     preview.style.display = 'flex';
@@ -408,7 +443,11 @@ function validateSmartGuard(input) {
   box.style.backgroundColor = '#dcfce7';
   box.style.borderColor = '#86efac';
   box.style.color = '#15803d';
-  text.innerHTML = `<strong>Smart Guard:</strong> All ${files.length} document(s) validated successfully. (Total size: ${totalFmt}) ✅`;
+  text.innerHTML = `<strong>Smart Guard:</strong> All ${selectedFiles.length} document(s) validated successfully. (Total size: ${totalFmt}) ✅`;
+}
+
+function validateSmartGuard(input) {
+  handleFilesSelected(input);
 }
 </script>
 

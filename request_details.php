@@ -266,29 +266,23 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
       <div class="details-item-val"><?= htmlspecialchars($req['purpose']) ?></div>
     </div>
     <?php
-    $has_real_attachment = false;
-    $attached_fn = trim($req['attached_filename'] ?? '');
-    if (!empty($attached_fn) && $attached_fn !== 'Document.pdf') {
-        $uploads_dir = __DIR__ . '/uploads/';
-        $clean_fn = preg_replace('/[^a-zA-Z0-9._-]/', '_', $attached_fn);
-        if (file_exists($uploads_dir . $attached_fn) || file_exists($uploads_dir . $clean_fn)) {
-            $has_real_attachment = true;
-        } else {
-            $matches = glob($uploads_dir . '*' . $clean_fn);
-            if (!empty($matches)) {
-                $has_real_attachment = true;
-            }
-        }
-    }
+    $attachments = parse_attachments($req['attached_filename'] ?? '', $req['file_size_kb'] ?? '');
+    $has_real_attachment = !empty($attachments);
     ?>
     <div style="grid-column: span 2;">
-      <div class="details-item-label">Attached File</div>
-      <div class="details-item-val" style="display: flex; align-items: center; gap: 8px;">
+      <div class="details-item-label">Attached Supporting Document(s)</div>
+      <div class="details-item-val" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
         <?php if ($has_real_attachment): ?>
-          <a href="view_file.php?id=<?= $req['id'] ?>" target="_blank" class="attachment-preview-btn" title="Click to view file in new tab">
-            📎 <?= htmlspecialchars($req['attached_filename']) ?> (<?= htmlspecialchars($req['file_size_kb'] ?? 'File') ?>) ↗
-          </a>
-          <span style="background: #dcfce7; color: #15803d; font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 6px;">Verified</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+            <?php foreach ($attachments as $idx => $att): ?>
+              <a href="view_file.php?id=<?= $req['id'] ?>&file=<?= urlencode($att['file']) ?>" target="_blank" class="attachment-preview-btn" title="Click to view <?= htmlspecialchars($att['name']) ?> in new tab" style="display: inline-flex; align-items: center; gap: 6px;">
+                📎 <?= htmlspecialchars($att['name']) ?> (<?= htmlspecialchars($att['size']) ?>) ↗
+              </a>
+            <?php endforeach; ?>
+            <span style="background: #dcfce7; color: #15803d; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 6px;">
+              <?= count($attachments) ?> <?= count($attachments) > 1 ? 'Files' : 'File' ?> Verified
+            </span>
+          </div>
         <?php else: ?>
           <span style="color: #64748b; font-size: 0.9rem; font-weight: 500;">None (No attachment required)</span>
         <?php endif; ?>
@@ -309,10 +303,10 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
   </div>
 
   <?php if ($has_real_attachment): ?>
-    <!-- Smart Guard Verification Alert (Shown ONLY when a supporting file was actually uploaded) -->
+    <!-- Smart Guard Verification Alert (Shown ONLY when supporting file(s) were actually uploaded) -->
     <div class="smart-guard-box" style="background: #ecfdf5; border-color: #a7f3d0; margin-bottom: 15px;">
       <div>
-        <strong>File Verified:</strong> The <?= strtolower($req['requester_role']) ?> uploaded the supporting document (<strong><?= htmlspecialchars($req['attached_filename']) ?></strong>). All requirements are complete.
+        <strong>Files Verified:</strong> The <?= strtolower($req['requester_role']) ?> uploaded <?= count($attachments) ?> supporting document(s) (<strong><?= htmlspecialchars(implode(', ', array_column($attachments, 'name'))) ?></strong>). All requirements are verified.
       </div>
     </div>
   <?php endif; ?>

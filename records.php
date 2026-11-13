@@ -38,10 +38,17 @@ $records = $stmt->fetchAll();
             <td><?= htmlspecialchars($r['request_type_name']) ?></td>
             <td><?= htmlspecialchars($r['stage4_time'] ?: date('F j, Y', strtotime($r['updated_at']))) ?></td>
             <td>
-              <?php if (!empty($r['attached_filename'])): ?>
-                <a href="view_file.php?id=<?= $r['id'] ?>" target="_blank" class="attachment-preview-btn" title="Click to view file in new tab">
-                  📄 <?= htmlspecialchars($r['attached_filename']) ?> ↗
-                </a>
+              <?php 
+              $r_atts = parse_attachments($r['attached_filename'] ?? '', $r['file_size_kb'] ?? '');
+              if (!empty($r_atts)): 
+              ?>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <?php foreach ($r_atts as $att): ?>
+                    <a href="view_file.php?id=<?= $r['id'] ?>&file=<?= urlencode($att['file']) ?>" target="_blank" class="attachment-preview-btn" title="View <?= htmlspecialchars($att['name']) ?> in new tab">
+                      📄 <?= htmlspecialchars(mb_strimwidth($att['name'], 0, 24, '...')) ?> ↗
+                    </a>
+                  <?php endforeach; ?>
+                </div>
               <?php else: ?>
                 <span style="color: #94a3b8; font-size: 0.82rem;">None</span>
               <?php endif; ?>

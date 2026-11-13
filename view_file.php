@@ -34,7 +34,30 @@ if (!$req || empty($req['attached_filename'])) {
     </div>");
 }
 
-$filename = $req['attached_filename'];
+$attachments = parse_attachments($req['attached_filename'], $req['file_size_kb'] ?? '');
+if (empty($attachments)) {
+    die("<div style='font-family: sans-serif; padding: 30px; text-align: center; color: #64748b;'>
+        <h2>⚠️ Document Not Found</h2>
+        <p>No valid attachment is linked to this request record.</p>
+    </div>");
+}
+
+$req_file = trim($_GET['file'] ?? '');
+$target_item = null;
+if (!empty($req_file)) {
+    foreach ($attachments as $att) {
+        if ($att['file'] === $req_file || $att['name'] === $req_file || basename($att['file']) === basename($req_file)) {
+            $target_item = $att;
+            break;
+        }
+    }
+}
+if (!$target_item) {
+    $target_item = $attachments[0];
+}
+
+$filename = $target_item['file'];
+$display_name = $target_item['name'];
 $clean_name = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
 $uploads_dir = __DIR__ . '/uploads/';
 
@@ -57,7 +80,7 @@ if (file_exists($uploads_dir . $filename)) {
 if (!$target_path || !file_exists($target_path)) {
     die("<div style='font-family: sans-serif; padding: 30px; text-align: center; color: #64748b;'>
         <h2>⚠️ File Missing on Server</h2>
-        <p>The file <strong>" . htmlspecialchars($filename) . "</strong> could not be located in the uploads directory.</p>
+        <p>The file <strong>" . htmlspecialchars($display_name) . "</strong> could not be located in the uploads directory.</p>
     </div>");
 }
 
@@ -76,7 +99,7 @@ $content_type = $mime_types[$ext] ?? 'application/octet-stream';
 // Stream file inline to browser
 header("Content-Type: " . $content_type);
 header("Content-Length: " . filesize($target_path));
-header("Content-Disposition: inline; filename=\"" . basename($filename) . "\"");
+header("Content-Disposition: inline; filename=\"" . basename($display_name) . "\"");
 header("Cache-Control: private, max-age=3600");
 
 readfile($target_path);

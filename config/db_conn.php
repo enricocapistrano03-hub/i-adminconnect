@@ -55,6 +55,14 @@ try {
         // Silently ignore if already migrated
     }
 
+    // Auto-migrate attached_filename to TEXT to support multiple documents JSON
+    try {
+        $pdo->exec("ALTER TABLE requests MODIFY COLUMN attached_filename TEXT DEFAULT NULL");
+        $pdo->exec("ALTER TABLE requests MODIFY COLUMN file_size_kb VARCHAR(255) DEFAULT NULL");
+    } catch (Exception $e) {
+        // Silently ignore if already migrated
+    }
+
     // Clean up phantom 'Document.pdf' placeholder data where no file actually exists
     try {
         $pdo->exec("UPDATE requests SET attached_filename = NULL, file_size_kb = NULL, file_verified = 0 WHERE attached_filename = 'Document.pdf'");
@@ -85,5 +93,48 @@ function log_audit_action($pdo, $user_name, $role, $action) {
     } catch (Exception $e) {
         // Silently ignore log write errors
     }
+}
+
+/**
+ * Parse attachments JSON or legacy string into structured array of files
+ * @param string|null $attached_filename
+ * @param string|null $file_size_kb
+ * @return array Array of ['name' => ..., 'file' => ..., 'size' => ...]
+ */
+function parse_attachments($attached_filename, $file_size_kb = '') {
+    if (empty($attached_filename)) return [];
+    $trimmed = trim((string)$attached_filename);
+    if ($trimmed === 'Document.pdf' || $trimmed === '') return [];
+
+    if ((str_starts_with($trimmed, '[') && str_ends_with($trimmed, ']')) || 
+        (str_starts_with($trimmed, '{') && str_ends_with($trimmed, '}'))) {
+        $decoded = json_decode($trimmed, true);
+        if (is_array($decoded) && !empty($decoded)) {
+            $result = [];
+            foreach ($decoded as $item) {
+                if (is_array($item)) {
+                    $result[] = [
+                        'name' => $item['name'] ?? 'Document',
+                        'file' => $item['file'] ?? ($item['name'] ?? ''),
+                        'size' => $item['size'] ?? 'File'
+                    ];
+                } elseif (is_string($item)) {
+                    $result[] = [
+                        'name' => $item,
+                        'file' => $item,
+                        'size' => 'File'
+                    ];
+                }
+            }
+            if (!empty($result)) return $result;
+        }
+    }
+
+    // Single legacy file
+    return [[
+        'name' => $trimmed,
+        'file' => $trimmed,
+        'size' => $file_size_kb ?: 'File'
+    ]];
 }
 ?>

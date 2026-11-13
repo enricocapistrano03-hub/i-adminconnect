@@ -54,31 +54,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $file_size_formatted = $req['file_size_kb'];
     $has_new_file = false;
 
-    // Validate file upload if provided
-    if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
-        $file_tmp = $_FILES['attachment']['tmp_name'];
-        $file_orig_name = basename($_FILES['attachment']['name']);
-        $file_size = $_FILES['attachment']['size'];
+    $uploaded_files_list = [];
+    $total_bytes = 0;
+    $allowed_exts = ['pdf', 'jpg', 'jpeg', 'png'];
+    $uploads_dir = __DIR__ . '/uploads/';
+    if (!is_dir($uploads_dir)) @mkdir($uploads_dir, 0755, true);
+
+    $files_to_process = [];
+    if (!empty($_FILES['attachments']['name'])) {
+        if (is_array($_FILES['attachments']['name'])) {
+            foreach ($_FILES['attachments']['name'] as $idx => $fname) {
+                if (isset($_FILES['attachments']['error'][$idx]) && $_FILES['attachments']['error'][$idx] === UPLOAD_ERR_OK && !empty($fname)) {
+                    $files_to_process[] = [
+                        'name'     => $fname,
+                        'tmp_name' => $_FILES['attachments']['tmp_name'][$idx],
+                        'size'     => $_FILES['attachments']['size'][$idx]
+                    ];
+                }
+            }
+        } elseif ($_FILES['attachments']['error'] === UPLOAD_ERR_OK) {
+            $files_to_process[] = [
+                'name'     => $_FILES['attachments']['name'],
+                'tmp_name' => $_FILES['attachments']['tmp_name'],
+                'size'     => $_FILES['attachments']['size']
+            ];
+        }
+    } elseif (!empty($_FILES['attachment']['name']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
+        $files_to_process[] = [
+            'name'     => $_FILES['attachment']['name'],
+            'tmp_name' => $_FILES['attachment']['tmp_name'],
+            'size'     => $_FILES['attachment']['size']
+        ];
+    }
+
+    foreach ($files_to_process as $i => $f) {
+        $file_orig_name = basename($f['name']);
+        $file_size = (int)$f['size'];
         $file_ext = strtolower(pathinfo($file_orig_name, PATHINFO_EXTENSION));
 
-        $allowed_exts = ['pdf', 'jpg', 'jpeg', 'png'];
-
         if (!in_array($file_ext, $allowed_exts)) {
-            $error_msg = "Invalid file type (.{$file_ext}). Allowed formats: PDF, JPG, PNG.";
-        } elseif ($file_size > 5 * 1024 * 1024) {
-            $error_msg = "File is too large. Maximum allowed size is 5MB.";
+            $error_msg = "Invalid file type (.{$file_ext}) for '{$file_orig_name}'. Allowed formats: PDF, JPG, PNG.";
+            break;
+        } elseif ($file_size > 10 * 1024 * 1024) {
+            $error_msg = "File '{$file_orig_name}' is too large. Maximum allowed size is 10MB per file.";
+            break;
         } else {
-            $unique_name = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file_orig_name);
-            $destination = __DIR__ . '/uploads/' . $unique_name;
-            if (move_uploaded_file($file_tmp, $destination)) {
-                $uploaded_file_name = $file_orig_name;
-                $file_size_formatted = $file_size > 1024 * 1024 
+            $unique_name = time() . '_' . $i . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file_orig_name);
+            $destination = $uploads_dir . $unique_name;
+            if (move_uploaded_file($f['tmp_name'], $destination)) {
+                $f_size_fmt = $file_size > 1024 * 1024 
                     ? round($file_size / (1024 * 1024), 1) . ' MB' 
                     : round($file_size / 1024) . ' KB';
-                $has_new_file = true;
+                $uploaded_files_list[] = [
+                    'name' => $file_orig_name,
+                    'file' => $unique_name,
+                    'size' => $f_size_fmt
+                ];
+                $total_bytes += $file_size;
             } else {
-                $error_msg = "Failed to save uploaded file. Please try again.";
+                $error_msg = "Failed to save uploaded file '{$file_orig_name}'. Please try again.";
+                break;
             }
+        }
+    }
+
+    if (empty($error_msg) && !empty($uploaded_files_list)) {
+        $has_new_file = true;
+        $uploaded_file_name = json_encode($uploaded_files_list, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (count($uploaded_files_list) === 1) {
+            $file_size_formatted = $uploaded_files_list[0]['size'];
+        } else {
+            $total_fmt = $total_bytes > 1024 * 1024 
+                ? round($total_bytes / (1024 * 1024), 1) . ' MB' 
+                : round($total_bytes / 1024) . ' KB';
+            $file_size_formatted = count($uploaded_files_list) . ' Files (' . $total_fmt . ')';
         }
     }
 
@@ -231,14 +280,16 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
       <div class="details-item-label">Original Purpose</div>
       <div class="details-item-val"><?= htmlspecialchars($req['purpose']) ?></div>
     </div>
+    <?php $existing_atts = parse_attachments($req['attached_filename'] ?? '', $req['file_size_kb'] ?? ''); ?>
     <div style="grid-column: span 2;">
-      <div class="details-item-label">Currently Attached File</div>
-      <div class="details-item-val" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <?php if (!empty($req['attached_filename'])): ?>
-          <a href="view_file.php?ref=<?= urlencode($req['tracking_number']) ?>" target="_blank" class="attachment-preview-btn" style="text-decoration: none;">
-            📎 <?= htmlspecialchars($req['attached_filename']) ?> (<?= htmlspecialchars($req['file_size_kb'] ?? 'File') ?>) ↗
-          </a>
-          <span style="font-size: 0.8rem; color: #64748b;">(Click to view existing file)</span>
+      <div class="details-item-label">Currently Attached Document(s)</div>
+      <div class="details-item-val" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <?php if (!empty($existing_atts)): ?>
+          <?php foreach ($existing_atts as $att): ?>
+            <a href="view_file.php?ref=<?= urlencode($req['tracking_number']) ?>&file=<?= urlencode($att['file']) ?>" target="_blank" class="attachment-preview-btn" style="text-decoration: none;">
+              📎 <?= htmlspecialchars($att['name']) ?> (<?= htmlspecialchars($att['size']) ?>) ↗
+            </a>
+          <?php endforeach; ?>
         <?php else: ?>
           <span style="color: #94a3b8;">No file previously attached</span>
         <?php endif; ?>
@@ -250,23 +301,24 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
   <form method="POST" enctype="multipart/form-data">
     <div class="form-group">
       <label class="form-label">
-        Upload New / Corrected Document <span style="color: #ef4444;">*</span>
-        <span style="font-weight: normal; color: #64748b;">(PDF, JPG, PNG — Max 5MB)</span>
+        Upload Corrected / Supporting Document(s) <span style="color: #ef4444;">*</span>
+        <span style="font-weight: normal; color: #64748b;">(Pwede mag-attach ng kahit ilan / Multiple Documents — PDF, JPG, PNG)</span>
       </label>
-      <div style="display: flex; align-items: center; gap: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 12px;">
-        <label for="attachment" style="background: #e2e8f0; border: 1px solid #cbd5e1; padding: 7px 18px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #1e293b;">
-          Browse Replacement...
+      <div style="display: flex; align-items: center; gap: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 14px; flex-wrap: wrap;">
+        <label for="attachment" style="background: #e2e8f0; border: 1px solid #cbd5e1; padding: 8px 18px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; cursor: pointer; color: #1e293b; display: inline-flex; align-items: center; gap: 6px;">
+          📁 Browse Document(s)...
         </label>
-        <input type="file" name="attachment" id="attachment" style="display: none;" onchange="validateSmartGuard(this)" required />
-        <span id="file-chosen-text" style="font-size: 0.9rem; color: #64748b;">No new file selected yet.</span>
+        <input type="file" name="attachments[]" id="attachment" multiple style="display: none;" onchange="validateSmartGuard(this)" />
+        <span id="file-chosen-text" style="font-size: 0.9rem; color: #64748b;">No new file selected yet. You can select multiple documents at once.</span>
       </div>
+      <div id="file-list-preview" style="display: none; margin-top: 10px; gap: 6px; flex-wrap: wrap;"></div>
 
       <!-- Smart Guard Bar -->
       <div id="smart-guard-box" class="smart-guard-box" style="margin-top: 10px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
         </svg>
-        <span id="smart-guard-text">Smart Guard: Select a clear replacement copy to validate format and size.</span>
+        <span id="smart-guard-text">Smart Guard: Select clear replacement or supporting document(s) to validate format and size.</span>
       </div>
     </div>
 
@@ -293,47 +345,70 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
 
 <script>
 function validateSmartGuard(input) {
-  const file = input.files[0];
+  const files = input.files;
   const label = document.getElementById('file-chosen-text');
   const box = document.getElementById('smart-guard-box');
   const text = document.getElementById('smart-guard-text');
+  const preview = document.getElementById('file-list-preview');
 
-  if (!file) {
-    label.textContent = 'No new file selected yet.';
+  if (!files || files.length === 0) {
+    label.textContent = 'No new file selected yet. You can select multiple documents at once.';
+    if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
     box.style.backgroundColor = '#d1fae5';
     box.style.borderColor = '#6ee7b7';
     box.style.color = '#065f46';
-    text.textContent = 'Smart Guard: Select a clear replacement copy to validate format and size.';
+    text.textContent = 'Smart Guard: Select clear replacement or supporting document(s) to validate format and size.';
     return;
   }
 
-  const ext = file.name.split('.').pop().toLowerCase();
   const allowed = ['pdf', 'jpg', 'jpeg', 'png'];
+  let totalBytes = 0;
+  let fileListHtml = '';
+  let hasError = false;
+  let errorMsg = '';
 
-  if (!allowed.includes(ext)) {
-    label.textContent = file.name;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    const ext = f.name.split('.').pop().toLowerCase();
+    totalBytes += f.size;
+
+    if (!allowed.includes(ext)) {
+      hasError = true;
+      errorMsg = `Invalid format for "${f.name}". Allowed formats: PDF, JPG, PNG. ❌`;
+      break;
+    }
+    if (f.size > 10 * 1024 * 1024) {
+      hasError = true;
+      errorMsg = `File "${f.name}" exceeds 10MB limit. ❌`;
+      break;
+    }
+
+    const sz = f.size > 1024 * 1024 ? (f.size / (1024 * 1024)).toFixed(1) + ' MB' : Math.round(f.size / 1024) + ' KB';
+    fileListHtml += `<div style="display: inline-flex; align-items: center; gap: 6px; background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 6px; font-size: 0.82rem; color: #1e293b; margin-right: 6px; margin-bottom: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+      📄 <strong>${f.name}</strong> <span style="color: #64748b;">(${sz})</span>
+    </div>`;
+  }
+
+  if (hasError) {
+    label.textContent = `${files.length} document(s) chosen`;
+    if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
     box.style.backgroundColor = '#fee2e2';
     box.style.borderColor = '#fca5a5';
     box.style.color = '#b91c1c';
-    text.innerHTML = `<strong>Smart Guard Warning:</strong> Invalid file type (.${ext}). Allowed: PDF, JPG, PNG. ❌`;
+    text.innerHTML = `<strong>Smart Guard Warning:</strong> ${errorMsg}`;
     return;
   }
 
-  if (file.size > 5 * 1024 * 1024) {
-    label.textContent = file.name;
-    box.style.backgroundColor = '#fee2e2';
-    box.style.borderColor = '#fca5a5';
-    box.style.color = '#b91c1c';
-    text.innerHTML = `<strong>Smart Guard Warning:</strong> File exceeds 5MB limit. ❌`;
-    return;
+  const totalFmt = totalBytes > 1024 * 1024 ? (totalBytes / (1024 * 1024)).toFixed(1) + ' MB' : Math.round(totalBytes / 1024) + ' KB';
+  label.innerHTML = `<strong>${files.length} ${files.length > 1 ? 'Documents' : 'Document'} Selected</strong> (Total: ${totalFmt})`;
+  if (preview) {
+    preview.innerHTML = fileListHtml;
+    preview.style.display = 'flex';
   }
-
-  const sizeFormatted = file.size > 1024 * 1024 ? (file.size / (1024 * 1024)).toFixed(1) + ' MB' : Math.round(file.size / 1024) + ' KB';
-  label.innerHTML = `<strong>${file.name}</strong> (${sizeFormatted})`;
   box.style.backgroundColor = '#dcfce7';
   box.style.borderColor = '#86efac';
   box.style.color = '#15803d';
-  text.innerHTML = `<strong>Smart Guard:</strong> File validated. Ready to upload (${ext.toUpperCase()}, ${sizeFormatted}) ✅`;
+  text.innerHTML = `<strong>Smart Guard:</strong> All ${files.length} document(s) validated successfully. (Total size: ${totalFmt}) ✅`;
 }
 </script>
 

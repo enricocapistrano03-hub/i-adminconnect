@@ -48,6 +48,7 @@ $stage3_time = ($current_stage >= 3) ? ($req['stage3_time'] ?: ($req['stage4_tim
 $stage4_time = ($current_stage >= 4) ? ($req['stage4_time'] ?: date('F j, Y g:i A', strtotime($req['updated_at']))) : null;
 
 $is_completed = ($status === 'Completed' || $status === 'Released');
+$attachments = parse_attachments($req['attached_filename'] ?? '', $req['file_size_kb'] ?? '');
 
 echo json_encode([
     'id' => $req['tracking_number'],
@@ -61,8 +62,9 @@ echo json_encode([
     'stage3' => $stage3_time,
     'stage4' => $stage4_time,
     'remarks' => $req['remarks'] ?: ($is_completed ? 'Transaction successfully completed and document claimed.' : 'Your request is in progress.'),
-    'attachedFile' => $req['attached_filename'],
-    'fileSize' => $req['file_size_kb'],
+    'attachedFiles' => $attachments,
+    'attachedFile' => !empty($attachments) ? (count($attachments) > 1 ? count($attachments) . ' Attached Documents' : $attachments[0]['name']) : null,
+    'fileSize' => !empty($attachments) ? (count($attachments) > 1 ? $req['file_size_kb'] : $attachments[0]['size']) : null,
     'canAcknowledge' => ($req['status'] === 'Ready for Release'),
     'canEdit' => ($req['status'] === 'Returned for Revision'),
     'isCompleted' => $is_completed

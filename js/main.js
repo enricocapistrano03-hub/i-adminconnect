@@ -172,14 +172,26 @@ function renderTrackerContent(req) {
       <div style="font-size: 0.92rem; color: #0f172a; line-height: 1.45;">
         <strong>🚩 Status:</strong> <span class="badge-status ${statusClass}" style="padding: 2px 10px; font-size: 0.75rem;">${req.status}</span> — ${req.remarks}
       </div>
-      ${req.attachedFile ? `
+      ${(req.attachedFiles && req.attachedFiles.length > 0) ? `
+        <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0; font-size: 0.82rem; color: #475569;">
+          <div style="font-weight: 700; margin-bottom: 6px; color: #1e293b;">📎 Attached Supporting Document(s) (${req.attachedFiles.length}):</div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            ${req.attachedFiles.map(f => `
+              <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; padding: 5px 10px; border-radius: 6px;">
+                <span>📄 <strong>${f.name}</strong> <span style="color: #64748b;">(${f.size})</span></span>
+                <a href="view_file.php?ref=${encodeURIComponent(req.id)}&file=${encodeURIComponent(f.file || f.name)}" target="_blank" class="attachment-preview-btn" style="text-decoration: none; padding: 2px 10px; font-size: 0.78rem;">View ↗</a>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : (req.attachedFile ? `
         <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #e2e8f0; font-size: 0.82rem; color: #475569; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
           <div>📎 <strong>Attached:</strong> ${req.attachedFile} (${req.fileSize})</div>
           <a href="view_file.php?ref=${encodeURIComponent(req.id)}" target="_blank" class="attachment-preview-btn" style="text-decoration: none;">
             View Document ↗
           </a>
         </div>
-      ` : ''}
+      ` : '')}
     </div>
 
     ${(req.canEdit || req.status === 'Returned for Revision') ? `

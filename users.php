@@ -47,16 +47,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete_user' && $targe
             $uploads_dir = __DIR__ . '/uploads/';
             foreach ($user_requests as $req) {
                 if (!empty($req['attached_filename'])) {
-                    $fn = $req['attached_filename'];
-                    $clean_fn = preg_replace('/[^a-zA-Z0-9._-]/', '_', $fn);
-                    if (file_exists($uploads_dir . $fn)) {
-                        @unlink($uploads_dir . $fn);
-                    } elseif (file_exists($uploads_dir . $clean_fn)) {
-                        @unlink($uploads_dir . $clean_fn);
-                    } else {
-                        $matches = glob($uploads_dir . '*' . $clean_fn);
-                        if (!empty($matches)) {
-                            foreach ($matches as $m) @unlink($m);
+                    $atts = parse_attachments($req['attached_filename'], $req['file_size_kb'] ?? '');
+                    foreach ($atts as $att) {
+                        $fn = $att['file'];
+                        $clean_fn = preg_replace('/[^a-zA-Z0-9._-]/', '_', $fn);
+                        if (file_exists($uploads_dir . $fn)) {
+                            @unlink($uploads_dir . $fn);
+                        } elseif (file_exists($uploads_dir . $clean_fn)) {
+                            @unlink($uploads_dir . $clean_fn);
+                        } else {
+                            $matches = glob($uploads_dir . '*' . $clean_fn);
+                            if (!empty($matches)) {
+                                foreach ($matches as $m) @unlink($m);
+                            }
                         }
                     }
                 }

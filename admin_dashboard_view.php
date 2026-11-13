@@ -16,8 +16,12 @@ if ($search !== '') {
     $params = array_merge($params, [$term, $term, $term]);
 }
 if ($status_filter !== '' && $status_filter !== 'ALL') {
-    $query .= " AND r.status = ?";
-    $params[] = $status_filter;
+    if ($status_filter === 'Completed' || $status_filter === 'Released') {
+        $query .= " AND (r.status = 'Completed' OR r.status = 'Released')";
+    } else {
+        $query .= " AND r.status = ?";
+        $params[] = $status_filter;
+    }
 }
 
 $query .= " ORDER BY r.id DESC";
@@ -50,10 +54,10 @@ $all_requests = $stmt->fetchAll();
         <select name="status" class="form-control" style="width: auto;" onchange="this.form.submit()">
           <option value="ALL">All Statuses</option>
           <option value="Pending" <?= $status_filter === 'Pending' ? 'selected' : '' ?>>Pending</option>
-          <option value="Under Review" <?= $status_filter === 'Under Review' ? 'selected' : '' ?>>Under Review</option>
+          <option value="Returned for Revision" <?= $status_filter === 'Returned for Revision' ? 'selected' : '' ?>>Returned for Revision</option>
           <option value="Processing" <?= $status_filter === 'Processing' ? 'selected' : '' ?>>Processing</option>
           <option value="Ready for Release" <?= $status_filter === 'Ready for Release' ? 'selected' : '' ?>>Ready for Release</option>
-          <option value="Released" <?= $status_filter === 'Released' ? 'selected' : '' ?>>Released</option>
+          <option value="Completed" <?= ($status_filter === 'Completed' || $status_filter === 'Released') ? 'selected' : '' ?>>Completed</option>
           <option value="Rejected" <?= $status_filter === 'Rejected' ? 'selected' : '' ?>>Rejected</option>
         </select>
       </form>

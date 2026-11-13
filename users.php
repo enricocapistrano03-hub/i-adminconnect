@@ -338,25 +338,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'bulk_upload') {
     }
 }
 
-// Fetch all users with search filter
+// Fetch users with search, role filter, and pagination (25 per page)
 $search = trim($_GET['search'] ?? '');
 $role_filter = trim($_GET['role_filter'] ?? 'ALL');
 
-$query = "SELECT * FROM users WHERE 1=1";
+$where_clauses = " WHERE 1=1";
 $params = [];
 
 if ($search !== '') {
-    $query .= " AND (full_name LIKE ? OR email LIKE ? OR id_number LIKE ? OR department LIKE ?)";
+    $where_clauses .= " AND (full_name LIKE ? OR email LIKE ? OR id_number LIKE ? OR department LIKE ?)";
     $term = "%{$search}%";
     $params = array_merge($params, [$term, $term, $term, $term]);
 }
 
 if ($role_filter !== '' && $role_filter !== 'ALL') {
-    $query .= " AND role = ?";
+    $where_clauses .= " AND role = ?";
     $params[] = $role_filter;
 }
 
-$query .= " ORDER BY FIELD(status, 'Pending', 'Active', 'Inactive', 'Dropped'), role ASC, full_name ASC";
+// 1. Count total matching users
+$count_query = "SELECT COUNT(*) FROM users" . $where_clauses;
+$stmt_count = $pdo->prepare($count_query);
+$stmt_count->execute($params);
+$total_matching_users = (int)$stmt_count->fetchColumn();
+
+// 2. Pagination variables (25 users per page)
+$per_page = 25;
+$total_pages = max(1, (int)ceil($total_matching_users / $per_page));
+$current_page = max(1, min($total_pages, (int)($_GET['page'] ?? 1)));
+$offset = ($current_page - 1) * $per_page;
+
+$from_record = ($total_matching_users > 0) ? ($offset + 1) : 0;
+$to_record = min($offset + $per_page, $total_matching_users);
+
+// 3. Fetch sliced page of users
+$query = "SELECT * FROM users" . $where_clauses . " ORDER BY FIELD(status, 'Pending', 'Active', 'Inactive', 'Dropped'), role ASC, full_name ASC LIMIT " . (int)$per_page . " OFFSET " . (int)$offset;
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $all_users = $stmt->fetchAll();
@@ -428,7 +444,7 @@ $all_users = $stmt->fetchAll();
     </div>
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
       <span style="background: #0284c7; color: white; padding: 7px 15px; border-radius: 20px; font-size: 0.82rem; font-weight: 700;">
-        Total: <?= count($all_users) ?> Users
+        Total: <?= number_format($total_matching_users) ?> Users
       </span>
       <button type="button" class="btn-primary-cta" onclick="openBulkUploadModal()" style="background: #0284c7; padding: 8px 18px; font-size: 0.86rem; display: inline-flex; align-items: center; gap: 7px; border: none; cursor: pointer; border-radius: 9px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);">
         <span style="font-size: 1rem;">📁</span> <span>Bulk Upload</span>
@@ -550,6 +566,77 @@ $all_users = $stmt->fetchAll();
       </tbody>
     </table>
   </div>
+
+  <!-- Pagination Controls (25 users per page) -->
+  <?php if ($total_matching_users > 0): ?>
+    <div class="table-pagination-footer">
+      <div class="pagination-info">
+        Showing <strong><?= $from_record ?></strong> &ndash; <strong><?= $to_record ?></strong> of <strong><?= number_format($total_matching_users) ?></strong> users
+        <?php if ($total_pages > 1): ?>
+          <span style="color: #94a3b8; margin-left: 6px;">(Page <?= $current_page ?> of <?= $total_pages ?>)</span>
+        <?php endif; ?>
+      </div>
+
+      <?php if ($total_pages > 1): ?>
+        <?php
+          function build_user_page_url($p, $s, $r) {
+            $params = ['page' => $p];
+            if ($s !== '') $params['search'] = $s;
+            if ($r !== '' && $r !== 'ALL') $params['role_filter'] = $r;
+            return 'users.php?' . http_build_query($params);
+          }
+
+          $window = 2;
+          $start_page = max(1, $current_page - $window);
+          $end_page = min($total_pages, $current_page + $window);
+        ?>
+        <div class="pagination-controls">
+          <!-- First & Previous -->
+          <?php if ($current_page > 1): ?>
+            <a href="<?= build_user_page_url(1, $search, $role_filter) ?>" class="pagination-btn" title="First Page">&laquo;</a>
+            <a href="<?= build_user_page_url($current_page - 1, $search, $role_filter) ?>" class="pagination-btn" title="Previous Page">&lsaquo; Prev</a>
+          <?php else: ?>
+            <span class="pagination-btn disabled">&laquo;</span>
+            <span class="pagination-btn disabled">&lsaquo; Prev</span>
+          <?php endif; ?>
+
+          <!-- First Page Jump if outside window -->
+          <?php if ($start_page > 1): ?>
+            <a href="<?= build_user_page_url(1, $search, $role_filter) ?>" class="pagination-btn">1</a>
+            <?php if ($start_page > 2): ?>
+              <span class="pagination-ellipsis">&hellip;</span>
+            <?php endif; ?>
+          <?php endif; ?>
+
+          <!-- Window Page Numbers -->
+          <?php for ($p = $start_page; $p <= $end_page; $p++): ?>
+            <?php if ($p === $current_page): ?>
+              <span class="pagination-btn active"><?= $p ?></span>
+            <?php else: ?>
+              <a href="<?= build_user_page_url($p, $search, $role_filter) ?>" class="pagination-btn"><?= $p ?></a>
+            <?php endif; ?>
+          <?php endfor; ?>
+
+          <!-- Last Page Jump if outside window -->
+          <?php if ($end_page < $total_pages): ?>
+            <?php if ($end_page < $total_pages - 1): ?>
+              <span class="pagination-ellipsis">&hellip;</span>
+            <?php endif; ?>
+            <a href="<?= build_user_page_url($total_pages, $search, $role_filter) ?>" class="pagination-btn"><?= $total_pages ?></a>
+          <?php endif; ?>
+
+          <!-- Next & Last -->
+          <?php if ($current_page < $total_pages): ?>
+            <a href="<?= build_user_page_url($current_page + 1, $search, $role_filter) ?>" class="pagination-btn" title="Next Page">Next &rsaquo;</a>
+            <a href="<?= build_user_page_url($total_pages, $search, $role_filter) ?>" class="pagination-btn" title="Last Page">&raquo;</a>
+          <?php else: ?>
+            <span class="pagination-btn disabled">Next &rsaquo;</span>
+            <span class="pagination-btn disabled">&raquo;</span>
+          <?php endif; ?>
+        </div>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
 </div>
 
 <!-- ============================================================================== -->

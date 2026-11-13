@@ -48,6 +48,13 @@ try {
         }
     }
 
+    // Auto-migrate status enum to support 'Completed'
+    try {
+        $pdo->exec("ALTER TABLE requests MODIFY COLUMN status ENUM('Pending','Under Review','Processing','Ready for Release','Released','Completed','Returned for Revision','Rejected') NOT NULL DEFAULT 'Processing'");
+    } catch (Exception $e) {
+        // Silently ignore if already migrated
+    }
+
     // Clean up phantom 'Document.pdf' placeholder data where no file actually exists
     try {
         $pdo->exec("UPDATE requests SET attached_filename = NULL, file_size_kb = NULL, file_verified = 0 WHERE attached_filename = 'Document.pdf'");

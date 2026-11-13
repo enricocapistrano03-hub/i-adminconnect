@@ -79,10 +79,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $now_str = date('F j, Y g:i A');
 
-            // Automatic status set to 'Processing' (Stage 3) upon submission as requested by the panel
+            // Automatic status set to 'Processing' (Stage 2 in 4-Stage Tracker) upon submission as requested by the panel
             $insert_sql = "INSERT INTO requests 
-                (tracking_number, user_id, request_type_id, copies, purpose, additional_notes, attached_filename, file_size_kb, file_verified, status, current_stage, stage1_time, stage3_time, remarks) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Processing', 3, ?, ?, 'Request received. Document is currently being processed and prepared.')";
+                (tracking_number, user_id, request_type_id, copies, purpose, additional_notes, attached_filename, file_size_kb, file_verified, status, current_stage, stage1_time, stage2_time, remarks) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Processing', 2, ?, ?, 'Request received. Document is currently being processed and prepared.')";
             $stmt = $pdo->prepare($insert_sql);
             $stmt->execute([
                 $tracking_num,

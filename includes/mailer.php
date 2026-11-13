@@ -299,12 +299,13 @@ function send_request_status_email($to_email, $recipient_name, $tracking_number,
             $headline = "Action Required: Request Returned for Revision";
             $subject_status = "Action Required (Returned for Revision) ⚠️";
             break;
+        case 'Completed':
         case 'Released':
             $badge_bg = '#d1fae5';
             $badge_color = '#065f46';
             $icon = '✔';
-            $headline = "Document Successfully Claimed & Released";
-            $subject_status = "Document Released ✔";
+            $headline = "Transaction Completed & Document Released";
+            $subject_status = "Transaction Completed ✔";
             break;
         case 'Rejected':
             $badge_bg = '#fee2e2';

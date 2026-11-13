@@ -38,21 +38,21 @@ if ($user_role === 'student' || $user_role === 'teacher') {
     }
 }
 
-if ($req['status'] !== 'Ready for Release' && $req['status'] !== 'Released') {
+if ($req['status'] !== 'Ready for Release' && $req['status'] !== 'Released' && $req['status'] !== 'Completed') {
     echo json_encode(['error' => 'Only requests marked as Ready for Release can be acknowledged as received.']);
     exit();
 }
 
 $now_str = date('F j, Y g:i A');
 
-// Update to Released
-$stmt_up = $pdo->prepare("UPDATE requests SET status = 'Released', remarks = ?, updated_at = NOW() WHERE id = ?");
-$stmt_up->execute(["Document acknowledged and claimed by requester on {$now_str}.", $req['id']]);
+// Update to Completed (Stage 4)
+$stmt_up = $pdo->prepare("UPDATE requests SET status = 'Completed', current_stage = 4, stage4_time = ?, remarks = ?, updated_at = NOW() WHERE id = ?");
+$stmt_up->execute([$now_str, "Document acknowledged and claimed by requester on {$now_str}. Transaction Completed.", $req['id']]);
 
 require_once __DIR__ . '/includes/mailer.php';
 
 // Audit log
-log_audit_action($pdo, $user_name, strtoupper($user_role), "Acknowledged receipt of request {$tracking_number} ({$req['request_type_name']})");
+log_audit_action($pdo, $user_name, strtoupper($user_role), "Acknowledged receipt of request {$tracking_number} ({$req['request_type_name']}) - Completed");
 
 // Notify Registrars and Admins
 $staff_stmt = $pdo->query("SELECT id FROM users WHERE role IN ('registrar', 'admin') AND status = 'Active'");
@@ -61,8 +61,8 @@ foreach ($staff_stmt->fetchAll() as $staff) {
     $notif_insert->execute([
         $staff['id'],
         $tracking_number,
-        "Request {$tracking_number} Acknowledged & Received",
-        "{$user_name} has acknowledged and confirmed receipt of document request {$tracking_number}."
+        "Request {$tracking_number} Completed",
+        "{$user_name} has acknowledged and confirmed receipt of document request {$tracking_number}. Transaction completed."
     ]);
 }
 
@@ -70,8 +70,8 @@ foreach ($staff_stmt->fetchAll() as $staff) {
 $notif_insert->execute([
     $req['user_id'],
     $tracking_number,
-    "Document Released & Received: {$tracking_number}",
-    "Your request for {$req['request_type_name']} has been completed and marked as Released.",
+    "Transaction Completed: {$tracking_number}",
+    "Your request for {$req['request_type_name']} has been completed and marked as Completed.",
     'Office of the Registrar'
 ]);
 
@@ -85,17 +85,17 @@ if ($u_rec && !empty($u_rec['email'])) {
         $u_rec['full_name'],
         $tracking_number,
         $req['request_type_name'],
-        'Released',
-        "Document acknowledged and released on {$now_str}. Thank you for using i-AdminConnect!",
+        'Completed',
+        "Document acknowledged and released on {$now_str}. Transaction completed. Thank you for using i-AdminConnect!",
         'Office of the Registrar'
     );
 }
 
 echo json_encode([
     'success' => true,
-    'message' => 'Document marked as received successfully!',
+    'message' => 'Document marked as received and transaction completed successfully!',
     'tracking_number' => $tracking_number,
-    'status' => 'Released',
+    'status' => 'Completed',
     'received_time' => $now_str
 ]);
 exit();

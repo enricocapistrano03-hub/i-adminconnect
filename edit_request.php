@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 attached_filename = ?, 
                 file_size_kb = ?, 
                 additional_notes = ?, 
-                status = 'Under Review', 
+                status = 'Processing', 
                 current_stage = 2, 
                 stage2_time = ?, 
                 remarks = ? 
@@ -145,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $req['user_id'],
                 $req['tracking_number'],
                 "Revision Submitted: {$req['tracking_number']}",
-                "Your updated documents for {$req['request_type_name']} have been submitted and are now Under Review.",
+                "Your updated documents for {$req['request_type_name']} have been submitted and are now being processed.",
                 'My Requests'
             ]);
 
@@ -156,13 +156,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $req['full_name'],
                     $req['tracking_number'],
                     $req['request_type_name'],
-                    'Revision Submitted',
-                    "Your updated documents have been submitted and are now Under Review by the office.",
+                    'Processing',
+                    "Your updated documents have been submitted and are now being processed by the office.",
                     'Office of the Registrar'
                 );
             }
 
-            $success_msg = "Your revised documents for <strong>{$req['tracking_number']}</strong> have been successfully submitted! The request status has been updated to <strong>Under Review</strong>, and a real-time email confirmation has been sent to your registered inbox.";
+            $success_msg = "Your revised documents for <strong>{$req['tracking_number']}</strong> have been successfully submitted! The request status has been updated to <strong>Processing</strong>, and a real-time email confirmation has been sent to your registered inbox.";
 
             // Refresh current request record
             $stmt = $pdo->prepare("SELECT r.*, rt.name as request_type_name, rt.requirements, u.full_name, u.email as requester_email, u.role as requester_role 

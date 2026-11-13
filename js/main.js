@@ -108,9 +108,9 @@ function renderTrackerContent(req) {
 
   const steps = [
     { num: 1, title: 'Submitted', time: req.stage1 || '—' },
-    { num: 2, title: 'Under Review', time: req.stage2 || '—' },
-    { num: 3, title: 'Processing', time: req.stage3 || '—' },
-    { num: 4, title: 'Ready for Release', time: req.stage4 || '—' }
+    { num: 2, title: 'Processing', time: req.stage2 || '—' },
+    { num: 3, title: 'Ready for Release', time: req.stage3 || '—' },
+    { num: 4, title: 'Completed', time: req.stage4 || '—' }
   ];
 
   let stepperHtml = '';
@@ -202,17 +202,21 @@ function renderTrackerContent(req) {
       <div id="ack-container" style="margin-top: 15px; padding: 14px 16px; background: #ecfdf5; border: 1px solid #6ee7b7; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <div>
           <div style="font-weight: 700; color: #065f46; font-size: 0.95rem;">🎉 Document Ready for Release!</div>
-          <div style="font-size: 0.8rem; color: #047857; margin-top: 2px;">Have you received this document? Acknowledge receipt to complete this request.</div>
+          <div style="font-size: 0.8rem; color: #047857; margin-top: 2px;">Have you received this document? Confirm receipt to complete this transaction.</div>
         </div>
         <button type="button" class="btn-primary-cta" style="background: #059669; padding: 8px 18px; font-size: 0.88rem; font-weight: 700; cursor: pointer; border: none; border-radius: 8px; color: white;" onclick="acknowledgeReceipt('${req.id}')">
-          ✔ Mark as Received
+          ✔ Mark as Received &amp; Complete
         </button>
       </div>
     ` : ''}
 
-    ${req.status === 'Released' ? `
-      <div style="margin-top: 15px; padding: 10px 14px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px; color: #166534; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-        <span>✔</span> <span>Document Successfully Acknowledged & Received</span>
+    ${(req.status === 'Completed' || req.status === 'Released' || req.isCompleted) ? `
+      <div style="margin-top: 15px; padding: 12px 16px; background: #ecfdf5; border: 1.5px solid #86efac; border-radius: 12px; color: #166534; font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.08);">
+        <span style="font-size: 1.25rem;">🎉</span>
+        <div>
+          <div>Transaction Completed &amp; Document Released</div>
+          <div style="font-size: 0.78rem; font-weight: 500; color: #15803d; margin-top: 2px;">This transaction is complete and the document has been claimed.</div>
+        </div>
       </div>
     ` : ''}
   `;

@@ -20,27 +20,52 @@ if (!$req) {
     exit();
 }
 
-$percent = 25;
-if ($req['current_stage'] == 2) $percent = 50;
-if ($req['current_stage'] == 3) $percent = 75;
-if ($req['current_stage'] == 4) $percent = 100;
+$status = $req['status'];
+$current_stage = (int)$req['current_stage'];
+
+// 4-Stage Lifecycle: 1. Submitted -> 2. Processing -> 3. Ready for Release -> 4. Completed
+if ($status === 'Pending') {
+    $current_stage = 1;
+    $percent = 25;
+} elseif ($status === 'Processing' || $status === 'Under Review') {
+    $current_stage = 2;
+    $percent = 50;
+} elseif ($status === 'Ready for Release') {
+    $current_stage = 3;
+    $percent = 75;
+} elseif ($status === 'Completed' || $status === 'Released') {
+    $current_stage = 4;
+    $percent = 100;
+} else {
+    // Returned for Revision or Rejected
+    $percent = ($current_stage >= 3) ? 75 : 50;
+}
+
+// Stage timestamps
+$stage1_time = $req['stage1_time'] ?: date('F j, Y g:i A', strtotime($req['created_at']));
+$stage2_time = ($current_stage >= 2) ? ($req['stage2_time'] ?: ($req['stage3_time'] ?: $stage1_time)) : null;
+$stage3_time = ($current_stage >= 3) ? ($req['stage3_time'] ?: ($req['stage4_time'] ?: null)) : null;
+$stage4_time = ($current_stage >= 4) ? ($req['stage4_time'] ?: date('F j, Y g:i A', strtotime($req['updated_at']))) : null;
+
+$is_completed = ($status === 'Completed' || $status === 'Released');
 
 echo json_encode([
     'id' => $req['tracking_number'],
     'requestType' => $req['request_type_name'],
     'copies' => (int)($req['copies'] ?? 1),
-    'status' => $req['status'],
-    'currentStage' => (int)$req['current_stage'],
+    'status' => $is_completed ? 'Completed' : $req['status'],
+    'currentStage' => $current_stage,
     'percent' => $percent,
-    'stage1' => $req['stage1_time'] ?: date('F j, Y g:i A', strtotime($req['created_at'])),
-    'stage2' => $req['stage2_time'],
-    'stage3' => $req['stage3_time'],
-    'stage4' => $req['stage4_time'],
-    'remarks' => $req['remarks'] ?: 'Your request is in progress.',
+    'stage1' => $stage1_time,
+    'stage2' => $stage2_time,
+    'stage3' => $stage3_time,
+    'stage4' => $stage4_time,
+    'remarks' => $req['remarks'] ?: ($is_completed ? 'Transaction successfully completed and document claimed.' : 'Your request is in progress.'),
     'attachedFile' => $req['attached_filename'],
     'fileSize' => $req['file_size_kb'],
     'canAcknowledge' => ($req['status'] === 'Ready for Release'),
-    'canEdit' => ($req['status'] === 'Returned for Revision')
+    'canEdit' => ($req['status'] === 'Returned for Revision'),
+    'isCompleted' => $is_completed
 ]);
 exit();
 ?>

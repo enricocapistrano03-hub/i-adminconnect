@@ -11,8 +11,8 @@ $current_month_name = date('F Y');
 // Fetch high-level totals
 $stmt = $pdo->query("SELECT 
     COUNT(*) as total,
-    SUM(CASE WHEN status IN ('Ready for Release', 'Released') THEN 1 ELSE 0 END) as completed,
-    SUM(CASE WHEN status IN ('Pending', 'Under Review') THEN 1 ELSE 0 END) as pending,
+    SUM(CASE WHEN status IN ('Ready for Release', 'Released', 'Completed') THEN 1 ELSE 0 END) as completed,
+    SUM(CASE WHEN status IN ('Pending', 'Processing', 'Returned for Revision') THEN 1 ELSE 0 END) as pending,
     SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected
     FROM requests");
 $totals = $stmt->fetch();
@@ -25,7 +25,7 @@ $rate = $total > 0 ? round(($completed / $total) * 100) : 0;
 // Dynamic Turnaround Time Calculation (Time from submission to release)
 $tat_stmt = $pdo->query("SELECT AVG(TIMESTAMPDIFF(SECOND, created_at, updated_at)) as avg_sec
     FROM requests 
-    WHERE status IN ('Ready for Release', 'Released') AND updated_at >= created_at");
+    WHERE status IN ('Ready for Release', 'Released', 'Completed') AND updated_at >= created_at");
 $avg_sec = $tat_stmt->fetchColumn();
 
 if ($avg_sec !== null && $avg_sec > 0 && $completed > 0) {

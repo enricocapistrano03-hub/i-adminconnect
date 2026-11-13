@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $req['current_stage'] = 2;
 
     } elseif ($action === 'process') {
-        $update_sql = "UPDATE requests SET status = 'Processing', current_stage = 3, stage3_time = ?, remarks = 'Document is currently being prepared and encoded.' WHERE id = ?";
+        $update_sql = "UPDATE requests SET status = 'Processing', current_stage = 2, stage2_time = ?, remarks = 'Document is currently being prepared and encoded.' WHERE id = ?";
         $pdo->prepare($update_sql)->execute([$now_str, $req_id]);
 
         $notif_msg = "Your request for {$req['request_type_name']} is currently being processed and prepared.";
@@ -89,10 +89,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         log_audit_action($pdo, $user_name, $actor_role, "Moved Request {$req['tracking_number']} to Processing");
         $alert_msg = "Request status updated to <strong>Processing</strong>.{$mail_info}";
         $req['status'] = 'Processing';
-        $req['current_stage'] = 3;
+        $req['current_stage'] = 2;
 
     } elseif ($action === 'approve') {
-        $update_sql = "UPDATE requests SET status = 'Ready for Release', current_stage = 4, stage4_time = ?, remarks = 'Document is ready for release. Please proceed to the Registrar\'s Office.' WHERE id = ?";
+        $update_sql = "UPDATE requests SET status = 'Ready for Release', current_stage = 3, stage3_time = ?, remarks = 'Document is ready for release. Please proceed to the Registrar\'s Office.' WHERE id = ?";
         $stmt = $pdo->prepare($update_sql);
         $stmt->execute([$now_str, $req_id]);
 
@@ -122,6 +122,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $alert_msg = "Request Approved Successfully! You have marked request <strong>{$req['tracking_number']}</strong> as Ready for Release.{$mail_info}";
         $req['status'] = 'Ready for Release';
+        $req['current_stage'] = 3;
+
+    } elseif ($action === 'complete') {
+        $update_sql = "UPDATE requests SET status = 'Completed', current_stage = 4, stage4_time = ?, remarks = 'Document released and transaction successfully completed.' WHERE id = ?";
+        $stmt = $pdo->prepare($update_sql);
+        $stmt->execute([$now_str, $req_id]);
+
+        // Insert Notification for User
+        $notif_msg = "Your request for {$req['request_type_name']} ({$req['tracking_number']}) has been officially completed and released.";
+        $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Registrar\'s Office')");
+        $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Completed", $notif_msg]);
+
+        // Send Real-Time Email Notification
+        $mail_info = '';
+        if (!empty($req['requester_email'])) {
+            $m_res = send_request_status_email(
+                $req['requester_email'],
+                $req['full_name'],
+                $req['tracking_number'],
+                $req['request_type_name'],
+                'Completed',
+                'Your document has been released and the transaction is officially completed.',
+                'Office of the Registrar'
+            );
+            if ($m_res['success']) {
+                $mail_info = " &bull; Real-time confirmation email sent to <strong>{$req['requester_email']}</strong>";
+            }
+        }
+
+        log_audit_action($pdo, $user_name, $actor_role, "Marked Request {$req['tracking_number']} ({$req['request_type_name']}) as Completed");
+
+        $alert_msg = "Transaction Complete! Request <strong>{$req['tracking_number']}</strong> is now marked as <strong>Completed</strong>.{$mail_info}";
+        $req['status'] = 'Completed';
         $req['current_stage'] = 4;
 
     } elseif ($action === 'revise') {
@@ -184,7 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$is_approved = ($req['status'] === 'Ready for Release' || $req['status'] === 'Released');
+$is_approved = ($req['status'] === 'Ready for Release' || $req['status'] === 'Released' || $req['status'] === 'Completed');
 $status_class = strtolower(str_replace(' ', '-', $req['status']));
 ?>
 
@@ -293,28 +326,32 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
   </div>
 
   <!-- Action Buttons for Registrar & Admin -->
-  <form method="POST" id="action-form" class="details-actions-row" style="flex-wrap: wrap; gap: 10px;">
+  <form method="POST" id="action-form" class="details-actions-row" style="flex-wrap: wrap; gap: 10px; align-items: center;">
     <input type="hidden" name="action" id="action-type" value="">
     <input type="hidden" name="remarks" id="action-remarks" value="">
 
-    <?php if ($user_role === 'admin'): ?>
+    <?php if ($req['status'] === 'Completed' || $req['status'] === 'Released'): ?>
+      <div style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #ecfdf5; color: #047857; font-weight: 700; border-radius: 8px; border: 1px solid #a7f3d0; font-size: 0.95rem;">
+        ✔ Transaction Completed &amp; Released
+      </div>
+    <?php else: ?>
       <?php if ($req['status'] === 'Pending' || $req['status'] === 'Returned for Revision'): ?>
-        <button type="button" class="btn-primary-cta" style="background: #0284c7; padding: 10px 18px; font-size: 0.9rem;" onclick="submitAction('review')">Mark Under Review</button>
-      <?php endif; ?>
-      <?php if ($req['status'] === 'Pending' || $req['status'] === 'Under Review' || $req['status'] === 'Returned for Revision'): ?>
         <button type="button" class="btn-primary-cta" style="background: #0d9488; padding: 10px 18px; font-size: 0.9rem;" onclick="submitAction('process')">Set to Processing</button>
       <?php endif; ?>
+
+      <?php if ($req['status'] === 'Ready for Release'): ?>
+        <button type="button" class="btn-primary-cta" style="background: #059669; padding: 10px 20px; font-size: 0.92rem; font-weight: 700;" onclick="submitAction('complete')">✔ Mark as Completed</button>
+      <?php elseif ($req['status'] !== 'Completed' && $req['status'] !== 'Released'): ?>
+        <button type="button" class="btn-action-approve" onclick="submitAction('approve')">Mark Ready for Release</button>
+      <?php endif; ?>
+
+      <?php if ($user_role === 'admin'): ?>
+        <button type="button" class="btn-action-revise" onclick="submitAction('revise')">Return for Revision</button>
+      <?php endif; ?>
+
+      <button type="button" class="btn-action-reject" onclick="submitAction('reject')">Reject</button>
     <?php endif; ?>
 
-    <?php if ($req['status'] !== 'Ready for Release' && $req['status'] !== 'Released'): ?>
-      <button type="button" class="btn-action-approve" onclick="submitAction('approve')">Mark Ready for Release</button>
-    <?php endif; ?>
-
-    <?php if ($user_role === 'admin'): ?>
-      <button type="button" class="btn-action-revise" onclick="submitAction('revise')">Return for Revision</button>
-    <?php endif; ?>
-
-    <button type="button" class="btn-action-reject" onclick="submitAction('reject')">Reject</button>
     <a href="<?= $back_url ?>" class="btn-action-back" style="text-decoration: none; display: inline-flex; align-items: center;">Back</a>
   </form>
 </div>

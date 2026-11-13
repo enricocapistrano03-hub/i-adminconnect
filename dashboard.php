@@ -18,8 +18,8 @@ if ($user_role === 'registrar') {
 // Fetch stats for this user
 $stmt = $pdo->prepare("SELECT 
     COUNT(*) as total,
-    SUM(CASE WHEN status IN ('Pending', 'Under Review', 'Submitted', 'Returned for Revision') THEN 1 ELSE 0 END) as pending,
-    SUM(CASE WHEN status IN ('Ready for Release', 'Released') THEN 1 ELSE 0 END) as completed,
+    SUM(CASE WHEN status IN ('Pending', 'Processing', 'Submitted', 'Returned for Revision') THEN 1 ELSE 0 END) as pending,
+    SUM(CASE WHEN status IN ('Ready for Release', 'Released', 'Completed') THEN 1 ELSE 0 END) as completed,
     SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected
     FROM requests WHERE user_id = ?");
 $stmt->execute([$user_id]);

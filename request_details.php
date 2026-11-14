@@ -417,8 +417,8 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
 </div>
 
 <!-- Reject / Revision Action Modal (Unified for Students & Teachers) -->
-<div id="reject-modal" class="modal-overlay" onclick="handleRejectOverlayClick(event)">
-  <div class="modal-dialog" style="max-width: 560px; padding: 26px 28px; border-radius: 18px;" onclick="event.stopPropagation()">
+<div id="reject-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 99999; align-items: center; justify-content: center; padding: 15px;" onclick="handleRejectOverlayClick(event)">
+  <div class="modal-dialog" style="max-width: 560px; width: 100%; max-height: 90vh; overflow-y: auto; background: #ffffff; padding: 26px 28px; border-radius: 18px; box-shadow: 0 20px 40px rgba(0,0,0,0.25);" onclick="event.stopPropagation()">
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; border-bottom: 1px solid #f1f5f9; padding-bottom: 14px;">
       <div style="display: flex; align-items: center; gap: 12px;">
         <div style="width: 44px; height: 44px; border-radius: 12px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
@@ -629,7 +629,6 @@ function renderChips(presets) {
     };
     container.appendChild(chip);
   });
-}
 }
 
 function submitModalAction() {

@@ -29,6 +29,8 @@ $files = [
     'includes/header.php',
     'login.php',
     'index.php',
+    'assets/logo.png',
+    'assets/iAdminConnect LOGO.png',
     '.htaccess'
 ];
 
@@ -39,7 +41,7 @@ $ctx = stream_context_create([
     ],
     'http' => [
         'header' => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n",
-        'timeout' => 15
+        'timeout' => 20
     ]
 ]);
 
@@ -47,7 +49,8 @@ $success_count = 0;
 $log = [];
 
 foreach ($files as $rel_path) {
-    $url = $base_url . $rel_path . '?v=' . time();
+    $encoded_path = implode('/', array_map('rawurlencode', explode('/', $rel_path)));
+    $url = $base_url . $encoded_path . '?v=' . time();
     $data = @file_get_contents($url, false, $ctx);
     if ($data !== false && strlen($data) > 0) {
         $dest = __DIR__ . '/' . $rel_path;

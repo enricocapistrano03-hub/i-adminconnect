@@ -84,9 +84,8 @@ echo "</div>";
 echo "<div style='background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;'>";
 echo "<h3 style='margin: 0 0 8px 0; color: #166534; font-size: 0.95rem;'>Mga Na-update:</h3>";
 echo "<ul style='margin: 0; padding-left: 20px; color: #15803d; font-size: 0.88rem; line-height: 1.6;'>";
-echo "<li><strong>Rejected Tracking Stepper:</strong> Kapag Rejected ang request, inalis na ang 'Ready for Release' at 'Completed'. Diretsong 'Rejected ❌' (red node) na ang Stage 3.</li>";
-echo "<li><strong>Clickable ✕ Remove Button:</strong> May ✕ button na sa bawat napiling dokumento bago i-submit.</li>";
-echo "<li><strong>Multiple Supporting Documents:</strong> Pwede mag-attach ng kahit ilang files sabay-sabay.</li>";
+echo "<li><strong>Certificate of Rating Re-submission (edit_request.php):</strong> Inalis ang file attachment requirement para sa Certificate of Rating. Mayroon nang 3-Year Performance Ratings inputs para ma-edit at ma-submit ang tamang points nang walang error.</li>";
+echo "<li><strong>Teacher Decline / Reject Modal (request_details.php):</strong> Inalis ang student-specific reasons sa Permanent Rejection at Return for Revision para sa guro. Pinanatili ang angkop na presets (Rating Discrepancy, Duplicate request).</li>";
 echo "</ul></div>";
 
 echo "<div style='display: flex; gap: 12px; flex-wrap: wrap;'>";

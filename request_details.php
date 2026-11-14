@@ -496,25 +496,42 @@ function handleRejectOverlayClick(e) {
 }
 
 const isCR = <?= $has_cr_ratings ? 'true' : 'false' ?>;
-const revisionPresets = isCR ? [
-  "Rating Discrepancy: Mali ang ipinasang 3-year rating points. Mangyaring makipag-ugnayan sa inyong Subject o Head Coordinator para makuha ang inyong official final rating bago mag-request muli.",
-  "Incomplete supporting documents. Please upload the missing requirement.",
-  "Blurry or unreadable document copy. Please re-upload a clear copy.",
-  "Valid School ID / Government-issued ID required."
-] : [
-  "Incomplete supporting documents. Please upload the missing requirement.",
-  "Blurry or unreadable document copy. Please re-upload a clear copy.",
-  "Valid School ID / Government-issued ID required.",
-  "Formal Request Letter addressed to the Registrar / Admin required.",
-  "Please provide section, school year, and specific purpose in notes."
-];
+const isTeacher = <?= ($req['requester_role'] === 'teacher') ? 'true' : 'false' ?>;
 
-const rejectPresets = [
-  "Request does not meet institutional guidelines or eligibility criteria.",
-  "Incorrect document type requested. Please submit a new request.",
-  "Invalid credentials or school record not found.",
-  "Duplicate request already being processed."
-];
+let revisionPresets = [];
+if (isCR) {
+  revisionPresets = [
+    "Rating Discrepancy: Mali ang ipinasang 3-year rating points. Mangyaring makipag-ugnayan sa inyong Subject o Head Coordinator para makuha ang inyong official final rating bago mag-request muli."
+  ];
+} else if (isTeacher) {
+  revisionPresets = [
+    "Blurry or unreadable document copy. Please re-upload a clear copy.",
+    "Mangyaring linawin ang inclusive school years / dates at tiyak na layunin sa notes.",
+    "Department Head endorsement o official clearance kinakailangan."
+  ];
+} else {
+  revisionPresets = [
+    "Incomplete supporting documents. Please upload the missing requirement.",
+    "Blurry or unreadable document copy. Please re-upload a clear copy.",
+    "Valid School ID / Government-issued ID required.",
+    "Formal Request Letter addressed to the Registrar / Admin required.",
+    "Please provide section, school year, and specific purpose in notes."
+  ];
+}
+
+let rejectPresets = [];
+if (isTeacher) {
+  rejectPresets = [
+    "Duplicate request already being processed."
+  ];
+} else {
+  rejectPresets = [
+    "Request does not meet institutional guidelines or eligibility criteria.",
+    "Incorrect document type requested. Please submit a new request.",
+    "Invalid credentials or school record not found.",
+    "Duplicate request already being processed."
+  ];
+}
 
 function switchRejectAction(type) {
   const cardRevise = document.getElementById('card-option-revise');

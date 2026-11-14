@@ -162,8 +162,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare($update_sql);
         $stmt->execute([$remarks ?: 'Please re-upload a clear copy of required documents.', $req_id]);
 
-        $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Registrar\'s Office')");
-        $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Needs Revision", "Your request needs revision: " . ($remarks ?: 'Please verify documents.')]);
+        $office_name = ($req['requester_role'] === 'teacher') ? 'Administrator Office' : 'Office of the Registrar';
+
+        $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, ?)");
+        $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Needs Revision", "Your request needs revision: " . ($remarks ?: 'Please verify documents.'), $office_name]);
 
         // Send Real-Time Email Notification
         $mail_info = '';
@@ -175,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $req['request_type_name'],
                 'Returned for Revision',
                 $remarks ?: 'Please re-upload a clear copy of required documents via My Requests portal.',
-                'Registrar\'s Office'
+                $office_name
             );
             if ($m_res['success']) {
                 $mail_info = " &bull; Real-time alert email sent to <strong>{$req['requester_email']}</strong>";
@@ -191,8 +193,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare($update_sql);
         $stmt->execute([$remarks ?: 'Request rejected due to incomplete requirements.', $req_id]);
 
-        $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message) VALUES (?, ?, ?, ?)");
-        $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Rejected", "Your request was rejected: " . ($remarks ?: 'Requirements incomplete.')]);
+        $office_name = ($req['requester_role'] === 'teacher') ? 'Administrator Office' : 'Office of the Registrar';
+
+        $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, ?)");
+        $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Rejected", "Your request was rejected: " . ($remarks ?: 'Requirements incomplete.'), $office_name]);
 
         // Send Real-Time Email Notification
         $mail_info = '';
@@ -204,7 +208,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $req['request_type_name'],
                 'Rejected',
                 $remarks ?: 'Request rejected due to incomplete requirements.',
-                'Office of the Registrar'
+                $office_name
             );
             if ($m_res['success']) {
                 $mail_info = " &bull; Notice email sent to <strong>{$req['requester_email']}</strong>";
@@ -319,7 +323,7 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
     </div>
   </div>
 
-  <!-- Action Buttons for Registrar & Admin -->
+  <!-- Action Buttons for Registrar & Admin (Unified 3-Button Layout) -->
   <form method="POST" id="action-form" class="details-actions-row" style="flex-wrap: wrap; gap: 10px; align-items: center;">
     <input type="hidden" name="action" id="action-type" value="">
     <input type="hidden" name="remarks" id="action-remarks" value="">
@@ -328,46 +332,231 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
       <div style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #ecfdf5; color: #047857; font-weight: 700; border-radius: 8px; border: 1px solid #a7f3d0; font-size: 0.95rem;">
         ✔ Transaction Completed &amp; Released
       </div>
+    <?php elseif ($req['status'] === 'Rejected'): ?>
+      <div style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #fef2f2; color: #b91c1c; font-weight: 700; border-radius: 8px; border: 1px solid #fecaca; font-size: 0.95rem;">
+        ✕ Request Closed (Rejected)
+      </div>
     <?php else: ?>
-      <?php if ($req['status'] === 'Pending' || $req['status'] === 'Returned for Revision'): ?>
-        <button type="button" class="btn-primary-cta" style="background: #0d9488; padding: 10px 18px; font-size: 0.9rem;" onclick="submitAction('process')">Set to Processing</button>
-      <?php endif; ?>
-
       <?php if ($req['status'] === 'Ready for Release'): ?>
         <button type="button" class="btn-primary-cta" style="background: #059669; padding: 10px 20px; font-size: 0.92rem; font-weight: 700;" onclick="submitAction('complete')">✔ Mark as Completed</button>
-      <?php elseif ($req['status'] !== 'Completed' && $req['status'] !== 'Released'): ?>
+      <?php else: ?>
         <button type="button" class="btn-action-approve" onclick="submitAction('approve')">Mark Ready for Release</button>
       <?php endif; ?>
 
-      <?php if ($user_role === 'admin'): ?>
-        <button type="button" class="btn-action-revise" onclick="submitAction('revise')">Return for Revision</button>
-      <?php endif; ?>
-
-      <button type="button" class="btn-action-reject" onclick="submitAction('reject')">Reject</button>
+      <button type="button" class="btn-action-reject" onclick="openRejectModal()">Reject</button>
     <?php endif; ?>
 
     <a href="<?= $back_url ?>" class="btn-action-back" style="text-decoration: none; display: inline-flex; align-items: center;">Back</a>
   </form>
 </div>
 
+<!-- Reject / Revision Action Modal (Unified for Students & Teachers) -->
+<div id="reject-modal" class="modal-overlay" onclick="handleRejectOverlayClick(event)">
+  <div class="modal-dialog" style="max-width: 560px; padding: 26px 28px; border-radius: 18px;" onclick="event.stopPropagation()">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; border-bottom: 1px solid #f1f5f9; padding-bottom: 14px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 44px; height: 44px; border-radius: 12px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+          ⚠️
+        </div>
+        <div>
+          <h3 style="margin: 0; font-size: 1.18rem; font-weight: 800; color: #0f172a;">Decline / Reject Request</h3>
+          <p style="margin: 3px 0 0 0; font-size: 0.84rem; color: #64748b;">
+            <strong><?= htmlspecialchars($req['tracking_number']) ?></strong> &bull; <?= htmlspecialchars($req['full_name']) ?> (<?= htmlspecialchars($req['request_type_name']) ?>)
+          </p>
+        </div>
+      </div>
+      <button type="button" class="modal-close-btn" onclick="closeRejectModal()" style="position: static; font-size: 1.5rem; line-height: 1; padding: 0; cursor: pointer; color: #94a3b8; background: transparent; border: none;" aria-label="Close modal">&times;</button>
+    </div>
+
+    <!-- Option Selection Cards -->
+    <div style="margin-bottom: 18px;">
+      <label class="form-label" style="font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 8px; display: block;">
+        Piliin ang Aksyon (Action Type) <span style="color: #ef4444;">*</span>
+      </label>
+      
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <!-- Option 1: Reject for Revision -->
+        <label id="card-option-revise" style="display: flex; align-items: flex-start; gap: 12px; padding: 13px 15px; border: 2px solid #ea580c; background: #fff7ed; border-radius: 12px; cursor: pointer; transition: all 0.2s ease;">
+          <input type="radio" name="modal_action_choice" id="choice_revise" value="revise" checked onchange="switchRejectAction('revise')" style="margin-top: 3px; accent-color: #ea580c; width: 17px; height: 17px;">
+          <div style="flex: 1;">
+            <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; color: #c2410c; font-size: 0.93rem;">
+              <span>🔄 Reject for Revision (Return for Revision)</span>
+              <span style="background: #fed7aa; color: #9a3412; font-size: 0.72rem; padding: 2px 7px; border-radius: 5px; font-weight: 800;">RECOMMENDED</span>
+            </div>
+            <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: #9a3412; line-height: 1.45;">
+              Ibabalik ang request sa <?= strtolower($req['requester_role']) ?> upang makapag-upload o makapag-ayos siya ng mga kailangang dokumento gamit ang <strong>"Edit"</strong> button sa kanyang dashboard.
+            </p>
+          </div>
+        </label>
+
+        <!-- Option 2: Permanent Rejection -->
+        <label id="card-option-reject" style="display: flex; align-items: flex-start; gap: 12px; padding: 13px 15px; border: 1.5px solid #cbd5e1; background: #f8fafc; border-radius: 12px; cursor: pointer; transition: all 0.2s ease;">
+          <input type="radio" name="modal_action_choice" id="choice_reject" value="reject" onchange="switchRejectAction('reject')" style="margin-top: 3px; accent-color: #dc2626; width: 17px; height: 17px;">
+          <div style="flex: 1;">
+            <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; color: #334155; font-size: 0.93rem;">
+              <span>❌ Permanent Rejection (Diretsong Reject)</span>
+            </div>
+            <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: #64748b; line-height: 1.45;">
+              Tuluyang tatanggihan at isasara ang request na ito (halimbawa: ineligible, pekeng dokumento, o hindi pinapayagang transaksyon). Hindi na ito mabubuksan pa muli.
+            </p>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Reason / Note Field -->
+    <div style="margin-bottom: 18px;">
+      <label class="form-label" style="font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 6px; display: block;">
+        <span id="note-label-text">Revision Instructions / Note para sa Requester</span> <span style="color: #ef4444;">*</span>
+      </label>
+      <textarea id="modal_remarks_input" class="form-control" rows="3" placeholder="Ilagay ang tagubilin o kulang na dokumento para sa requester..." style="width: 100%; border-radius: 10px; font-size: 0.88rem; padding: 10px 12px; box-sizing: border-box; resize: vertical; border: 1.5px solid #cbd5e1; line-height: 1.45;"></textarea>
+
+      <!-- Quick Note Suggestion Chips -->
+      <div style="margin-top: 8px;">
+        <div style="font-size: 0.74rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px;">Mabilisang Piliin (Quick Presets):</div>
+        <div id="quick-chips-container" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+      </div>
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+      <button type="button" class="btn-action-back" onclick="closeRejectModal()" style="padding: 9px 18px; font-size: 0.88rem;">Cancel</button>
+      <button type="button" id="modal-submit-action-btn" class="btn-action-revise" onclick="submitModalAction()" style="padding: 9px 22px; font-size: 0.88rem; font-weight: 700; background: #e67e22; color: #ffffff; border: none; border-radius: 10px; cursor: pointer;">
+        🔄 Submit Return for Revision
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
-function submitAction(type) {
-  const form = document.getElementById('action-form');
-  const actionInput = document.getElementById('action-type');
-  const remarksInput = document.getElementById('action-remarks');
+function openRejectModal() {
+  const modal = document.getElementById('reject-modal');
+  if (modal) {
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+    switchRejectAction('revise');
+    setTimeout(() => {
+      const input = document.getElementById('modal_remarks_input');
+      if (input) input.focus();
+    }, 100);
+  }
+}
 
-  actionInput.value = type;
+function closeRejectModal() {
+  const modal = document.getElementById('reject-modal');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+}
 
-  if (type === 'reject') {
-    const reason = prompt('Please enter reason for rejection:', 'Incomplete supporting documents.');
-    if (reason === null) return;
-    remarksInput.value = reason;
-  } else if (type === 'revise') {
-    const reason = prompt('Please enter revision instructions for requester:', 'Please re-upload a clear photocopy of your ID.');
-    if (reason === null) return;
-    remarksInput.value = reason;
+function handleRejectOverlayClick(e) {
+  if (e.target && e.target.id === 'reject-modal') {
+    closeRejectModal();
+  }
+}
+
+const revisionPresets = [
+  "Incomplete supporting documents. Please upload the missing requirement.",
+  "Blurry or unreadable document copy. Please re-upload a clear copy.",
+  "Valid School ID / Government-issued ID required.",
+  "Formal Request Letter addressed to the Registrar / Admin required.",
+  "Please provide section, school year, and specific purpose in notes."
+];
+
+const rejectPresets = [
+  "Request does not meet institutional guidelines or eligibility criteria.",
+  "Incorrect document type requested. Please submit a new request.",
+  "Invalid credentials or school record not found.",
+  "Duplicate request already being processed."
+];
+
+function switchRejectAction(type) {
+  const cardRevise = document.getElementById('card-option-revise');
+  const cardReject = document.getElementById('card-option-reject');
+  const radioRevise = document.getElementById('choice_revise');
+  const radioReject = document.getElementById('choice_reject');
+  const submitBtn = document.getElementById('modal-submit-action-btn');
+  const noteLabel = document.getElementById('note-label-text');
+  const remarksInput = document.getElementById('modal_remarks_input');
+
+  if (type === 'revise') {
+    radioRevise.checked = true;
+    cardRevise.style.border = '2px solid #ea580c';
+    cardRevise.style.background = '#fff7ed';
+    cardReject.style.border = '1.5px solid #cbd5e1';
+    cardReject.style.background = '#f8fafc';
+
+    submitBtn.className = 'btn-action-revise';
+    submitBtn.style.background = '#e67e22';
+    submitBtn.innerHTML = '🔄 Submit Return for Revision';
+    noteLabel.innerHTML = 'Revision Instructions / Note para sa Requester';
+    remarksInput.placeholder = 'Ilagay ang tagubilin o kulang na dokumento para sa requester...';
+
+    renderChips(revisionPresets);
+  } else {
+    radioReject.checked = true;
+    cardReject.style.border = '2px solid #dc2626';
+    cardReject.style.background = '#fef2f2';
+    cardRevise.style.border = '1.5px solid #cbd5e1';
+    cardRevise.style.background = '#f8fafc';
+
+    submitBtn.className = 'btn-action-reject';
+    submitBtn.style.background = '#dc2626';
+    submitBtn.innerHTML = '❌ Confirm Permanent Rejection';
+    noteLabel.innerHTML = 'Official Reason for Rejection';
+    remarksInput.placeholder = 'Ilagay ang opisyal na dahilan kung bakit tinanggihan ang request...';
+
+    renderChips(rejectPresets);
+  }
+}
+
+function renderChips(presets) {
+  const container = document.getElementById('quick-chips-container');
+  if (!container) return;
+  container.innerHTML = '';
+  presets.forEach(text => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.textContent = text;
+    chip.style.cssText = 'background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 10px; font-size: 0.76rem; color: #334155; cursor: pointer; text-align: left; transition: all 0.15s ease;';
+    chip.onmouseover = () => { chip.style.background = '#e2e8f0'; chip.style.borderColor = '#94a3b8'; };
+    chip.onmouseout = () => { chip.style.background = '#f1f5f9'; chip.style.borderColor = '#cbd5e1'; };
+    chip.onclick = () => {
+      const textarea = document.getElementById('modal_remarks_input');
+      textarea.value = text;
+      textarea.focus();
+    };
+    container.appendChild(chip);
+  });
+}
+
+function submitModalAction() {
+  const radioRevise = document.getElementById('choice_revise');
+  const actionType = radioRevise.checked ? 'revise' : 'reject';
+  const remarks = document.getElementById('modal_remarks_input').value.trim();
+
+  if (!remarks) {
+    alert('Please enter a note / reason for the requester (or click one of the quick presets).');
+    document.getElementById('modal_remarks_input').focus();
+    return;
   }
 
+  const form = document.getElementById('action-form');
+  document.getElementById('action-type').value = actionType;
+  document.getElementById('action-remarks').value = remarks;
+
+  closeRejectModal();
+  form.submit();
+}
+
+function submitAction(type) {
+  if (type === 'reject') {
+    openRejectModal();
+    return;
+  }
+  const form = document.getElementById('action-form');
+  document.getElementById('action-type').value = type;
   form.submit();
 }
 </script>

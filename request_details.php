@@ -8,7 +8,7 @@ if ($user_role !== 'admin' && $user_role !== 'registrar') {
 }
 
 $req_id = (int)($_GET['id'] ?? 0);
-$stmt = $pdo->prepare("SELECT r.*, u.full_name, u.email as requester_email, u.role as requester_role, rt.name as request_type_name 
+$stmt = $pdo->prepare("SELECT r.*, u.full_name, u.email as requester_email, u.role as requester_role, rt.name as request_type_name, rt.code as request_type_code 
     FROM requests r
     JOIN users u ON r.user_id = u.id
     JOIN request_types rt ON r.request_type_id = rt.id
@@ -311,7 +311,34 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
       $req['request_type_name'] === 'Certificate of Rating' || 
       strpos($req['additional_notes'] ?? '', '[3-Year Performance Ratings]') !== false
   );
+  $has_f137_info = (
+      ($req['request_type_code'] ?? '') === 'F137' || 
+      strpos($req['additional_notes'] ?? '', '[Form 137 Student Records Info]') !== false
+  );
   ?>
+
+  <?php if ($has_f137_info): ?>
+    <!-- Dedicated Form 137 Student Records Panel for Registrar -->
+    <div style="background: #eff6ff; border: 2px solid #93c5fd; border-radius: 14px; padding: 20px 22px; margin-bottom: 22px; box-shadow: 0 4px 15px rgba(30, 64, 175, 0.05);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid #bfdbfe; padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.6rem;">📁</span>
+          <div>
+            <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #1e40af;">Form 137 / SF10 Student Record Locator</h3>
+            <p style="margin: 2px 0 0 0; font-size: 0.82rem; color: #2563eb;">
+              Impormasyon para sa mabilis na paghahanap ng rekord sa archives ng Registrar:
+            </p>
+          </div>
+        </div>
+        <span style="background: #1e40af; color: #ffffff; font-size: 0.78rem; font-weight: 800; padding: 4px 12px; border-radius: 20px;">
+          Student Archive Search
+        </span>
+      </div>
+      <div style="white-space: pre-line; font-size: 0.92rem; color: #1e3a8a; line-height: 1.6; background: #ffffff; padding: 14px 18px; border-radius: 10px; border: 1px solid #bfdbfe;">
+        <?= htmlspecialchars($req['additional_notes']) ?>
+      </div>
+    </div>
+  <?php endif; ?>
 
   <?php if ($has_cr_ratings): ?>
     <!-- Dedicated 3-Year Performance Ratings Verification Panel for Admin -->
@@ -451,7 +478,7 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
       <textarea id="modal_remarks_input" class="form-control" rows="3" placeholder="Ilagay ang tagubilin o kulang na dokumento para sa requester..." style="width: 100%; border-radius: 10px; font-size: 0.88rem; padding: 10px 12px; box-sizing: border-box; resize: vertical; border: 1.5px solid #cbd5e1; line-height: 1.45;"></textarea>
 
       <!-- Quick Note Suggestion Chips -->
-      <div style="margin-top: 8px;">
+      <div id="quick-presets-wrapper" style="margin-top: 8px;">
         <div style="font-size: 0.74rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 5px;">Mabilisang Piliin (Quick Presets):</div>
         <div id="quick-chips-container" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
       </div>
@@ -497,40 +524,43 @@ function handleRejectOverlayClick(e) {
 
 const isCR = <?= $has_cr_ratings ? 'true' : 'false' ?>;
 const isTeacher = <?= ($req['requester_role'] === 'teacher') ? 'true' : 'false' ?>;
+const docCode = <?= json_encode($req['request_type_code'] ?? '') ?>;
+const isGMC = (docCode === 'GMC' || <?= (stripos($req['request_type_name'], 'Good Moral') !== false) ? 'true' : 'false' ?>);
 
 let revisionPresets = [];
-if (isCR) {
-  revisionPresets = [
-    "Rating Discrepancy: Mali ang ipinasang 3-year rating points. Mangyaring makipag-ugnayan sa inyong Subject o Head Coordinator para makuha ang inyong official final rating bago mag-request muli."
-  ];
-} else if (isTeacher) {
-  revisionPresets = [
-    "Blurry or unreadable document copy. Please re-upload a clear copy.",
-    "Mangyaring linawin ang inclusive school years / dates at tiyak na layunin sa notes.",
-    "Department Head endorsement o official clearance kinakailangan."
-  ];
-} else {
-  revisionPresets = [
-    "Incomplete supporting documents. Please upload the missing requirement.",
-    "Blurry or unreadable document copy. Please re-upload a clear copy.",
-    "Valid School ID / Government-issued ID required.",
-    "Formal Request Letter addressed to the Registrar / Admin required.",
-    "Please provide section, school year, and specific purpose in notes."
-  ];
-}
-
 let rejectPresets = [];
+
 if (isTeacher) {
-  rejectPresets = [
-    "Duplicate request already being processed."
-  ];
+  // Admin (Teacher requests)
+  // For Certificate of Rating, show only Rating Discrepancy preset for revision
+  if (isCR) {
+    revisionPresets = [
+      "Rating Discrepancy: Mali ang ipinasang 3-year rating points. Mangyaring makipag-ugnayan sa inyong Subject o Head Coordinator para makuha ang inyong official final rating bago mag-request muli."
+    ];
+  } else {
+    // COE, Service Record, and other faculty requests: no presets (admin types custom remarks)
+    revisionPresets = [];
+  }
+  // Permanent rejection for Admin has NO presets (admin types custom remarks)
+  rejectPresets = [];
 } else {
-  rejectPresets = [
-    "Request does not meet institutional guidelines or eligibility criteria.",
-    "Incorrect document type requested. Please submit a new request.",
-    "Invalid credentials or school record not found.",
-    "Duplicate request already being processed."
-  ];
+  // Registrar (Student requests)
+  if (isGMC) {
+    // Good Moral Certificate has NO presets in both revision and rejection as instructed
+    revisionPresets = [];
+    rejectPresets = [];
+  } else {
+    // Other student requests (Form 137, Certificate of Grades, Certificate of Enrollment)
+    revisionPresets = [
+      "Blurry or unreadable document copy. Please re-upload a clear copy.",
+      "Formal Request Letter addressed to the Registrar / Admin required.",
+      "Please provide section, school year, and specific purpose in notes."
+    ];
+    rejectPresets = [
+      "Incorrect document type requested. Please submit a new request.",
+      "Duplicate request already being processed."
+    ];
+  }
 }
 
 function switchRejectAction(type) {
@@ -553,7 +583,7 @@ function switchRejectAction(type) {
     submitBtn.style.background = '#e67e22';
     submitBtn.innerHTML = '🔄 Submit Return for Revision';
     noteLabel.innerHTML = 'Revision Instructions / Note para sa Requester';
-    remarksInput.placeholder = 'Ilagay ang tagubilin o kulang na dokumento para sa requester...';
+    remarksInput.placeholder = 'Ilagay ang tagubilin o kulang na detalye para sa requester...';
 
     renderChips(revisionPresets);
   } else {
@@ -575,8 +605,16 @@ function switchRejectAction(type) {
 
 function renderChips(presets) {
   const container = document.getElementById('quick-chips-container');
+  const wrapper = document.getElementById('quick-presets-wrapper');
   if (!container) return;
   container.innerHTML = '';
+
+  if (!presets || presets.length === 0) {
+    if (wrapper) wrapper.style.display = 'none';
+    return;
+  }
+
+  if (wrapper) wrapper.style.display = 'block';
   presets.forEach(text => {
     const chip = document.createElement('button');
     chip.type = 'button';
@@ -591,6 +629,7 @@ function renderChips(presets) {
     };
     container.appendChild(chip);
   });
+}
 }
 
 function submitModalAction() {

@@ -73,6 +73,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    // Special validation & processing for Form 137 / SF10
+    if ($doc_code === 'F137') {
+        $recent_sec = trim($_POST['f137_recent_section'] ?? '');
+        $grad_yr = trim($_POST['f137_year_graduated'] ?? '');
+        $trans_school = trim($_POST['f137_transferee_school'] ?? '');
+
+        if (empty($recent_sec) || empty($grad_yr) || empty($trans_school)) {
+            $error_msg = 'Please fill in your Recent Section, Year Graduated / Last SY, and Specific School / Transferee University for Form 137 processing.';
+        } else {
+            $f137_summary = "[Form 137 Student Records Info]\n"
+                . "• Recent Section: " . $recent_sec . "\n"
+                . "• Year Graduated / Last SY: " . $grad_yr . "\n"
+                . "• Specific School / Transferee University: " . $trans_school;
+
+            $notes = empty($notes) ? $f137_summary : $f137_summary . "\n\nAdditional Notes: " . $notes;
+        }
+    }
+
     if (empty($error_msg) && ($doc_type_id <= 0 || empty($purpose))) {
         $error_msg = 'Please select a document type and fill in the purpose.';
     } elseif (empty($error_msg)) {
@@ -387,11 +405,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <?php endif; ?>
     </div>
 
-    <div class="form-group">
+    <!-- Form 137 Dedicated Student Record Inputs (Shown only when Form 137 is selected) -->
+    <div id="f137-fields-group" style="display: none; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 18px 20px; margin-bottom: 22px;">
+      <div style="font-weight: 800; color: #166534; font-size: 0.98rem; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+        <span>📁</span> Form 137 / SF10 Student Information <span style="font-size: 0.75rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 6px;">Required by Registrar</span>
+      </div>
+      <p style="font-size: 0.82rem; color: #166534; margin: 0 0 14px 0; line-height: 1.45;">
+        Kinakailangan ng Registrar ang mga impormasyong ito upang mabilis at tumpak na mahanap ang inyong permanent student record sa school archives:
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+        <div>
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Recent Section (Grade &amp; Section) <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="f137_recent_section" 
+            id="f137_recent_section" 
+            class="form-control" 
+            placeholder="e.g., Grade 10 - Einstein / Grade 12 - STEM 1"
+            style="background: #ffffff;"
+          />
+        </div>
+
+        <div>
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Year Graduated / Last SY Attended <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="f137_year_graduated" 
+            id="f137_year_graduated" 
+            class="form-control" 
+            placeholder="e.g., 2024 / SY 2023–2024"
+            style="background: #ffffff;"
+          />
+        </div>
+
+        <div style="grid-column: 1 / -1;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Specific School / Transferee University <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="f137_transferee_school" 
+            id="f137_transferee_school" 
+            class="form-control" 
+            placeholder="e.g., PUP Manila, UST, Taguig City University, etc."
+            style="background: #ffffff;"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div id="general-notes-group" class="form-group">
       <label class="form-label"><?= $notes_label ?></label>
       <input 
         type="text" 
         name="notes" 
+        id="general_notes_input"
         class="form-control" 
         placeholder="<?= htmlspecialchars($notes_placeholder) ?>" 
       />
@@ -517,6 +590,10 @@ function updateRequirements(select) {
     box.style.background = '#f8fafc';
     box.innerHTML = '<span style="color: #94a3b8; font-size: 0.9rem;">Select a document type to view the requirements and guidelines</span>';
     if (ratingsSection) ratingsSection.style.display = 'none';
+    const f137Group = document.getElementById('f137-fields-group');
+    const generalNotes = document.getElementById('general-notes-group');
+    if (f137Group) f137Group.style.display = 'none';
+    if (generalNotes) generalNotes.style.display = 'block';
     return;
   }
 
@@ -570,6 +647,27 @@ function updateRequirements(select) {
       if (r2) r2.required = false;
       if (r3) r3.required = false;
     }
+  }
+
+  // Toggle Form 137 specific inputs vs general notes
+  const f137Group = document.getElementById('f137-fields-group');
+  const generalNotes = document.getElementById('general-notes-group');
+  const fSec = document.getElementById('f137_recent_section');
+  const fYr = document.getElementById('f137_year_graduated');
+  const fSch = document.getElementById('f137_transferee_school');
+
+  if (code === 'F137') {
+    if (f137Group) f137Group.style.display = 'block';
+    if (generalNotes) generalNotes.style.display = 'none';
+    if (fSec) fSec.required = true;
+    if (fYr) fYr.required = true;
+    if (fSch) fSch.required = true;
+  } else {
+    if (f137Group) f137Group.style.display = 'none';
+    if (generalNotes) generalNotes.style.display = 'block';
+    if (fSec) fSec.required = false;
+    if (fYr) fYr.required = false;
+    if (fSch) fSch.required = false;
   }
 }
 

@@ -84,8 +84,9 @@ echo "</div>";
 echo "<div style='background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;'>";
 echo "<h3 style='margin: 0 0 8px 0; color: #166534; font-size: 0.95rem;'>Mga Na-update:</h3>";
 echo "<ul style='margin: 0; padding-left: 20px; color: #15803d; font-size: 0.88rem; line-height: 1.6;'>";
-echo "<li><strong>Certificate of Rating Re-submission (edit_request.php):</strong> Inalis ang file attachment requirement para sa Certificate of Rating. Mayroon nang 3-Year Performance Ratings inputs para ma-edit at ma-submit ang tamang points nang walang error.</li>";
-echo "<li><strong>Teacher Decline / Reject Modal (request_details.php):</strong> Inalis ang student-specific reasons sa Permanent Rejection at Return for Revision para sa guro. Pinanatili ang angkop na presets (Rating Discrepancy, Duplicate request).</li>";
+echo "<li><strong>Admin / Teacher Reject Presets (request_details.php):</strong> Inalis ang quick presets sa Permanent Rejection (admin na ang maglalagay). Sa COE at Service Record, inalis din ang presets sa Return for Revision. Sa Certificate of Rating, tanging Rating Discrepancy lamang ang nakalagay.</li>";
+echo "<li><strong>Registrar / Student Reject Presets (request_details.php):</strong> Sa Good Moral Certificate, inalis lahat ng presets sa Revision at Permanent Rejection. Sa ibang student requests, inalis ang Valid ID at Incomplete Docs sa revision, at inalis ang Record Not Found at Institutional Guidelines sa rejection.</li>";
+echo "<li><strong>Form 137 Student Locator (submit_request.php &amp; details):</strong> Pinalitan ang additional notes ng required fields: Recent Section, Year Graduated / Last SY, at Specific School / Transferee University para mabilis mahanap ng Registrar ang student records.</li>";
 echo "</ul></div>";
 
 echo "<div style='display: flex; gap: 12px; flex-wrap: wrap;'>";

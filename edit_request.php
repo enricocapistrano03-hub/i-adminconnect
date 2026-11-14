@@ -63,6 +63,20 @@ $is_cr = (($req['request_type_code'] ?? '') === 'CR'
     || stripos($req['request_type_name'] ?? '', 'Rating') !== false 
     || strpos($req['additional_notes'] ?? '', '[3-Year Performance Ratings]') !== false);
 
+// Detect if this is Form 137 / SF10
+$is_f137 = (($req['request_type_code'] ?? '') === 'F137'
+    || ($req['request_type_name'] ?? '') === 'Form 137 / SF10'
+    || strpos($req['additional_notes'] ?? '', '[Form 137 Student Records Info]') !== false);
+
+$f137_sec = '';
+$f137_yr = '';
+$f137_sch = '';
+if ($is_f137 && !empty($req['additional_notes'])) {
+    if (preg_match('/•\s*Recent Section:\s*([^\n]+)/u', $req['additional_notes'], $m)) $f137_sec = trim($m[1]);
+    if (preg_match('/•\s*Year Graduated[^:]*:\s*([^\n]+)/u', $req['additional_notes'], $m)) $f137_yr = trim($m[1]);
+    if (preg_match('/•\s*Specific School[^:]*:\s*([^\n]+)/u', $req['additional_notes'], $m)) $f137_sch = trim($m[1]);
+}
+
 // Extract pre-filled 3-year performance ratings if available
 $cr_sy1 = '2022–2023'; $cr_r1 = '';
 $cr_sy2 = '2023–2024'; $cr_r2 = '';
@@ -79,6 +93,8 @@ if ($is_cr && !empty($req['additional_notes'])) {
 // Dynamic page title
 if ($is_cr) {
     $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update Ratings</div><h1>Resubmit Rating Details</h1><p>Update your 3-Year Performance Ratings for administrative verification.</p>';
+} elseif ($is_f137) {
+    $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update Form 137 Info</div><h1>Update Form 137 Details</h1><p>Update your school and section details requested by the registrar.</p>';
 } else {
     $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Re-upload / Edit Document</div><h1>Re-upload Documents</h1><p>Update and resubmit the documents requested by the office.</p>';
 }
@@ -212,12 +228,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (empty($error_msg)) {
-            if (!$has_new_file && empty($uploaded_file_name) && empty($requester_notes)) {
+            $updated_notes = $req['additional_notes'];
+
+            if ($is_f137 && isset($_POST['f137_recent_section'])) {
+                $recent_sec = trim($_POST['f137_recent_section'] ?? '');
+                $grad_yr = trim($_POST['f137_year_graduated'] ?? '');
+                $trans_school = trim($_POST['f137_transferee_school'] ?? '');
+
+                if (!empty($recent_sec) && !empty($grad_yr) && !empty($trans_school)) {
+                    $f137_sec = $recent_sec;
+                    $f137_yr = $grad_yr;
+                    $f137_sch = $trans_school;
+
+                    $f137_summary = "[Form 137 Student Records Info]\n"
+                        . "• Recent Section: " . $recent_sec . "\n"
+                        . "• Year Graduated / Last SY: " . $grad_yr . "\n"
+                        . "• Specific School / Transferee University: " . $trans_school;
+
+                    $cleaned_notes = preg_replace('/\[Form 137 Student Records Info\][\s\S]*?(?=\n\n|\[Revision|$)/u', '', $req['additional_notes'] ?? '');
+                    $cleaned_notes = trim($cleaned_notes);
+
+                    $updated_notes = $f137_summary;
+                    if (!empty($cleaned_notes)) {
+                        $updated_notes .= "\n\n" . $cleaned_notes;
+                    }
+                }
+            }
+
+            if (!$has_new_file && empty($uploaded_file_name) && empty($requester_notes) && !$is_f137) {
                 $error_msg = "Please attach the required document or provide explanation notes for revision.";
             } else {
-                $updated_notes = $req['additional_notes'];
                 if (!empty($requester_notes)) {
-                    $updated_notes = trim(($req['additional_notes'] ? $req['additional_notes'] . "\n" : '') . "[Revision " . date('m/d/Y') . "]: " . $requester_notes);
+                    $updated_notes = trim(($updated_notes ? $updated_notes . "\n" : '') . "[Revision " . date('m/d/Y') . "]: " . $requester_notes);
                 }
             }
         }
@@ -454,6 +496,68 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
         </div>
       </div>
     <?php else: ?>
+      <?php if ($is_f137): ?>
+        <!-- Form 137 Dedicated Student Record Inputs -->
+        <div style="background: #eff6ff; border: 1.5px solid #93c5fd; border-radius: 12px; padding: 18px 20px; margin-bottom: 22px;">
+          <div style="font-weight: 800; color: #1e40af; font-size: 0.98rem; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+            <span>📁</span> Form 137 / SF10 Student Information <span style="font-size: 0.75rem; font-weight: 700; color: #1d4ed8; background: #dbeafe; padding: 2px 8px; border-radius: 6px;">Required by Registrar</span>
+          </div>
+          <p style="font-size: 0.82rem; color: #1e40af; margin: 0 0 14px 0; line-height: 1.45;">
+            Maaari ninyong baguhin o itama ang inyong Recent Section, Taon kung kailan nagtapos, o Transferee School kung kinakailangan:
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #1e40af; margin-bottom: 4px;">
+                Recent Section (Grade &amp; Section) <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="text" 
+                name="f137_recent_section" 
+                id="f137_recent_section" 
+                class="form-control" 
+                value="<?= htmlspecialchars($f137_sec) ?>"
+                placeholder="e.g., Grade 10 - Einstein / Grade 12 - STEM 1"
+                required
+                style="background: #ffffff;"
+              />
+            </div>
+
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #1e40af; margin-bottom: 4px;">
+                Year Graduated / Last SY Attended <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="text" 
+                name="f137_year_graduated" 
+                id="f137_year_graduated" 
+                class="form-control" 
+                value="<?= htmlspecialchars($f137_yr) ?>"
+                placeholder="e.g., 2024 / SY 2023–2024"
+                required
+                style="background: #ffffff;"
+              />
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #1e40af; margin-bottom: 4px;">
+                Specific School / Transferee University <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="text" 
+                name="f137_transferee_school" 
+                id="f137_transferee_school" 
+                class="form-control" 
+                value="<?= htmlspecialchars($f137_sch) ?>"
+                placeholder="e.g., PUP Manila, UST, Taguig City University, etc."
+                required
+                style="background: #ffffff;"
+              />
+            </div>
+          </div>
+        </div>
+      <?php endif; ?>
+
       <!-- File Attachment section for non-CR documents -->
       <div class="form-group">
         <label class="form-label">
@@ -484,13 +588,13 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
         name="requester_notes" 
         class="form-control" 
         rows="3" 
-        placeholder="<?= $is_cr ? 'Halimbawa: Na-check at na-confirm na po sa Head Coordinator ang tamang points...' : 'Explain any corrections made or details requested by the office...' ?>"
+        placeholder="<?= $is_cr ? 'Halimbawa: Na-check at na-confirm na po sa Head Coordinator ang tamang points...' : ($is_f137 ? 'Halimbawa: Na-update na po ang transferee school name...' : 'Explain any corrections made or details requested by the office...') ?>"
       ></textarea>
     </div>
 
     <div style="display: flex; gap: 12px; margin-top: 25px; align-items: center;">
       <button type="submit" class="btn-primary-cta" style="background: #059669; padding: 10px 24px; font-size: 0.95rem;">
-        <?= $is_cr ? '✔ Submit Corrected Ratings' : '✔ Submit Revised Document' ?>
+        <?= $is_cr ? '✔ Submit Corrected Ratings' : ($is_f137 ? '✔ Submit Updated Form 137 Info' : '✔ Submit Revised Document') ?>
       </button>
       <a href="my_requests.php" class="btn-primary-cta" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; box-shadow: none; text-decoration: none; padding: 10px 20px;">
         ✕ Cancel

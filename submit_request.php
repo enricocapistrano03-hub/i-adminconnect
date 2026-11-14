@@ -173,6 +173,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // Enforce strictly required attachment for Form 137 / SF10
+        if ($doc_code === 'F137' && (empty($uploaded_files_list) || empty($uploaded_file_name))) {
+            $error_msg = 'Kailangang mag-attach ng supporting document para sa Form 137 / SF10 (hal. Request Letter mula sa bagong paaralan o Valid ID). Hindi makakapag-proceed ang inyong request kapag walang kalakip na dokumento.';
+        }
+
         if (empty($error_msg)) {
             // Generate next unique tracking number by extracting max numeric suffix
             // This avoids duplicate key errors with seeded data (RQ-001, RQ-010, etc.)
@@ -471,9 +476,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <small style="color: #64748b; font-size: 0.78rem; display: block; margin-top: 4px;"><?= $notes_hint ?></small>
     </div>
 
-    <div class="form-group">
-      <label class="form-label">
-        Attach Supporting Document(s) <span style="font-weight: normal; color: #64748b;">(Optional — Pwede mag-attach ng kahit ilan / Multiple Documents)</span>
+    <div class="form-group" id="attachment-form-group">
+      <label class="form-label" id="attachment-label">
+        Attach Supporting Document(s) <span id="attachment-optional-badge" style="font-weight: normal; color: #64748b;">(Optional — Pwede mag-attach ng kahit ilan / Multiple Documents)</span>
       </label>
       <div style="display: flex; align-items: center; gap: 12px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 14px; flex-wrap: wrap;">
         <label for="attachment" style="background: #e2e8f0; border: 1px solid #cbd5e1; padding: 8px 18px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; cursor: pointer; color: #1e293b; display: inline-flex; align-items: center; gap: 6px;">
@@ -483,7 +488,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <span id="file-chosen-text" style="font-size: 0.9rem; color: #64748b;">No file selected (Optional). Pwede pumili ng higit sa isang dokumento.</span>
       </div>
       <div id="file-list-preview" style="display: none; margin-top: 10px; gap: 6px; flex-wrap: wrap;"></div>
-      <small style="color: #64748b; font-size: 0.78rem; display: block; margin-top: 6px;">
+      <small id="attachment-hint-text" style="color: #64748b; font-size: 0.78rem; display: block; margin-top: 6px;">
         Uploading files is optional. Maaari kang mag-attach ng maraming dokumento sabay-sabay (hal. Valid ID, Formal Letter, SF10, Certificates). Allowed formats: PDF, JPG, PNG (hanggang 10MB bawat file).
       </small>
 
@@ -655,6 +660,12 @@ function updateRequirements(select) {
   const fSec = document.getElementById('f137_recent_section');
   const fYr = document.getElementById('f137_year_graduated');
   const fSch = document.getElementById('f137_transferee_school');
+  const attLabel = document.getElementById('attachment-label');
+  const attOptionalBadge = document.getElementById('attachment-optional-badge');
+  const attChosen = document.getElementById('file-chosen-text');
+  const attHint = document.getElementById('attachment-hint-text');
+  const guardText = document.getElementById('smart-guard-text');
+  const guardBox = document.getElementById('smart-guard-box');
 
   if (code === 'F137') {
     if (f137Group) f137Group.style.display = 'block';
@@ -662,12 +673,50 @@ function updateRequirements(select) {
     if (fSec) fSec.required = true;
     if (fYr) fYr.required = true;
     if (fSch) fSch.required = true;
+
+    // Enforce Required in UI for Form 137
+    if (attOptionalBadge) {
+      attOptionalBadge.innerHTML = '<span style="color: #ef4444; font-weight: 800;">*</span> <span style="font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 2px 8px; border-radius: 4px; font-size: 0.78rem;">Required — Mag-attach ng dokumento</span>';
+    }
+    if (attChosen && selectedFiles.length === 0) {
+      attChosen.textContent = 'No file selected yet (Required). Paki-attach ang supporting document.';
+    }
+    if (attHint) {
+      attHint.innerHTML = '<strong style="color: #b91c1c;">Required ang pag-attach ng supporting document para sa Form 137 / SF10:</strong> Mag-attach ng Formal Request Letter mula sa bagong paaralan, Valid School ID, o SF10 Request Form bago mag-submit.';
+    }
+    if (guardText && selectedFiles.length === 0) {
+      guardText.textContent = 'Smart Guard: Required. Please select at least one supporting document (PDF, JPG, PNG - Max 10MB each).';
+      if (guardBox) {
+        guardBox.style.backgroundColor = '#fef3c7';
+        guardBox.style.borderColor = '#fde68a';
+        guardBox.style.color = '#92400e';
+      }
+    }
   } else {
     if (f137Group) f137Group.style.display = 'none';
     if (generalNotes) generalNotes.style.display = 'block';
     if (fSec) fSec.required = false;
     if (fYr) fYr.required = false;
     if (fSch) fSch.required = false;
+
+    // Revert to Optional for other documents
+    if (attOptionalBadge) {
+      attOptionalBadge.innerHTML = '(Optional — Pwede mag-attach ng kahit ilan / Multiple Documents)';
+    }
+    if (attChosen && selectedFiles.length === 0) {
+      attChosen.textContent = 'No file selected (Optional). Pwede pumili ng higit sa isang dokumento.';
+    }
+    if (attHint) {
+      attHint.innerHTML = 'Uploading files is optional. Maaari kang mag-attach ng maraming dokumento sabay-sabay (hal. Valid ID, Formal Letter, SF10, Certificates). Allowed formats: PDF, JPG, PNG (hanggang 10MB bawat file).';
+    }
+    if (guardText && selectedFiles.length === 0) {
+      guardText.textContent = 'Smart Guard: Optional. Supports single or multiple documents. Allowed formats: PDF, JPG, PNG (Max 10MB each).';
+      if (guardBox) {
+        guardBox.style.backgroundColor = '#d1fae5';
+        guardBox.style.borderColor = '#6ee7b7';
+        guardBox.style.color = '#065f46';
+      }
+    }
   }
 }
 
@@ -740,12 +789,22 @@ function syncAndRenderFiles() {
 
   if (selectedFiles.length === 0) {
     input.value = '';
-    label.textContent = 'No file selected (Optional). Pwede pumili ng higit sa isang dokumento.';
     if (preview) { preview.innerHTML = ''; preview.style.display = 'none'; }
-    box.style.backgroundColor = '#d1fae5';
-    box.style.borderColor = '#6ee7b7';
-    box.style.color = '#065f46';
-    text.textContent = 'Smart Guard: Optional. Supports single or multiple documents. Allowed formats: PDF, JPG, PNG (Max 10MB each).';
+    const docTypeSelect = document.getElementById('doc_type_id');
+    const curCode = docTypeSelect ? docTypeSelect.options[docTypeSelect.selectedIndex]?.getAttribute('data-code') : '';
+    if (curCode === 'F137') {
+      label.textContent = 'No file selected yet (Required). Paki-attach ang supporting document.';
+      box.style.backgroundColor = '#fef3c7';
+      box.style.borderColor = '#fde68a';
+      box.style.color = '#92400e';
+      text.textContent = 'Smart Guard: Required. Please select at least one supporting document (PDF, JPG, PNG - Max 10MB each).';
+    } else {
+      label.textContent = 'No file selected (Optional). Pwede pumili ng higit sa isang dokumento.';
+      box.style.backgroundColor = '#d1fae5';
+      box.style.borderColor = '#6ee7b7';
+      box.style.color = '#065f46';
+      text.textContent = 'Smart Guard: Optional. Supports single or multiple documents. Allowed formats: PDF, JPG, PNG (Max 10MB each).';
+    }
     return;
   }
 
@@ -803,11 +862,31 @@ function validateSmartGuard(input) {
   handleFilesSelected(input);
 }
 
-// Ensure all attached files are sanitized right before form submission
+// Ensure all attached files are sanitized right before form submission and validate Form 137
 document.addEventListener('DOMContentLoaded', function() {
   const form = document.querySelector('form');
   if (form) {
-    form.addEventListener('submit', function() {
+    form.addEventListener('submit', function(e) {
+      const docTypeSelect = document.getElementById('doc_type_id');
+      const curCode = docTypeSelect ? docTypeSelect.options[docTypeSelect.selectedIndex]?.getAttribute('data-code') : '';
+
+      // Enforce file attachment for Form 137 / SF10
+      if (curCode === 'F137' && selectedFiles.length === 0) {
+        e.preventDefault();
+        alert('Required po mag-attach ng supporting document para sa Form 137 / SF10 bago makapag-proceed (hal. Formal Request Letter o Valid ID).');
+        const box = document.getElementById('smart-guard-box');
+        const text = document.getElementById('smart-guard-text');
+        if (box && text) {
+          box.style.backgroundColor = '#fee2e2';
+          box.style.borderColor = '#fca5a5';
+          box.style.color = '#b91c1c';
+          text.innerHTML = '<strong>Smart Guard:</strong> Required po mag-attach ng kahit 1 supporting document para sa Form 137 / SF10 bago mag-submit. ❌';
+        }
+        const attGroup = document.getElementById('attachment-form-group');
+        if (attGroup) attGroup.scrollIntoView({ behavior: 'smooth' });
+        return false;
+      }
+
       const input = document.getElementById('attachment');
       if (input && window.DataTransfer && selectedFiles.length > 0) {
         const dt = new DataTransfer();

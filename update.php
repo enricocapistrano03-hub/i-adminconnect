@@ -86,7 +86,7 @@ echo "<h3 style='margin: 0 0 8px 0; color: #166534; font-size: 0.95rem;'>Mga Na-
 echo "<ul style='margin: 0; padding-left: 20px; color: #15803d; font-size: 0.88rem; line-height: 1.6;'>";
 echo "<li><strong>Admin / Teacher Reject Presets (request_details.php):</strong> Inalis ang quick presets sa Permanent Rejection (admin na ang maglalagay). Sa COE at Service Record, inalis din ang presets sa Return for Revision. Sa Certificate of Rating, tanging Rating Discrepancy lamang ang nakalagay.</li>";
 echo "<li><strong>Registrar / Student Reject Presets (request_details.php):</strong> Sa Good Moral Certificate, inalis lahat ng presets sa Revision at Permanent Rejection. Sa ibang student requests, inalis ang Valid ID at Incomplete Docs sa revision, at inalis ang Record Not Found at Institutional Guidelines sa rejection.</li>";
-echo "<li><strong>Form 137 Student Locator (submit_request.php &amp; details):</strong> Pinalitan ang additional notes ng required fields: Recent Section, Year Graduated / Last SY, at Specific School / Transferee University para mabilis mahanap ng Registrar ang student records.</li>";
+echo "<li><strong>Form 137 Student Locator &amp; Required Attachment (submit_request.php):</strong> Pinalitan ang additional notes ng required fields (Recent Section, Year Graduated, Transferee University) at ginawang strictly required ang pag-attach ng dokumento (Request Letter / Valid ID) bago makapag-proceed.</li>";
 echo "</ul></div>";
 
 echo "<div style='display: flex; gap: 12px; flex-wrap: wrap;'>";

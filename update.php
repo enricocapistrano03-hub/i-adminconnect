@@ -84,6 +84,7 @@ echo "</div>";
 echo "<div style='background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;'>";
 echo "<h3 style='margin: 0 0 8px 0; color: #166534; font-size: 0.95rem;'>Mga Na-update:</h3>";
 echo "<ul style='margin: 0; padding-left: 20px; color: #15803d; font-size: 0.88rem; line-height: 1.6;'>";
+echo "<li><strong>Records Archive (records.php):</strong> Agad nang papasok at makikita ang mga requests na minarkahang 'Completed' (kasama ng 'Ready for Release' at 'Released'), may kasama ding Status badge, clickable Ref link, at real-time search bar.</li>";
 echo "<li><strong>Admin / Teacher Reject Presets (request_details.php):</strong> Inalis ang quick presets sa Permanent Rejection (admin na ang maglalagay). Sa COE at Service Record, inalis din ang presets sa Return for Revision. Sa Certificate of Rating, tanging Rating Discrepancy lamang ang nakalagay.</li>";
 echo "<li><strong>Registrar / Student Reject Presets (request_details.php):</strong> Sa Good Moral Certificate, inalis lahat ng presets sa Revision at Permanent Rejection. Sa ibang student requests, inalis ang Valid ID at Incomplete Docs sa revision, at inalis ang Record Not Found at Institutional Guidelines sa rejection.</li>";
 echo "<li><strong>Form 137 Student Locator &amp; Required Attachment (submit_request.php):</strong> Pinalitan ang additional notes ng required fields (Recent Section, Year Graduated, Transferee University) at ginawang strictly required ang pag-attach ng dokumento (Request Letter / Valid ID) bago makapag-proceed.</li>";

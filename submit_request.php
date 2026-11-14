@@ -37,9 +37,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $purpose = trim($_POST['purpose'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
 
-    if ($doc_type_id <= 0 || empty($purpose)) {
+    // Identify selected document type code
+    $doc_code = '';
+    $selected_type_name = '';
+    foreach ($available_types as $t) {
+        if ((int)$t['id'] === $doc_type_id) {
+            $doc_code = $t['code'] ?? '';
+            $selected_type_name = $t['name'] ?? '';
+            break;
+        }
+    }
+
+    // Special validation & processing for Certificate of Rating (CR) - 3-Year Performance Ratings
+    if ($doc_code === 'CR') {
+        $sy1 = trim($_POST['sy_year_1'] ?? '2022–2023');
+        $sy2 = trim($_POST['sy_year_2'] ?? '2023–2024');
+        $sy3 = trim($_POST['sy_year_3'] ?? '2024–2025');
+        $r1 = (float)($_POST['rating_year_1'] ?? 0);
+        $r2 = (float)($_POST['rating_year_2'] ?? 0);
+        $r3 = (float)($_POST['rating_year_3'] ?? 0);
+
+        if ($r1 <= 0 || $r2 <= 0 || $r3 <= 0) {
+            $error_msg = 'Please enter your numerical rating grades for all three (3) School Years (e.g. 4.32, 4.38, 4.40).';
+        } else {
+            $avg_rating = round(($r1 + $r2 + $r3) / 3, 2);
+            $adjectival = ($avg_rating >= 4.50) ? 'Outstanding' : (($avg_rating >= 3.50) ? 'Very Satisfactory' : 'Satisfactory');
+
+            $rating_summary = "[3-Year Performance Ratings]\n"
+                . "• SY {$sy1}: " . number_format($r1, 2) . "\n"
+                . "• SY {$sy2}: " . number_format($r2, 2) . "\n"
+                . "• SY {$sy3}: " . number_format($r3, 2) . "\n"
+                . "• 3-Year Average: " . number_format($avg_rating, 2) . " ({$adjectival})";
+
+            $notes = empty($notes) ? $rating_summary : $rating_summary . "\n\nAdditional Notes: " . $notes;
+        }
+    }
+
+    if (empty($error_msg) && ($doc_type_id <= 0 || empty($purpose))) {
         $error_msg = 'Please select a document type and fill in the purpose.';
-    } else {
+    } elseif (empty($error_msg)) {
         $uploaded_file_name = null;
         $file_size_formatted = null;
         $file_verified = 0;
@@ -128,10 +164,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $now_str = date('F j, Y g:i A');
 
+            // Custom remarks and status for Certificate of Rating (CR) vs general requests
+            $initial_remarks = ($doc_code === 'CR')
+                ? "Awaiting Admin Verification: 3-Year Performance Ratings submitted. Administrator will cross-reference points with official school records."
+                : "Request received. Document is currently being processed and prepared.";
+
             // Automatic status set to 'Processing' (Stage 2 in 4-Stage Tracker) upon submission as requested by the panel
             $insert_sql = "INSERT INTO requests 
                 (tracking_number, user_id, request_type_id, copies, purpose, additional_notes, attached_filename, file_size_kb, file_verified, status, current_stage, stage1_time, stage2_time, remarks) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Processing', 2, ?, ?, 'Request received. Document is currently being processed and prepared.')";
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Processing', 2, ?, ?, ?)";
             $stmt = $pdo->prepare($insert_sql);
             $stmt->execute([
                 $tracking_num,
@@ -144,17 +185,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $file_size_formatted,
                 $file_verified,
                 $now_str,
-                $now_str
+                $now_str,
+                $initial_remarks
             ]);
 
             // Audit log
             $copy_txt = $copies > 1 ? " ({$copies} copies)" : " (1 copy)";
-            log_audit_action($pdo, $user_name, $user_role, "Submitted New Request {$tracking_num}{$copy_txt} (Auto-Set to Processing)");
+            $log_desc = ($doc_code === 'CR')
+                ? "Submitted Certificate of Rating {$tracking_num}{$copy_txt} (3-Yr Ratings Awaiting Admin Verification)"
+                : "Submitted New Request {$tracking_num}{$copy_txt} (Auto-Set to Processing)";
+            log_audit_action($pdo, $user_name, $user_role, $log_desc);
 
             // Fetch request type name for alert
             $stmt = $pdo->prepare("SELECT name FROM request_types WHERE id = ?");
             $stmt->execute([$doc_type_id]);
-            $type_name = $stmt->fetchColumn();
+            $type_name = $stmt->fetchColumn() ?: $selected_type_name;
 
             // Notify Active Registrars (for student) or Admins (for teacher)
             if ($user_role === 'teacher') {
@@ -167,23 +212,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $target_office = 'Office of the Registrar';
             }
 
+            $admin_notif_title = ($doc_code === 'CR') ? "New CR Request - Verify Ratings ({$tracking_num})" : "New Request {$tracking_num} in Processing";
+            $admin_notif_msg = ($doc_code === 'CR')
+                ? "{$user_name} submitted a request for Certificate of Rating. Please cross-reference 3-Year Performance Ratings against records."
+                : "{$user_name} submitted a request for {$type_name}{$copy_txt}. Auto-set to Processing.";
+
             $notif_insert = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, ?)");
             foreach ($staff_stmt->fetchAll() as $staff) {
                 $notif_insert->execute([
                     $staff['id'],
                     $tracking_num,
-                    "New Request {$tracking_num} in Processing",
-                    "{$user_name} submitted a request for {$type_name}{$copy_txt}. Auto-set to Processing.",
+                    $admin_notif_title,
+                    $admin_notif_msg,
                     $target_loc
                 ]);
             }
 
             // In-app notification for requester
+            $req_notif_msg = ($doc_code === 'CR')
+                ? "Your request for Certificate of Rating has been submitted. Your 3-year performance ratings are currently Awaiting Administrative Verification."
+                : "Your request for {$type_name}{$copy_txt} has been submitted to {$target_office} and is now being processed.";
+
             $notif_insert->execute([
                 $user_id,
                 $tracking_num,
                 "Request {$tracking_num} Processing",
-                "Your request for {$type_name}{$copy_txt} has been submitted to {$target_office} and is now being processed.",
+                $req_notif_msg,
                 $target_office
             ]);
 
@@ -193,18 +247,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $u_stmt->execute([$user_id]);
             $u_email = $u_stmt->fetchColumn();
             if (!empty($u_email)) {
+                $email_lead = ($doc_code === 'CR')
+                    ? "Your request for Certificate of Rating has been received and is currently Awaiting Administrative Verification of your 3-year performance ratings by the {$target_office}."
+                    : "Your request has been received and automatically set to Processing by the {$target_office}.";
+
                 send_request_status_email(
                     $u_email,
                     $user_name,
                     $tracking_num,
                     "{$type_name}{$copy_txt}",
                     'Processing',
-                    "Your request has been received and automatically set to Processing by the {$target_office}.",
+                    $email_lead,
                     $target_office
                 );
             }
 
-            $success_msg = "Your request for <strong>{$type_name}</strong>{$copy_txt} &mdash; Tracking: <strong>{$tracking_num}</strong> has been submitted and is now <strong>Processing</strong> by the <strong>{$target_office}</strong>. A confirmation has been sent to your registered email. No fee required.";
+            $success_msg = ($doc_code === 'CR')
+                ? "Your request for <strong>Certificate of Rating</strong>{$copy_txt} &mdash; Tracking: <strong>{$tracking_num}</strong> has been submitted. Your 3-year performance ratings have been recorded and are now <strong>Awaiting Administrative Verification</strong> against official records. A confirmation has been sent to your registered email."
+                : "Your request for <strong>{$type_name}</strong>{$copy_txt} &mdash; Tracking: <strong>{$tracking_num}</strong> has been submitted and is now <strong>Processing</strong> by the <strong>{$target_office}</strong>. A confirmation has been sent to your registered email. No fee required.";
         }
     }
 }
@@ -245,6 +305,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <label class="form-label">Requirements & Guidelines</label>
       <div id="requirements-box" class="form-control" style="background: #f8fafc; min-height: 48px; display: flex; align-items: center;">
         <span style="color: #94a3b8; font-size: 0.9rem;">Select a document type to view the requirements and guidelines</span>
+      </div>
+    </div>
+
+    <!-- Special 3-Year Performance Ratings Panel for Certificate of Rating (CR) -->
+    <div id="ratings-section" style="display: none; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.3rem;">⭐</span>
+          <div>
+            <h4 style="margin: 0; color: #166534; font-size: 0.98rem; font-weight: 800;">3-Year Performance Ratings (IPCRF Points) <span style="color: #ef4444;">*</span></h4>
+            <small style="color: #15803d; font-size: 0.8rem;">Ilagay ang inyong official rating grade para sa 3 magkasunod na School Years. Ibe-verify ito ng Administrator sa school records.</small>
+          </div>
+        </div>
+        <div id="rating-avg-badge" style="background: #166534; color: #ffffff; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.82rem; display: none;">
+          3-Yr Avg: <span id="avg-val">0.00</span>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;">
+        <!-- Year 1 -->
+        <div style="background: #ffffff; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">Year 1 School Year</label>
+          <input type="text" name="sy_year_1" id="sy_year_1" class="form-control" value="2022–2023" placeholder="e.g. 2022–2023" style="font-size: 0.88rem; margin-bottom: 6px;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">Numerical Rating (Points) <span style="color: #ef4444;">*</span></label>
+          <input type="number" step="0.01" min="1.00" max="5.00" name="rating_year_1" id="rating_year_1" class="form-control" placeholder="e.g. 4.32" oninput="calculateRatingAvg()" style="font-size: 0.95rem; font-weight: 700; color: #0f172a;">
+        </div>
+
+        <!-- Year 2 -->
+        <div style="background: #ffffff; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">Year 2 School Year</label>
+          <input type="text" name="sy_year_2" id="sy_year_2" class="form-control" value="2023–2024" placeholder="e.g. 2023–2024" style="font-size: 0.88rem; margin-bottom: 6px;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">Numerical Rating (Points) <span style="color: #ef4444;">*</span></label>
+          <input type="number" step="0.01" min="1.00" max="5.00" name="rating_year_2" id="rating_year_2" class="form-control" placeholder="e.g. 4.38" oninput="calculateRatingAvg()" style="font-size: 0.95rem; font-weight: 700; color: #0f172a;">
+        </div>
+
+        <!-- Year 3 -->
+        <div style="background: #ffffff; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">Year 3 School Year</label>
+          <input type="text" name="sy_year_3" id="sy_year_3" class="form-control" value="2024–2025" placeholder="e.g. 2024–2025" style="font-size: 0.88rem; margin-bottom: 6px;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">Numerical Rating (Points) <span style="color: #ef4444;">*</span></label>
+          <input type="number" step="0.01" min="1.00" max="5.00" name="rating_year_3" id="rating_year_3" class="form-control" placeholder="e.g. 4.40" oninput="calculateRatingAvg()" style="font-size: 0.95rem; font-weight: 700; color: #0f172a;">
+        </div>
+      </div>
+
+      <div style="margin-top: 10px; font-size: 0.8rem; color: #166534; display: flex; align-items: flex-start; gap: 6px; line-height: 1.45;">
+        <span>ℹ️</span> <em>Paalala: I-ve-verify ng Administrator ang inyong ratings sa official records. Kapag may discrepancy, mare-reject ito for revision upang makipag-coordinate kayo sa inyong Subject/Head Coordinator bago mag-request muli.</em>
       </div>
     </div>
 
@@ -351,7 +457,7 @@ const docGuidance = {
     badge: 'Faculty Guide',
     badgeColor: '#1e40af',
     badgeBg: '#dbeafe',
-    text: '<strong>Certificate of Rating:</strong> Specify the exact School Year(s) and IPCRF rating period (e.g., SY 2023–2024, SY 2024–2025) and submission purpose (e.g., Promotion, ERF Reclassification).'
+    text: '<strong>Certificate of Rating:</strong> Required na ilagay ang inyong numerical rating grade para sa 3 magkasunod na School Years sa lalabas na panel sa ibaba. Ibe-verify ito ng Administrator sa official school records bago i-release.'
   },
 
   // Student Documents
@@ -381,14 +487,37 @@ const docGuidance = {
   }
 };
 
+function calculateRatingAvg() {
+  const r1 = parseFloat(document.getElementById('rating_year_1').value) || 0;
+  const r2 = parseFloat(document.getElementById('rating_year_2').value) || 0;
+  const r3 = parseFloat(document.getElementById('rating_year_3').value) || 0;
+  const badge = document.getElementById('rating-avg-badge');
+  const avgVal = document.getElementById('avg-val');
+
+  if (r1 > 0 && r2 > 0 && r3 > 0) {
+    const avg = ((r1 + r2 + r3) / 3).toFixed(2);
+    let desc = 'Satisfactory';
+    if (avg >= 4.50) desc = 'Outstanding';
+    else if (avg >= 3.50) desc = 'Very Satisfactory';
+    else if (avg < 2.50) desc = 'Unsatisfactory';
+
+    if (avgVal) avgVal.textContent = `${avg} (${desc})`;
+    if (badge) badge.style.display = 'inline-block';
+  } else {
+    if (badge) badge.style.display = 'none';
+  }
+}
+
 function updateRequirements(select) {
   const selectedOption = select.options[select.selectedIndex];
   const box = document.getElementById('requirements-box');
+  const ratingsSection = document.getElementById('ratings-section');
   
   if (!select.value) {
     box.className = 'form-control';
     box.style.background = '#f8fafc';
     box.innerHTML = '<span style="color: #94a3b8; font-size: 0.9rem;">Select a document type to view the requirements and guidelines</span>';
+    if (ratingsSection) ratingsSection.style.display = 'none';
     return;
   }
 
@@ -421,6 +550,28 @@ function updateRequirements(select) {
   }
 
   box.innerHTML = html;
+
+  // Toggle 3-Year Ratings input section for Certificate of Rating (CR)
+  if (ratingsSection) {
+    if (code === 'CR') {
+      ratingsSection.style.display = 'block';
+      const r1 = document.getElementById('rating_year_1');
+      const r2 = document.getElementById('rating_year_2');
+      const r3 = document.getElementById('rating_year_3');
+      if (r1) r1.required = true;
+      if (r2) r2.required = true;
+      if (r3) r3.required = true;
+      calculateRatingAvg();
+    } else {
+      ratingsSection.style.display = 'none';
+      const r1 = document.getElementById('rating_year_1');
+      const r2 = document.getElementById('rating_year_2');
+      const r3 = document.getElementById('rating_year_3');
+      if (r1) r1.required = false;
+      if (r2) r2.required = false;
+      if (r3) r3.required = false;
+    }
+  }
 }
 
 let selectedFiles = [];

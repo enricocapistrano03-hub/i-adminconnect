@@ -306,6 +306,45 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
     <?php endif; ?>
   </div>
 
+  <?php 
+  $has_cr_ratings = (
+      $req['request_type_name'] === 'Certificate of Rating' || 
+      strpos($req['additional_notes'] ?? '', '[3-Year Performance Ratings]') !== false
+  );
+  ?>
+
+  <?php if ($has_cr_ratings): ?>
+    <!-- Dedicated 3-Year Performance Ratings Verification Panel for Admin -->
+    <div style="background: #f0fdf4; border: 2px solid #86efac; border-radius: 14px; padding: 20px 22px; margin-bottom: 22px; box-shadow: 0 4px 15px rgba(22, 101, 52, 0.06);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid #bbf7d0; padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.6rem;">⭐</span>
+          <div>
+            <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #166534;">3-Year Performance Ratings Verification (IPCRF Points)</h3>
+            <p style="margin: 2px 0 0 0; font-size: 0.82rem; color: #15803d;">
+              Ipinasang rating points ng guro para sa Certificate of Rating:
+            </p>
+          </div>
+        </div>
+        <span style="background: #166534; color: #ffffff; font-size: 0.78rem; font-weight: 800; padding: 4px 12px; border-radius: 20px;">
+          Verification Required
+        </span>
+      </div>
+
+      <!-- Ratings Breakdown Box -->
+      <div style="background: #ffffff; border: 1.5px solid #bbf7d0; border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; font-size: 0.92rem; color: #0f172a; white-space: pre-line; line-height: 1.7; border-left: 4px solid #16a34a;">
+<?= htmlspecialchars($req['additional_notes']) ?>
+      </div>
+
+      <!-- Admin Action Instructions -->
+      <div style="background: #ffffff; border: 1px solid #fed7aa; border-left: 4px solid #ea580c; border-radius: 8px; padding: 10px 14px; font-size: 0.83rem; color: #7c2d12; line-height: 1.5;">
+        <strong>🔍 Administrator Action Guide:</strong><br>
+        • <strong>Kung TAMA ang points:</strong> I-click ang <strong>"Mark Ready for Release"</strong>.<br>
+        • <strong>Kung MALI ang points:</strong> I-click ang <strong>"Reject"</strong> ➔ piliin ang <strong>"Reject for Revision"</strong>. I-note na kailangan makipag-coordinate sa kanilang <em>Subject or Head Coordinator</em> para sa kanilang final rating bago mag-request muli.
+      </div>
+    </div>
+  <?php endif; ?>
+
   <?php if ($has_real_attachment): ?>
     <!-- Smart Guard Verification Alert (Shown ONLY when supporting file(s) were actually uploaded) -->
     <div class="smart-guard-box" style="background: #ecfdf5; border-color: #a7f3d0; margin-bottom: 15px;">
@@ -456,7 +495,13 @@ function handleRejectOverlayClick(e) {
   }
 }
 
-const revisionPresets = [
+const isCR = <?= $has_cr_ratings ? 'true' : 'false' ?>;
+const revisionPresets = isCR ? [
+  "Rating Discrepancy: Mali ang ipinasang 3-year rating points. Mangyaring makipag-ugnayan sa inyong Subject o Head Coordinator para makuha ang inyong official final rating bago mag-request muli.",
+  "Incomplete supporting documents. Please upload the missing requirement.",
+  "Blurry or unreadable document copy. Please re-upload a clear copy.",
+  "Valid School ID / Government-issued ID required."
+] : [
   "Incomplete supporting documents. Please upload the missing requirement.",
   "Blurry or unreadable document copy. Please re-upload a clear copy.",
   "Valid School ID / Government-issued ID required.",

@@ -11,7 +11,7 @@ $is_teacher = ($user_role === 'teacher');
 if ($is_teacher) {
     $purpose_label = 'Purpose / Reason <span style="color: #ef4444;">*</span>';
     $purpose_placeholder = 'e.g., DepEd Promotion / Ranking, GSIS / Pag-IBIG Loan, Visa Application, Step Increment, Retirement, etc.';
-    $purpose_hint = 'Specify the official intent or recipient organization (e.g., DepEd Division Office, GSIS, Embassy, Financial Institution).';
+    $purpose_hint = '';
 
     $notes_label = 'Additional Notes & Specific Instructions <span style="font-weight: normal; color: #64748b;">(WITH SALARY BREAKDOWN, INCLUSIVE DATES / SCHOOL YEAR, ADDRESSED TO)</span>';
     $notes_placeholder = 'e.g., With compensation breakdown; Addressed to GSIS Taguig; Covering SY 2022–2025; For Step Increment...';
@@ -371,9 +371,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         />
         <span style="font-size: 0.9rem; font-weight: 600; color: #475569;">copy / copies</span>
       </div>
-      <small style="color: #64748b; font-size: 0.78rem; display: block; margin-top: 5px;">
-        Indicate how many official physical copies you require (Default: 1 copy, Maximum: 10 copies).
-      </small>
     </div>
 
     <div class="form-group">
@@ -385,7 +382,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         placeholder="<?= htmlspecialchars($purpose_placeholder) ?>" 
         required 
       />
-      <small style="color: #64748b; font-size: 0.78rem; display: block; margin-top: 4px;"><?= $purpose_hint ?></small>
+      <?php if (!empty($purpose_hint)): ?>
+        <small style="color: #64748b; font-size: 0.78rem; display: block; margin-top: 4px;"><?= $purpose_hint ?></small>
+      <?php endif; ?>
     </div>
 
     <div class="form-group">

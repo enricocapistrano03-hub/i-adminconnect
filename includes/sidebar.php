@@ -5,11 +5,8 @@ $role = $_SESSION['role'] ?? 'student';
 <aside class="sidebar" id="appSidebar">
   <button type="button" class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Close menu">&times;</button>
   <div class="sidebar-logo-container">
-    <div class="sidebar-logo-circle">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-        <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-      </svg>
+    <div class="sidebar-logo-circle" style="background: #ffffff; border-radius: 50%; padding: 3px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15); width: 72px; height: 72px; margin: 0 auto 12px auto; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+      <img src="assets/iAdminConnect%20LOGO.png" alt="iAdminConnect Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;" onerror="this.src='assets/logo.png'">
     </div>
     <div class="sidebar-brand-name">i-AdminConnect</div>
     <div class="sidebar-brand-desc">Administrative Services and Record Tracking System</div>

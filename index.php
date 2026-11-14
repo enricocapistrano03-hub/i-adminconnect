@@ -38,7 +38,7 @@ foreach ($allAnnouncements as $ann) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css?v=<?= time() ?>">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%232A7C13%22/></svg>">
+  <link rel="icon" type="image/png" href="assets/logo.png">
 </head>
 <body class="landing-page-body" style="display: block !important; width: 100% !important; margin: 0; padding: 0; overflow-x: hidden;">
 
@@ -50,11 +50,8 @@ foreach ($allAnnouncements as $ann) {
       
       <!-- School Portal Logo -->
       <a href="#home" class="landing-brand">
-        <div class="landing-brand-logo">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-            <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-          </svg>
+        <div class="landing-brand-logo" style="background: #ffffff; border-radius: 50%; padding: 2px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+          <img src="assets/iAdminConnect%20LOGO.png" alt="iAdminConnect Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;" onerror="this.src='assets/logo.png'">
         </div>
         <div>
           <div class="landing-brand-title">i-AdminConnect</div>
@@ -554,11 +551,8 @@ foreach ($allAnnouncements as $ann) {
       
       <div>
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
-          <div class="landing-brand-logo" style="width: 36px; height: 36px;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-              <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-            </svg>
+          <div class="landing-brand-logo" style="width: 38px; height: 38px; background: #ffffff; border-radius: 50%; padding: 2px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            <img src="assets/iAdminConnect%20LOGO.png" alt="iAdminConnect Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;" onerror="this.src='assets/logo.png'">
           </div>
           <span style="font-size: 1.2rem; font-weight: 800; color: #ffffff;">i-AdminConnect</span>
         </div>

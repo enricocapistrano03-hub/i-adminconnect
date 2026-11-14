@@ -281,7 +281,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css?v=<?= time() ?>">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22%2300bfa5%22/></svg>">
+  <link rel="icon" type="image/png" href="assets/logo.png">
 </head>
 <body style="margin: 0; padding: 0;">
 
@@ -295,11 +295,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend_otp' && isset($_SESSIO
     <div class="login-card">
 
       <!-- Logo & Branding -->
-      <div class="login-avatar-circle">
-        <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-          <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-        </svg>
+      <div class="login-avatar-circle" style="background: #ffffff; border-radius: 50%; padding: 4px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12); width: 84px; height: 84px; margin: 0 auto 12px auto; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+        <img src="assets/iAdminConnect%20LOGO.png" alt="iAdminConnect Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%;" onerror="this.src='assets/logo.png'">
       </div>
 
       <div class="login-title">i-AdminConnect</div>

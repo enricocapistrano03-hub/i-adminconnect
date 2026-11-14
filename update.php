@@ -25,6 +25,10 @@ $files = [
     'dashboard.php',
     'css/style.css',
     'includes/mailer.php',
+    'includes/sidebar.php',
+    'includes/header.php',
+    'login.php',
+    'index.php',
     '.htaccess'
 ];
 

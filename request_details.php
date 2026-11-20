@@ -381,11 +381,11 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
     </div>
   <?php endif; ?>
 
-  <!-- Fee / Claiming Advisory Panel -->
+  <!-- Document Claiming Advisory Panel -->
   <div class="requirements-panel" style="background: #f0fdf4; border-color: #bbf7d0; margin-bottom: 25px;">
-    <div style="font-weight: 700; color: #166534;">Payment &amp; Claiming Advisory</div>
+    <div style="font-weight: 700; color: #166534;">Document Claiming Advisory</div>
     <div style="font-size: 0.88rem; color: #166534; margin-top: 4px;">
-      Applicable document fees (if any) can be settled directly at the Cashier / Accounting Office upon claiming. The <?= strtolower($req['requester_role']) ?> can claim the physical document at the Registrar's Office.
+      The <?= strtolower($req['requester_role']) ?> can claim the physical copy of the document directly at the Registrar's Office during campus hours (7:00 AM &ndash; 4:00 PM). Please present a valid School ID upon claiming.
     </div>
   </div>
 

@@ -333,11 +333,11 @@ foreach ($allAnnouncements as $ann) {
       <div class="faq-container">
         <div class="faq-item active">
           <div class="faq-question" onclick="toggleFaq(this)">
-            <span>Are there any fees for document requests, and how do I pay?</span>
+            <span>What do I need to present when claiming my requested document?</span>
             <span class="faq-toggle-icon">&plus;</span>
           </div>
           <div class="faq-answer">
-            Applicable document processing fees (if any) are settled directly at the school Cashier or Accounting Office upon claiming. Please present your valid School ID and official receipt to the Registrar or Administrative Office.
+            Please present your valid <strong>School ID</strong> or official student/faculty credentials at the Registrar's Office. If an authorized representative will claim on your behalf, they must present a signed authorization letter and a valid ID.
           </div>
         </div>
 
@@ -565,9 +565,8 @@ foreach ($allAnnouncements as $ann) {
         <h4 style="color: #ffffff; font-size: 0.95rem; font-weight: 700; margin: 0 0 16px 0;">Quick Links</h4>
         <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem;">
           <li><a href="#home" style="color: #94a3b8; text-decoration: none;">Home</a></li>
-          <li><a href="#school-info" style="color: #94a3b8; text-decoration: none;">School Info &amp; Map</a></li>
-          <li><a href="#resources" style="color: #94a3b8; text-decoration: none;">Downloadable Resources</a></li>
           <li><a href="#announcements" style="color: #94a3b8; text-decoration: none;">Announcements</a></li>
+          <li><a href="#about-us" style="color: #94a3b8; text-decoration: none;">About Us</a></li>
         </ul>
       </div>
 

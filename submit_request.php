@@ -26,12 +26,6 @@ if ($is_teacher) {
     $notes_hint = 'Mention your recent grade level, section, school year, or destination university/company.';
 }
 
-// Pre-fetch user employment ID and name for teacher convenience
-$u_stmt = $pdo->prepare("SELECT full_name, id_number FROM users WHERE id = ? LIMIT 1");
-$u_stmt->execute([$user_id]);
-$u_info = $u_stmt->fetch() ?: [];
-$default_emp_name = $u_info['full_name'] ?? $user_name;
-$default_emp_id = $u_info['id_number'] ?? '';
 
 // Available document types for this user role
 $stmt = $pdo->prepare("SELECT * FROM request_types WHERE target_role = ? OR target_role = 'both' ORDER BY id ASC");
@@ -467,7 +461,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             name="emp_full_name" 
             id="emp_full_name" 
             class="form-control" 
-            value="<?= htmlspecialchars($default_emp_name) ?>" 
             placeholder="e.g., Juan Dela Cruz"
             style="background: #ffffff;"
           />
@@ -482,8 +475,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             name="emp_number" 
             id="emp_number" 
             class="form-control" 
-            value="<?= htmlspecialchars($default_emp_id) ?>" 
-            placeholder="e.g., 4589211 / Employee ID"
+            placeholder="e.g., 1029384"
             style="background: #ffffff;"
           />
         </div>

@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$now_str, $req_id]);
 
         // Insert Notification for User
-        $notif_msg = "Your request for {$req['request_type_name']} has been approved and marked Ready for Release by the Office of the Registrar. No Fee Required.";
+        $notif_msg = "Your request for {$req['request_type_name']} has been approved and marked Ready for Release by the Office of the Registrar. Please proceed to the Registrar's Office to claim your document.";
         $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Please visit the Registrar\'s Office to claim your document.')");
         $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Ready for Release", $notif_msg]);
 
@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $req['tracking_number'],
                 $req['request_type_name'],
                 'Ready for Release',
-                'Your request has been approved and marked Ready for Release. Please proceed to the Registrar\'s Office to claim your document. No fee required.',
+                'Your request has been approved and marked Ready for Release. Please proceed to the Registrar\'s Office to claim your document.',
                 'Office of the Registrar'
             );
             if ($m_res['success']) {
@@ -381,11 +381,11 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
     </div>
   <?php endif; ?>
 
-  <!-- Fee Panel (Slide 16) -->
+  <!-- Fee / Claiming Advisory Panel -->
   <div class="requirements-panel" style="background: #f0fdf4; border-color: #bbf7d0; margin-bottom: 25px;">
-    <div style="font-weight: 700; color: #166534;">Document Fee: FREE</div>
+    <div style="font-weight: 700; color: #166534;">Payment &amp; Claiming Advisory</div>
     <div style="font-size: 0.88rem; color: #166534; margin-top: 4px;">
-      No Fee Required. This document is free of charge. The <?= strtolower($req['requester_role']) ?> can claim it directly at the Registrar's Office.
+      Applicable document fees (if any) can be settled directly at the Cashier / Accounting Office upon claiming. The <?= strtolower($req['requester_role']) ?> can claim the physical document at the Registrar's Office.
     </div>
   </div>
 

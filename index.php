@@ -124,7 +124,7 @@ foreach ($allAnnouncements as $ann) {
           <div class="hero-stat-label">Live Status Tracking</div>
         </div>
         <div class="hero-stat-card">
-          <div class="hero-stat-number">100% Free</div>
+          <div class="hero-stat-number">24/7 Access</div>
           <div class="hero-stat-label">Online Application</div>
         </div>
         <div class="hero-stat-card">
@@ -198,7 +198,7 @@ foreach ($allAnnouncements as $ann) {
         <div>
           <h3 class="hours-title">Official Office Hours</h3>
           <div class="hours-schedule">
-            Monday to Friday &bull; 8:00 AM &ndash; 5:00 PM
+            Monday to Friday &bull; 7:00 AM &ndash; 4:00 PM
           </div>
         </div>
       </div>
@@ -317,7 +317,7 @@ foreach ($allAnnouncements as $ann) {
           <div class="flowchart-number">4</div>
           <h4 style="margin: 0 0 8px 0; font-size: 1.05rem; font-weight: 700;">Release &amp; Acknowledge</h4>
           <p style="margin: 0; font-size: 0.82rem; color: #cbd5e1; line-height: 1.5;">
-            Claim the physical hard copy at the office or download the digital release, then mark the transaction as received.
+            Claim the physical hard copy at the office, then mark the transaction as received.
           </p>
         </div>
       </div>
@@ -333,11 +333,11 @@ foreach ($allAnnouncements as $ann) {
       <div class="faq-container">
         <div class="faq-item active">
           <div class="faq-question" onclick="toggleFaq(this)">
-            <span>Are there any processing fees for requesting academic records?</span>
+            <span>Are there any fees for document requests, and how do I pay?</span>
             <span class="faq-toggle-icon">&plus;</span>
           </div>
           <div class="faq-answer">
-            No. All document requests submitted through the i-AdminConnect portal (Form 137, Good Moral Certificate, Certificate of Enrollment, Certificate of Employment, etc.) are <strong>100% FREE of charge</strong> with no hidden processing fees.
+            Applicable document processing fees (if any) are settled directly at the school Cashier or Accounting Office upon claiming. Please present your valid School ID and official receipt to the Registrar or Administrative Office.
           </div>
         </div>
 
@@ -584,7 +584,7 @@ foreach ($allAnnouncements as $ann) {
       <div>
         <h4 style="color: #ffffff; font-size: 0.95rem; font-weight: 700; margin: 0 0 16px 0;">Operating Hours</h4>
         <p style="margin: 0 0 8px 0; font-size: 0.85rem; color: #cbd5e1;">
-          <strong>Monday &ndash; Friday:</strong> 8:00 AM &ndash; 5:00 PM
+          <strong>Monday &ndash; Friday:</strong> 7:00 AM &ndash; 4:00 PM
         </p>
         <p style="margin: 0; font-size: 0.82rem; color: #64748b;">
           Online requests are open 24/7 through the portal.

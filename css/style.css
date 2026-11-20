@@ -378,8 +378,9 @@ body {
   font-weight: 700;
   color: #64748b;
   text-align: left;
-  padding: 8px 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
 }
 
 .custom-table tbody tr {
@@ -397,6 +398,7 @@ body {
   color: #1e293b;
   border-top: 1px solid #f1f5f9;
   border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
 }
 
 .custom-table td:first-child {
@@ -568,6 +570,10 @@ body {
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 132, 255, 0.25);
   transition: transform 0.15s, background 0.15s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-primary-cta:hover {

@@ -88,7 +88,7 @@ $assigned_requests = $stmt->fetchAll();
           <th>Purpose</th>
           <th>Status</th>
           <th>Date Submitted</th>
-          <th style="text-align: right;">Action</th>
+          <th style="text-align: center; min-width: 155px; white-space: nowrap;">Action</th>
         </tr>
       </thead>
       <tbody>
@@ -119,10 +119,10 @@ $assigned_requests = $stmt->fetchAll();
               </td>
               <td><?= htmlspecialchars(mb_strimwidth($req['purpose'], 0, 35, '...')) ?></td>
               <td><span class="badge-status <?= $status_class ?>"><?= htmlspecialchars($req['status']) ?></span></td>
-              <td style="color: #64748b; font-size: 0.82rem;"><?= $date_str ?></td>
-              <td style="text-align: right;">
-                <a href="request_details.php?id=<?= $req['id'] ?>" class="btn-primary-cta" style="padding: 6px 14px; font-size: 0.82rem; text-decoration: none;">
-                  Review & Process
+              <td style="color: #64748b; font-size: 0.82rem; white-space: nowrap;"><?= $date_str ?></td>
+              <td style="text-align: center; white-space: nowrap;">
+                <a href="request_details.php?id=<?= $req['id'] ?>" class="btn-primary-cta" style="padding: 8px 16px; font-size: 0.82rem; font-weight: 700; text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; box-shadow: 0 2px 6px rgba(0, 132, 255, 0.25);">
+                  Review &amp; Process
                 </a>
               </td>
             </tr>

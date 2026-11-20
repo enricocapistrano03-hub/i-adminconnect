@@ -149,7 +149,7 @@ $recent_queue = $stmt->fetchAll();
             <th>Requested Document</th>
             <th>Date Submitted</th>
             <th>Current Status</th>
-            <th style="text-align: right;">Action</th>
+            <th style="text-align: center; min-width: 155px; white-space: nowrap;">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -171,11 +171,11 @@ $recent_queue = $stmt->fetchAll();
                 <td style="font-weight: 600; color: #1e293b;"><?= htmlspecialchars($req['student_or_teacher_name']) ?></td>
                 <td><span style="font-size: 0.8rem; font-weight: 600; color: #64748b;"><?= ucfirst($req['requester_role']) ?></span></td>
                 <td style="color: #334155;"><?= htmlspecialchars($req['request_type_name']) ?></td>
-                <td style="color: #64748b; font-size: 0.82rem;"><?= $date_str ?></td>
+                <td style="color: #64748b; font-size: 0.82rem; white-space: nowrap;"><?= $date_str ?></td>
                 <td><span class="badge-status <?= $status_class ?>"><?= htmlspecialchars($req['status']) ?></span></td>
-                <td style="text-align: right;">
-                  <a href="request_details.php?id=<?= $req['id'] ?>" class="btn-primary-cta" style="padding: 5px 14px; font-size: 0.82rem; text-decoration: none;">
-                    Review & Process
+                <td style="text-align: center; white-space: nowrap;">
+                  <a href="request_details.php?id=<?= $req['id'] ?>" class="btn-primary-cta" style="padding: 8px 16px; font-size: 0.82rem; font-weight: 700; text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; box-shadow: 0 2px 6px rgba(0, 132, 255, 0.25);">
+                    Review &amp; Process
                   </a>
                 </td>
               </tr>

@@ -341,4 +341,112 @@ document.addEventListener('DOMContentLoaded', () => {
   if (menuBtn) menuBtn.addEventListener('click', openSidebar);
   if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
   if (backdrop) backdrop.addEventListener('click', closeSidebar);
+
+  // ============================================================================
+  // 15-Minute Session Inactivity Timeout Guard
+  // Shows warning dialog at 13 minutes (2-minute countdown), then logs out at 15
+  // ============================================================================
+  (function initSessionTimeoutGuard() {
+    const WARN_AFTER_MS = 13 * 60 * 1000;      // 13 minutes idle -> show warning modal
+    const COUNTDOWN_SECONDS = 2 * 60;          // 120 seconds countdown
+    const KEEPALIVE_INTERVAL_MS = 3 * 60 * 1000; // Ping server every 3 mins while actively using
+
+    const modal = document.getElementById('session-timeout-modal');
+    const timerDisplay = document.getElementById('session-countdown-timer');
+    const stayBtn = document.getElementById('btn-stay-logged-in');
+
+    if (!modal) return; // Exit if not in an authenticated view
+
+    let lastActivityTime = Date.now();
+    let lastKeepaliveTime = Date.now();
+    let warningActive = false;
+    let countdownInterval = null;
+    let secondsLeft = COUNTDOWN_SECONDS;
+
+    function pingKeepalive() {
+      lastKeepaliveTime = Date.now();
+      fetch('keepalive_api.php', { method: 'POST', cache: 'no-store' })
+        .then(res => {
+          if (!res.ok) {
+            window.location.href = 'logout.php?timeout=1';
+          }
+        })
+        .catch(() => {});
+    }
+
+    function recordActivity() {
+      if (warningActive) return; // If warning modal is open, user must explicitly click Stay Logged In
+      lastActivityTime = Date.now();
+
+      // Periodically refresh server session timestamp while user is actively working
+      if (Date.now() - lastKeepaliveTime > KEEPALIVE_INTERVAL_MS) {
+        pingKeepalive();
+      }
+    }
+
+    // Monitor common user interactions
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    activityEvents.forEach(evt => {
+      window.addEventListener(evt, recordActivity, { passive: true });
+    });
+
+    function showWarningModal() {
+      warningActive = true;
+      secondsLeft = COUNTDOWN_SECONDS;
+      updateDisplay();
+
+      modal.classList.add('active');
+      modal.style.display = 'flex';
+      modal.style.opacity = '1';
+      modal.style.pointerEvents = 'auto';
+
+      if (countdownInterval) clearInterval(countdownInterval);
+      countdownInterval = setInterval(() => {
+        secondsLeft--;
+        updateDisplay();
+
+        if (secondsLeft <= 0) {
+          clearInterval(countdownInterval);
+          window.location.href = 'logout.php?timeout=1';
+        }
+      }, 1000);
+    }
+
+    function dismissWarningModal() {
+      warningActive = false;
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+
+      modal.classList.remove('active');
+      modal.style.display = 'none';
+      modal.style.opacity = '0';
+      modal.style.pointerEvents = 'none';
+
+      lastActivityTime = Date.now();
+      pingKeepalive();
+    }
+
+    function updateDisplay() {
+      if (!timerDisplay) return;
+      const mins = Math.floor(Math.max(0, secondsLeft) / 60);
+      const secs = Math.max(0, secondsLeft) % 60;
+      timerDisplay.textContent = 
+        String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    }
+
+    if (stayBtn) {
+      stayBtn.addEventListener('click', dismissWarningModal);
+    }
+
+    // Idle checker interval (checks every 1 second)
+    setInterval(() => {
+      if (warningActive) return;
+      const idleTime = Date.now() - lastActivityTime;
+      if (idleTime >= WARN_AFTER_MS) {
+        showWarningModal();
+      }
+    }, 1000);
+  })();
 });

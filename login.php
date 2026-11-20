@@ -24,6 +24,9 @@ if (isset($_SESSION['flash_error'])) {
     $error = $_SESSION['flash_error'];
     unset($_SESSION['flash_error']);
 }
+if (isset($_GET['timeout'])) {
+    $error = 'For your security, your session has expired due to 15 minutes of inactivity. Please log in again.';
+}
 
 // ------------------------------------------------------------------------------
 // 1. PROCESS: User Login (Student, Teacher, Admin)
@@ -57,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $_SESSION['full_name'] = $user['full_name'];
                 $_SESSION['role'] = $user['role'];
                 $_SESSION['department'] = $user['department'] ?? '';
+                $_SESSION['last_activity'] = time();
                 
                 log_audit_action($pdo, $user['full_name'], $user['role'], "Logged into System");
                 header("Location: dashboard.php");

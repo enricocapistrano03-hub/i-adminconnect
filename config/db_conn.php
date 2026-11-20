@@ -17,6 +17,43 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// ------------------------------------------------------------------------------
+// 15-Minute Session Inactivity Timeout Guard (900 seconds)
+// Protects student and faculty data if a device is left unattended
+// ------------------------------------------------------------------------------
+$session_timeout_seconds = 15 * 60; // 900 seconds = 15 minutes
+
+if (!empty($_SESSION['user_id'])) {
+    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $session_timeout_seconds)) {
+        // Clear session variables and destroy session
+        $_SESSION = [];
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $params["path"], $params["domain"],
+                $params["secure"], $params["httponly"]
+            );
+        }
+        session_destroy();
+
+        $current_script = basename($_SERVER['PHP_SELF'] ?? '');
+        $is_api = (strpos($current_script, '_api.php') !== false || (!empty($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false));
+
+        if ($is_api) {
+            http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'session_timeout', 'message' => 'Your session has expired due to 15 minutes of inactivity. Please log in again.']);
+            exit();
+        } elseif ($current_script !== 'login.php' && $current_script !== 'logout.php') {
+            header("Location: login.php?timeout=1");
+            exit();
+        }
+    } else {
+        // Update last activity timestamp on active request
+        $_SESSION['last_activity'] = time();
+    }
+}
+
 // Determine database credentials based on environment (Hostinger Production vs Localhost XAMPP)
 $is_hostinger = (
     (isset($_SERVER['SERVER_NAME']) && (strpos($_SERVER['SERVER_NAME'], 'iadminconnect.com') !== false || strpos($_SERVER['SERVER_NAME'], 'hostinger') !== false)) ||

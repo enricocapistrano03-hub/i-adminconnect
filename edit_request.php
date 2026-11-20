@@ -68,6 +68,22 @@ $is_f137 = (($req['request_type_code'] ?? '') === 'F137'
     || ($req['request_type_name'] ?? '') === 'Form 137 / SF10'
     || strpos($req['additional_notes'] ?? '', '[Form 137 Student Records Info]') !== false);
 
+// Detect if this is COE or Service Record
+$is_coe = (($req['request_type_code'] ?? '') === 'COE' || strpos($req['additional_notes'] ?? '', '[Certificate of Employment (COE) Details]') !== false);
+$is_sr = (($req['request_type_code'] ?? '') === 'SR' || strpos($req['additional_notes'] ?? '', '[Service Record (SR) Details]') !== false);
+
+$emp_name = ''; $emp_num = ''; $emp_pos = ''; $emp_sg = ''; $emp_step = ''; $emp_dh = ''; $emp_purp = $req['purpose'] ?? ''; $emp_wc = 'Yes';
+if (($is_coe || $is_sr) && !empty($req['additional_notes'])) {
+    if (preg_match('/•\s*Full Name:\s*([^\n]+)/u', $req['additional_notes'], $m)) $emp_name = trim($m[1]);
+    if (preg_match('/•\s*Employee Number:\s*([^\n]+)/u', $req['additional_notes'], $m)) $emp_num = trim($m[1]);
+    if (preg_match('/•\s*Position:\s*([^\n]+)/u', $req['additional_notes'], $m)) $emp_pos = trim($m[1]);
+    if (preg_match('/•\s*Salary Grade:\s*([^\n]+)/u', $req['additional_notes'], $m)) $emp_sg = trim($m[1]);
+    if (preg_match('/•\s*Step:\s*([^\n]+)/u', $req['additional_notes'], $m)) $emp_step = trim($m[1]);
+    if (preg_match('/•\s*Date Hired:\s*([^\n]+)/u', $req['additional_notes'], $m)) $emp_dh = trim($m[1]);
+    if (preg_match('/•\s*Purpose:\s*([^\n]+)/u', $req['additional_notes'], $m)) $emp_purp = trim($m[1]);
+    if (preg_match('/•\s*With Compensation:\s*([^\n]+)/u', $req['additional_notes'], $m)) $emp_wc = trim($m[1]);
+}
+
 $f137_sec = '';
 $f137_yr = '';
 $f137_sch = '';
@@ -95,6 +111,10 @@ if ($is_cr) {
     $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update Ratings</div><h1>Resubmit Rating Details</h1><p>Update your 3-Year Performance Ratings for administrative verification.</p>';
 } elseif ($is_f137) {
     $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update Form 137 Info</div><h1>Update Form 137 Details</h1><p>Update your school and section details requested by the registrar.</p>';
+} elseif ($is_coe) {
+    $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update COE Details</div><h1>Update COE Details</h1><p>Update your Certificate of Employment details for administrative processing.</p>';
+} elseif ($is_sr) {
+    $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update Service Record Details</div><h1>Update Service Record Details</h1><p>Update your Service Record information for administrative processing.</p>';
 } else {
     $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Re-upload / Edit Document</div><h1>Re-upload Documents</h1><p>Update and resubmit the documents requested by the office.</p>';
 }
@@ -255,7 +275,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            if (!$has_new_file && empty($uploaded_file_name) && empty($requester_notes) && !$is_f137) {
+            if (($is_coe || $is_sr) && isset($_POST['emp_full_name'])) {
+                $e_name = trim($_POST['emp_full_name'] ?? '');
+                $e_num = trim($_POST['emp_number'] ?? '');
+                $e_pos = trim($_POST['emp_position'] ?? '');
+                $e_sg = trim($_POST['emp_salary_grade'] ?? '');
+                $e_step = trim($_POST['emp_step'] ?? '');
+                $e_dh = trim($_POST['emp_date_hired'] ?? '');
+                $e_purp = trim($_POST['emp_purpose'] ?? '');
+                $e_wc = trim($_POST['emp_with_compensation'] ?? 'Yes');
+
+                if (!empty($e_name) && !empty($e_num) && !empty($e_pos) && !empty($e_sg) && !empty($e_step) && !empty($e_dh) && !empty($e_purp)) {
+                    $emp_name = $e_name; $emp_num = $e_num; $emp_pos = $e_pos; $emp_sg = $e_sg; $emp_step = $e_step; $emp_dh = $e_dh; $emp_purp = $e_purp; $emp_wc = $e_wc;
+
+                    if ($is_coe) {
+                        $emp_summary = "[Certificate of Employment (COE) Details]\n"
+                            . "• Full Name: " . $e_name . "\n"
+                            . "• Employee Number: " . $e_num . "\n"
+                            . "• Position: " . $e_pos . "\n"
+                            . "• Salary Grade: " . $e_sg . "\n"
+                            . "• Step: " . $e_step . "\n"
+                            . "• Date Hired: " . $e_dh . "\n"
+                            . "• Purpose: " . $e_purp . "\n"
+                            . "• With Compensation: " . $e_wc;
+                        $cleaned_notes = preg_replace('/\[Certificate of Employment \(COE\) Details\][\s\S]*?(?=\n\n|\[Revision|$)/u', '', $req['additional_notes'] ?? '');
+                    } else {
+                        $emp_summary = "[Service Record (SR) Details]\n"
+                            . "• Full Name: " . $e_name . "\n"
+                            . "• Employee Number: " . $e_num . "\n"
+                            . "• Position: " . $e_pos . "\n"
+                            . "• Salary Grade: " . $e_sg . "\n"
+                            . "• Step: " . $e_step . "\n"
+                            . "• Date Hired: " . $e_dh . "\n"
+                            . "• Purpose: " . $e_purp;
+                        $cleaned_notes = preg_replace('/\[Service Record \(SR\) Details\][\s\S]*?(?=\n\n|\[Revision|$)/u', '', $req['additional_notes'] ?? '');
+                    }
+
+                    $cleaned_notes = trim($cleaned_notes);
+                    $updated_notes = $emp_summary;
+                    if (!empty($cleaned_notes)) {
+                        $updated_notes .= "\n\n" . $cleaned_notes;
+                    }
+
+                    $pdo->prepare("UPDATE requests SET purpose = ? WHERE id = ?")->execute([$e_purp, $req_id]);
+                }
+            }
+
+            if (!$has_new_file && empty($uploaded_file_name) && empty($requester_notes) && !$is_f137 && !$is_coe && !$is_sr) {
                 $error_msg = "Please attach the required document or provide explanation notes for revision.";
             } else {
                 if (!empty($requester_notes)) {
@@ -554,6 +620,136 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
                 style="background: #ffffff;"
               />
             </div>
+          </div>
+        </div>
+      <?php endif; ?>
+
+      <?php if ($is_coe || $is_sr): ?>
+        <!-- Dedicated COE & Service Record (SR) Employee Details Panel -->
+        <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 18px 20px; margin-bottom: 22px;">
+          <div style="font-weight: 800; color: #166534; font-size: 0.98rem; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+            <span>📋</span> <?= $is_coe ? 'Certificate of Employment (COE) Information' : 'Service Record (SR) Information' ?> <span style="font-size: 0.75rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 6px;">Required by Admin</span>
+          </div>
+          <p style="font-size: 0.82rem; color: #166534; margin: 0 0 14px 0; line-height: 1.45;">
+            Maaari ninyong i-update ang inyong employment records sa ibaba kung kinakailangan:
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+                Full Name <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="text" 
+                name="emp_full_name" 
+                class="form-control" 
+                value="<?= htmlspecialchars($emp_name) ?>" 
+                required
+                style="background: #ffffff;"
+              />
+            </div>
+
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+                Employee Number <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="text" 
+                name="emp_number" 
+                class="form-control" 
+                value="<?= htmlspecialchars($emp_num) ?>" 
+                required
+                style="background: #ffffff;"
+              />
+            </div>
+
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+                Position <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="text" 
+                name="emp_position" 
+                class="form-control" 
+                value="<?= htmlspecialchars($emp_pos) ?>" 
+                required
+                style="background: #ffffff;"
+              />
+            </div>
+
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+                Salary Grade <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="text" 
+                name="emp_salary_grade" 
+                class="form-control" 
+                value="<?= htmlspecialchars($emp_sg) ?>" 
+                required
+                style="background: #ffffff;"
+              />
+            </div>
+
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+                Step <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="text" 
+                name="emp_step" 
+                class="form-control" 
+                value="<?= htmlspecialchars($emp_step) ?>" 
+                required
+                style="background: #ffffff;"
+              />
+            </div>
+
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+                Date Hired <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="date" 
+                name="emp_date_hired" 
+                class="form-control" 
+                value="<?= htmlspecialchars($emp_dh) ?>" 
+                required
+                style="background: #ffffff;"
+              />
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+                Purpose <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="text" 
+                name="emp_purpose" 
+                class="form-control" 
+                value="<?= htmlspecialchars($emp_purp) ?>" 
+                required
+                style="background: #ffffff;"
+              />
+            </div>
+
+            <?php if ($is_coe): ?>
+              <div style="grid-column: 1 / -1;">
+                <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 6px;">
+                  With Compensation <span style="color: #ef4444;">*</span>
+                </label>
+                <div style="display: flex; gap: 20px; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 16px; flex-wrap: wrap;">
+                  <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #1e293b; cursor: pointer; font-size: 0.9rem;">
+                    <input type="radio" name="emp_with_compensation" value="Yes" <?= ($emp_wc !== 'No') ? 'checked' : '' ?> style="width: 17px; height: 17px; accent-color: #166534;">
+                    <span>Yes (With Monthly Salary &amp; Compensation Breakdown)</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #1e293b; cursor: pointer; font-size: 0.9rem;">
+                    <input type="radio" name="emp_with_compensation" value="No" <?= ($emp_wc === 'No') ? 'checked' : '' ?> style="width: 17px; height: 17px; accent-color: #166534;">
+                    <span>No (Without Compensation Breakdown)</span>
+                  </label>
+                </div>
+              </div>
+            <?php endif; ?>
           </div>
         </div>
       <?php endif; ?>

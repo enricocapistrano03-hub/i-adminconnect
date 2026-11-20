@@ -26,6 +26,13 @@ if ($is_teacher) {
     $notes_hint = 'Mention your recent grade level, section, school year, or destination university/company.';
 }
 
+// Pre-fetch user employment ID and name for teacher convenience
+$u_stmt = $pdo->prepare("SELECT full_name, id_number FROM users WHERE id = ? LIMIT 1");
+$u_stmt->execute([$user_id]);
+$u_info = $u_stmt->fetch() ?: [];
+$default_emp_name = $u_info['full_name'] ?? $user_name;
+$default_emp_id = $u_info['id_number'] ?? '';
+
 // Available document types for this user role
 $stmt = $pdo->prepare("SELECT * FROM request_types WHERE target_role = ? OR target_role = 'both' ORDER BY id ASC");
 $stmt->execute([$user_role]);
@@ -45,6 +52,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $doc_code = $t['code'] ?? '';
             $selected_type_name = $t['name'] ?? '';
             break;
+        }
+    }
+
+    // Special validation & processing for Certificate of Employment (COE) and Service Record (SR)
+    if ($doc_code === 'COE' || $doc_code === 'SR') {
+        $emp_full_name = trim($_POST['emp_full_name'] ?? '');
+        $emp_number = trim($_POST['emp_number'] ?? '');
+        $emp_position = trim($_POST['emp_position'] ?? '');
+        $emp_salary_grade = trim($_POST['emp_salary_grade'] ?? '');
+        $emp_step = trim($_POST['emp_step'] ?? '');
+        $emp_date_hired = trim($_POST['emp_date_hired'] ?? '');
+        $emp_purpose = trim($_POST['emp_purpose'] ?? '');
+        $emp_with_comp = trim($_POST['emp_with_compensation'] ?? 'Yes');
+        $emp_notes = trim($_POST['emp_notes'] ?? '');
+
+        if (empty($emp_full_name) || empty($emp_number) || empty($emp_position) || empty($emp_salary_grade) || empty($emp_step) || empty($emp_date_hired) || empty($emp_purpose)) {
+            $error_msg = 'Please fill in all required employee fields (Full Name, Employee Number, Position, Salary Grade, Step, Date Hired, and Purpose).';
+        } else {
+            $purpose = $emp_purpose;
+
+            if ($doc_code === 'COE') {
+                $coe_summary = "[Certificate of Employment (COE) Details]\n"
+                    . "• Full Name: " . $emp_full_name . "\n"
+                    . "• Employee Number: " . $emp_number . "\n"
+                    . "• Position: " . $emp_position . "\n"
+                    . "• Salary Grade: " . $emp_salary_grade . "\n"
+                    . "• Step: " . $emp_step . "\n"
+                    . "• Date Hired: " . $emp_date_hired . "\n"
+                    . "• Purpose: " . $emp_purpose . "\n"
+                    . "• With Compensation: " . $emp_with_comp;
+
+                $notes = empty($emp_notes) ? $coe_summary : $coe_summary . "\n\nAdditional Notes: " . $emp_notes;
+            } else {
+                // Service Record (SR) - Excludes With Compensation as requested
+                $sr_summary = "[Service Record (SR) Details]\n"
+                    . "• Full Name: " . $emp_full_name . "\n"
+                    . "• Employee Number: " . $emp_number . "\n"
+                    . "• Position: " . $emp_position . "\n"
+                    . "• Salary Grade: " . $emp_salary_grade . "\n"
+                    . "• Step: " . $emp_step . "\n"
+                    . "• Date Hired: " . $emp_date_hired . "\n"
+                    . "• Purpose: " . $emp_purpose;
+
+                $notes = empty($emp_notes) ? $sr_summary : $sr_summary . "\n\nAdditional Notes: " . $emp_notes;
+            }
         }
     }
 
@@ -287,7 +339,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $success_msg = ($doc_code === 'CR')
                 ? "Your request for <strong>Certificate of Rating</strong>{$copy_txt} &mdash; Tracking: <strong>{$tracking_num}</strong> has been submitted. Your 3-year performance ratings have been recorded and are now <strong>Awaiting Administrative Verification</strong> against official records. A confirmation has been sent to your registered email."
-                : "Your request for <strong>{$type_name}</strong>{$copy_txt} &mdash; Tracking: <strong>{$tracking_num}</strong> has been submitted and is now <strong>Processing</strong> by the <strong>{$target_office}</strong>. A confirmation has been sent to your registered email. No fee required.";
+                : "Your request for <strong>{$type_name}</strong>{$copy_txt} &mdash; Tracking: <strong>{$tracking_num}</strong> has been submitted and is now <strong>Processing</strong> by the <strong>{$target_office}</strong>. A confirmation has been sent to your registered email.";
         }
     }
 }
@@ -396,11 +448,155 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
     </div>
 
-    <div class="form-group">
+    <!-- Dedicated COE & Service Record (SR) Employee Details Panel -->
+    <div id="faculty-emp-fields-group" style="display: none; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 18px 20px; margin-bottom: 22px;">
+      <div style="font-weight: 800; color: #166534; font-size: 0.98rem; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+        <span>📋</span> <span id="faculty-emp-fields-title">Employee Information</span> <span style="font-size: 0.75rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 6px;">Required by Admin</span>
+      </div>
+      <p id="faculty-emp-fields-desc" style="font-size: 0.82rem; color: #166534; margin: 0 0 14px 0; line-height: 1.45;">
+        Kinakailangan ang mga impormasyong ito upang ma-verify at ma-generate ang inyong official employment records:
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+        <div>
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Full Name <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="emp_full_name" 
+            id="emp_full_name" 
+            class="form-control" 
+            value="<?= htmlspecialchars($default_emp_name) ?>" 
+            placeholder="e.g., Juan Dela Cruz"
+            style="background: #ffffff;"
+          />
+        </div>
+
+        <div>
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Employee Number <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="emp_number" 
+            id="emp_number" 
+            class="form-control" 
+            value="<?= htmlspecialchars($default_emp_id) ?>" 
+            placeholder="e.g., 4589211 / Employee ID"
+            style="background: #ffffff;"
+          />
+        </div>
+
+        <div>
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Position <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="emp_position" 
+            id="emp_position" 
+            class="form-control" 
+            placeholder="e.g., Teacher I, Teacher II, Teacher III, Master Teacher I"
+            style="background: #ffffff;"
+          />
+        </div>
+
+        <div>
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Salary Grade <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="emp_salary_grade" 
+            id="emp_salary_grade" 
+            class="form-control" 
+            placeholder="e.g., SG 11 / SG 12 / SG 13"
+            style="background: #ffffff;"
+          />
+        </div>
+
+        <div>
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Step <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="emp_step" 
+            id="emp_step" 
+            class="form-control" 
+            placeholder="e.g., Step 1 / Step 2 / Step 3"
+            style="background: #ffffff;"
+          />
+        </div>
+
+        <div>
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Date Hired <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="date" 
+            name="emp_date_hired" 
+            id="emp_date_hired" 
+            class="form-control" 
+            style="background: #ffffff;"
+          />
+        </div>
+
+        <div style="grid-column: 1 / -1;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Purpose <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="emp_purpose" 
+            id="emp_purpose" 
+            class="form-control" 
+            placeholder="e.g., DepEd Promotion / Ranking, GSIS / Pag-IBIG Loan, Visa Application, Step Increment, Retirement, etc."
+            style="background: #ffffff;"
+          />
+        </div>
+
+        <!-- With Compensation Radio (ONLY for COE, Hidden for Service Record) -->
+        <div id="with-compensation-group" style="grid-column: 1 / -1;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 6px;">
+            With Compensation <span style="color: #ef4444;">*</span>
+          </label>
+          <div style="display: flex; gap: 20px; align-items: center; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 16px; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #1e293b; cursor: pointer; font-size: 0.9rem;">
+              <input type="radio" name="emp_with_compensation" id="emp_with_compensation_yes" value="Yes" checked style="width: 17px; height: 17px; accent-color: #166534;">
+              <span>Yes (With Monthly Salary &amp; Compensation Breakdown)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: #1e293b; cursor: pointer; font-size: 0.9rem;">
+              <input type="radio" name="emp_with_compensation" id="emp_with_compensation_no" value="No" style="width: 17px; height: 17px; accent-color: #166534;">
+              <span>No (Without Compensation Breakdown)</span>
+            </label>
+          </div>
+        </div>
+
+        <div style="grid-column: 1 / -1;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Additional Notes &amp; Specific Instructions <span style="font-weight: normal; color: #64748b;">(Optional &mdash; e.g. Addressed to specific agency / institution)</span>
+          </label>
+          <input 
+            type="text" 
+            name="emp_notes" 
+            id="emp_notes" 
+            class="form-control" 
+            placeholder="e.g., Addressed to GSIS Taguig; Covering SY 2022–2025; For Step Increment..."
+            style="background: #ffffff;"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Generic Purpose Group (Shown for non-COE/SR documents) -->
+    <div class="form-group" id="general-purpose-group">
       <label class="form-label"><?= $purpose_label ?></label>
       <input 
         type="text" 
         name="purpose" 
+        id="general_purpose_input"
         class="form-control" 
         placeholder="<?= htmlspecialchars($purpose_placeholder) ?>" 
         required 
@@ -597,6 +793,12 @@ function updateRequirements(select) {
     if (ratingsSection) ratingsSection.style.display = 'none';
     const f137Group = document.getElementById('f137-fields-group');
     const generalNotes = document.getElementById('general-notes-group');
+    const facultyGroup = document.getElementById('faculty-emp-fields-group');
+    const generalPurposeGroup = document.getElementById('general-purpose-group');
+    const generalPurposeInput = document.getElementById('general_purpose_input');
+    if (facultyGroup) facultyGroup.style.display = 'none';
+    if (generalPurposeGroup) generalPurposeGroup.style.display = 'block';
+    if (generalPurposeInput) generalPurposeInput.required = true;
     if (f137Group) f137Group.style.display = 'none';
     if (generalNotes) generalNotes.style.display = 'block';
     return;
@@ -618,8 +820,7 @@ function updateRequirements(select) {
   reqs.forEach(r => {
     html += `<li><span style="color: #16a34a; font-weight: bold;">✔</span> ${r}</li>`;
   });
-  html += `<li><span style="color: #16a34a; font-weight: bold;">💰</span> Fee: NO fee required</li></ul>`;
-  html += `<span class="fee-badge">Fee: FREE</span>`;
+  html += `</ul>`;
 
   // Attach dynamic role-based guide tip if available
   if (docGuidance[code]) {
@@ -654,9 +855,62 @@ function updateRequirements(select) {
     }
   }
 
-  // Toggle Form 137 specific inputs vs general notes
+  // Toggle Dedicated COE & Service Record (SR) Fields vs Form 137 vs General Purpose/Notes
+  const facultyGroup = document.getElementById('faculty-emp-fields-group');
+  const facultyTitle = document.getElementById('faculty-emp-fields-title');
+  const withCompGroup = document.getElementById('with-compensation-group');
+  const generalPurposeGroup = document.getElementById('general-purpose-group');
+  const generalPurposeInput = document.getElementById('general_purpose_input');
   const f137Group = document.getElementById('f137-fields-group');
   const generalNotes = document.getElementById('general-notes-group');
+
+  const empName = document.getElementById('emp_full_name');
+  const empNum = document.getElementById('emp_number');
+  const empPos = document.getElementById('emp_position');
+  const empSg = document.getElementById('emp_salary_grade');
+  const empStep = document.getElementById('emp_step');
+  const empDh = document.getElementById('emp_date_hired');
+  const empPurp = document.getElementById('emp_purpose');
+
+  if (code === 'COE' || code === 'SR') {
+    if (facultyGroup) facultyGroup.style.display = 'block';
+    if (generalPurposeGroup) generalPurposeGroup.style.display = 'none';
+    if (generalNotes) generalNotes.style.display = 'none';
+    if (f137Group) f137Group.style.display = 'none';
+
+    if (generalPurposeInput) generalPurposeInput.required = false;
+
+    if (empName) empName.required = true;
+    if (empNum) empNum.required = true;
+    if (empPos) empPos.required = true;
+    if (empSg) empSg.required = true;
+    if (empStep) empStep.required = true;
+    if (empDh) empDh.required = true;
+    if (empPurp) empPurp.required = true;
+
+    if (code === 'COE') {
+      if (facultyTitle) facultyTitle.textContent = 'Certificate of Employment (COE) Employee Information';
+      if (withCompGroup) withCompGroup.style.display = 'block';
+    } else {
+      // Service Record (SR) - Exclude With Compensation
+      if (facultyTitle) facultyTitle.textContent = 'Service Record (SR) Employee Information';
+      if (withCompGroup) withCompGroup.style.display = 'none';
+    }
+  } else {
+    if (facultyGroup) facultyGroup.style.display = 'none';
+    if (generalPurposeGroup) generalPurposeGroup.style.display = 'block';
+    if (generalPurposeInput) generalPurposeInput.required = true;
+
+    if (empName) empName.required = false;
+    if (empNum) empNum.required = false;
+    if (empPos) empPos.required = false;
+    if (empSg) empSg.required = false;
+    if (empStep) empStep.required = false;
+    if (empDh) empDh.required = false;
+    if (empPurp) empPurp.required = false;
+  }
+
+  // Toggle Form 137 specific inputs vs general notes (for student documents)
   const fSec = document.getElementById('f137_recent_section');
   const fYr = document.getElementById('f137_year_graduated');
   const fSch = document.getElementById('f137_transferee_school');
@@ -692,7 +946,7 @@ function updateRequirements(select) {
         guardBox.style.color = '#92400e';
       }
     }
-  } else {
+  } else if (code !== 'COE' && code !== 'SR') {
     if (f137Group) f137Group.style.display = 'none';
     if (generalNotes) generalNotes.style.display = 'block';
     if (fSec) fSec.required = false;

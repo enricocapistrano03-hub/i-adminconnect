@@ -204,7 +204,7 @@ foreach ($allAnnouncements as $ann) {
       </div>
       <div class="hours-banner-aside">
         <p class="hours-note">
-          *Online request submissions in <strong>i-AdminConnect</strong> are accepted 24/7. Physical claiming windows operate during official campus hours.
+          *Online request submissions in <strong>i-AdminConnect</strong> are accepted 24/7. Physical claiming is available during official campus hours (7:00 AM &ndash; 4:00 PM).
         </p>
       </div>
     </div>
@@ -627,7 +627,7 @@ foreach ($allAnnouncements as $ann) {
       registrar: {
         tag: 'Academic Records Hub',
         title: "Office of the Registrar",
-        desc: "Window 1: Inquiries & Verification • Window 2: Document Releasing (Ground Floor, Admin Wing)"
+        desc: "Student Records, Document Applications & Releasing (Ground Floor, Admin Wing)"
       },
       admin: {
         tag: 'Executive & Faculty Offices',

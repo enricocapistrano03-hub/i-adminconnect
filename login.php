@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             // Check if already locked (3 or more attempts OR Inactive due to lock)
             if ($attempts >= 3 || $user_status === 'Inactive') {
-                $error = '<strong>Account Locked!</strong> Naabot mo na ang 3 sunod-sunod na maling pagsubok sa pag-login. Para sa seguridad, na-lock ang iyong account.<br><br>Mangyaring <strong>makipag-ugnayan sa School Administrator</strong> upang maayos at ma-unlock ang iyong account.';
+                $error = 'Account Locked! Naabot mo na ang 3 sunod-sunod na maling pagsubok sa pag-login. Para sa seguridad, na-lock ang iyong account. Mangyaring makipag-ugnayan sa School Administrator upang maayos at ma-unlock ang iyong account.';
                 $active_tab = 'login';
             } elseif ($user_status === 'Pending') {
                 $role_label = ucfirst($user['role'] ?? 'User');
@@ -82,13 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         $pdo->prepare("UPDATE users SET login_attempts = 3, status = 'Inactive' WHERE id = ?")->execute([$user['id']]);
                     } catch (Exception $e) {}
                     log_audit_action($pdo, $user['full_name'], $user['role'], "Account locked after 3 consecutive failed login attempts");
-                    $error = '<strong>Account Locked!</strong> Naka-3 sunod-sunod na maling pagsubok ka na sa password. Para sa seguridad, pansamantalang na-lock ang iyong account.<br><br>Mangyaring <strong>makipag-ugnayan sa School Administrator</strong> upang maayos at ma-unlock ang iyong account.';
+                    $error = 'Account Locked! Naka-3 sunod-sunod na maling pagsubok ka na sa password. Para sa seguridad, pansamantalang na-lock ang iyong account. Mangyaring makipag-ugnayan sa School Administrator upang maayos at ma-unlock ang iyong account.';
                 } else {
                     try {
                         $pdo->prepare("UPDATE users SET login_attempts = ? WHERE id = ?")->execute([$new_attempts, $user['id']]);
                     } catch (Exception $e) {}
                     $remaining = 3 - $new_attempts;
-                    $error = "Maling password (Attempt {$new_attempts} of 3). May <strong>{$remaining}</strong> na lamang na natitirang pagsubok bago ma-lock ang iyong account. Kung nakalimutan ang password, mangyaring makipag-ugnayan sa School Administrator.";
+                    $error = "Maling password (Attempt {$new_attempts} of 3). May {$remaining} na lamang na natitirang pagsubok bago ma-lock ang iyong account. Kung nakalimutan ang password, mangyaring makipag-ugnayan sa School Administrator.";
                 }
                 $active_tab = 'login';
             }

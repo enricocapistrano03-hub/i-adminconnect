@@ -364,9 +364,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ]);
 
         // Audit log
+        $doc_suffix = !empty($req['request_type_name']) ? " ({$req['request_type_name']})" : "";
         $audit_action = $is_cr 
             ? "Re-submitted corrected 3-Year Performance Ratings for {$req['tracking_number']}"
-            : "Re-uploaded revised documents for {$req['tracking_number']}";
+            : "Re-uploaded revised documents for {$req['tracking_number']}{$doc_suffix}";
         log_audit_action($pdo, $user_name, $user_role, $audit_action);
 
         // Notify staff

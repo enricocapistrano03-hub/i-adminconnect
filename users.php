@@ -42,6 +42,36 @@ if ($action === 'unlock' && $target_id > 0) {
     }
 }
 
+// 1c. Handle Direct Deactivation of User Account
+if ($action === 'deactivate' && $target_id > 0) {
+    if ($target_id === (int)$user_id) {
+        $error_msg = "You cannot deactivate your own Administrator account.";
+    } else {
+        $stmt_u = $pdo->prepare("SELECT full_name, email, role, status FROM users WHERE id = ?");
+        $stmt_u->execute([$target_id]);
+        $u_info = $stmt_u->fetch();
+
+        if ($u_info) {
+            $pdo->prepare("UPDATE users SET status = 'Inactive' WHERE id = ?")->execute([$target_id]);
+            log_audit_action($pdo, $user_name, 'ADMIN', "Deactivated user account ID {$target_id}: {$u_info['full_name']} ({$u_info['email']}, {$u_info['role']}) - Status changed from {$u_info['status']} to Inactive");
+            $success_msg = "Account for <strong>" . htmlspecialchars($u_info['full_name']) . "</strong> has been deactivated (status set to Inactive).";
+        }
+    }
+}
+
+// 1d. Handle Direct Activation of User Account
+if ($action === 'activate' && $target_id > 0) {
+    $stmt_u = $pdo->prepare("SELECT full_name, email, role, status FROM users WHERE id = ?");
+    $stmt_u->execute([$target_id]);
+    $u_info = $stmt_u->fetch();
+
+    if ($u_info) {
+        $pdo->prepare("UPDATE users SET status = 'Active', login_attempts = 0 WHERE id = ?")->execute([$target_id]);
+        log_audit_action($pdo, $user_name, 'ADMIN', "Activated user account ID {$target_id}: {$u_info['full_name']} ({$u_info['email']}, {$u_info['role']}) - Status changed from {$u_info['status']} to Active");
+        $success_msg = "Account for <strong>" . htmlspecialchars($u_info['full_name']) . "</strong> has been activated (status set to Active).";
+    }
+}
+
 // 2. Handle Permanent User Deletion (Cascades to requests, attachments, and notifications)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete_user' && $target_id > 0) {
     if ($target_id === (int)$user_id) {
@@ -142,6 +172,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'edit_user') {
             if ($id_conflict) {
                 $error_msg = "That ID / Employee Number is already assigned to another user.";
             } else {
+                // Fetch previous user info for precise audit trail logging
+                $prev_stmt = $pdo->prepare("SELECT full_name, email, role, status FROM users WHERE id = ? LIMIT 1");
+                $prev_stmt->execute([$edit_id]);
+                $prev_user = $prev_stmt->fetch();
+                $prev_status = $prev_user['status'] ?? '';
+                $prev_role = $prev_user['role'] ?? '';
+
                 $reset_attempts_sql = ($status === 'Active') ? ", login_attempts = 0" : "";
                 $upd = $pdo->prepare("UPDATE users SET 
                     id_number = ?, 
@@ -164,7 +201,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'edit_user') {
                     $edit_id
                 ]);
 
-                log_audit_action($pdo, $user_name, 'ADMIN', "Updated user account ID {$edit_id}: {$full_name} ({$role})");
+                // Determine specific action description for audit trail
+                $status_changed = (!empty($prev_status) && $prev_status !== $status);
+                $role_changed = (!empty($prev_role) && $prev_role !== $role);
+
+                if ($status_changed && $status === 'Inactive') {
+                    $audit_desc = "Deactivated user account ID {$edit_id}: {$full_name} ({$email}, {$role}) - Status changed from {$prev_status} to Inactive";
+                } elseif ($status_changed && $status === 'Active') {
+                    $audit_desc = "Activated user account ID {$edit_id}: {$full_name} ({$email}, {$role}) - Status changed from {$prev_status} to Active";
+                } elseif ($status_changed && $status === 'Dropped') {
+                    $audit_desc = "Marked user account ID {$edit_id}: {$full_name} ({$email}, {$role}) as Dropped - Status changed from {$prev_status} to Dropped";
+                } elseif ($status_changed) {
+                    $audit_desc = "Updated user account ID {$edit_id}: {$full_name} ({$email}, {$role}) - Status changed from {$prev_status} to {$status}";
+                } elseif ($role_changed) {
+                    $audit_desc = "Updated role for user account ID {$edit_id}: {$full_name} ({$email}) from {$prev_role} to {$role}";
+                } else {
+                    $audit_desc = "Updated user account ID {$edit_id}: {$full_name} ({$email}, {$role}, Status: {$status})";
+                }
+
+                log_audit_action($pdo, $user_name, 'ADMIN', $audit_desc);
                 $success_msg = "User account for <strong>" . htmlspecialchars($full_name) . "</strong> has been successfully updated in real time!";
             }
         }
@@ -568,6 +623,16 @@ $all_users = $stmt->fetchAll();
                     </a>
                   <?php endif; ?>
 
+                  <?php if ($u['status'] === 'Active' && (int)$u['id'] !== (int)$user_id): ?>
+                    <a href="users.php?action=deactivate&id=<?= $u['id'] ?>" class="btn-user-action" style="background: #fef2f2; color: #dc2626; border: 1.5px solid #fecaca; font-weight: 600; text-decoration: none; padding: 4px 8px; border-radius: 6px;" title="Deactivate user account" onclick="return confirm('Deactivate user account for <?= htmlspecialchars(addslashes($u['full_name'])) ?>? The user will not be able to log in until reactivated.');">
+                      ⛔ Deactivate
+                    </a>
+                  <?php elseif ($u['status'] === 'Inactive' && (int)($u['login_attempts'] ?? 0) < 3): ?>
+                    <a href="users.php?action=activate&id=<?= $u['id'] ?>" class="btn-user-action" style="background: #f0fdf4; color: #16a34a; border: 1.5px solid #bbf7d0; font-weight: 600; text-decoration: none; padding: 4px 8px; border-radius: 6px;" title="Activate user account" onclick="return confirm('Activate user account for <?= htmlspecialchars(addslashes($u['full_name'])) ?>?');">
+                      ✅ Activate
+                    </a>
+                  <?php endif; ?>
+
                   <!-- Edit Button -->
                   <button type="button" class="btn-user-action edit" onclick="openEditUserModal(<?= htmlspecialchars(json_encode($user_payload), ENT_QUOTES) ?>)" title="Edit user profile">
                     ✏️ Edit
@@ -718,7 +783,7 @@ $all_users = $stmt->fetchAll();
             <select name="status" id="modal_status" class="form-control" required>
               <option value="Active">Active</option>
               <option value="Pending">Pending Approval</option>
-              <option value="Inactive">Inactive</option>
+              <option value="Inactive">Inactive (Deactivated)</option>
               <option value="Dropped">Dropped</option>
             </select>
           </div>
@@ -774,7 +839,8 @@ $all_users = $stmt->fetchAll();
             <select name="status" class="form-control" required>
               <option value="Active" selected>Active (Can login immediately)</option>
               <option value="Pending">Pending Approval</option>
-              <option value="Inactive">Inactive</option>
+              <option value="Inactive">Inactive (Deactivated)</option>
+              <option value="Dropped">Dropped</option>
             </select>
           </div>
         </div>

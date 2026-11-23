@@ -327,6 +327,25 @@ function send_request_status_email($to_email, $recipient_name, $tracking_number,
     $now_str = date('F j, Y g:i A');
     $subject = "[{$tracking_number}] Status Update: {$subject_status} - i-AdminConnect";
 
+    // Determine dynamic base portal URL for email CTA
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if (!empty($host) && (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false)) {
+        // Localhost XAMPP development: strictly use HTTP to prevent SSL certificate warnings
+        $portal_url = "http://{$host}/i-adminconnect/my_requests.php";
+    } elseif (!empty($host)) {
+        // Live production host (Hostinger or cloud)
+        $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+        $proto = $is_https ? 'https://' : 'http://';
+        $script_dir = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
+        if ($script_dir && $script_dir !== '/' && $script_dir !== '\\') {
+            $portal_url = "{$proto}{$host}{$script_dir}/my_requests.php";
+        } else {
+            $portal_url = "{$proto}{$host}/my_requests.php";
+        }
+    } else {
+        $portal_url = "http://localhost/i-adminconnect/my_requests.php";
+    }
+
     $html_body = '<!DOCTYPE html>
 <html>
 <head>
@@ -410,7 +429,7 @@ function send_request_status_email($to_email, $recipient_name, $tracking_number,
       </div>' : '') . '
 
       <div style="text-align: center; margin-top: 24px;">
-        <a href="http://localhost/i-adminconnect/my_requests.php" class="btn-cta" style="color: #ffffff;">
+        <a href="' . htmlspecialchars($portal_url) . '" class="btn-cta" style="color: #ffffff;">
           View Request in i-AdminConnect Portal &rarr;
         </a>
       </div>

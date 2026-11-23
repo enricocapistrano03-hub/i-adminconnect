@@ -56,8 +56,8 @@ if (!empty($_SESSION['user_id'])) {
 
 // Determine database credentials based on environment (Hostinger Production vs Localhost XAMPP)
 $is_hostinger = (
-    (isset($_SERVER['SERVER_NAME']) && (strpos($_SERVER['SERVER_NAME'], 'iadminconnect.com') !== false || strpos($_SERVER['SERVER_NAME'], 'hostinger') !== false)) ||
-    (isset($_SERVER['HTTP_HOST']) && (strpos($_SERVER['HTTP_HOST'], 'iadminconnect.com') !== false || strpos($_SERVER['HTTP_HOST'], 'hostinger') !== false))
+    (isset($_SERVER['SERVER_NAME']) && (strpos($_SERVER['SERVER_NAME'], 'iadminconnect.com') !== false || strpos($_SERVER['SERVER_NAME'], 'i-adminconnect.online') !== false || strpos($_SERVER['SERVER_NAME'], 'hostinger') !== false)) ||
+    (isset($_SERVER['HTTP_HOST']) && (strpos($_SERVER['HTTP_HOST'], 'iadminconnect.com') !== false || strpos($_SERVER['HTTP_HOST'], 'i-adminconnect.online') !== false || strpos($_SERVER['HTTP_HOST'], 'hostinger') !== false))
 );
 
 if ($is_hostinger) {

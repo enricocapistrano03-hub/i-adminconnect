@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        log_audit_action($pdo, $user_name, $actor_role, "Moved Request {$req['tracking_number']} to Under Review");
+        log_audit_action($pdo, $user_name, $actor_role, "Moved Request {$req['tracking_number']} ({$req['request_type_name']}) to Under Review");
         $alert_msg = "Request status updated to <strong>Under Review</strong>.{$mail_info}";
         $req['status'] = 'Under Review';
         $req['current_stage'] = 2;
@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        log_audit_action($pdo, $user_name, $actor_role, "Moved Request {$req['tracking_number']} to Processing");
+        log_audit_action($pdo, $user_name, $actor_role, "Moved Request {$req['tracking_number']} ({$req['request_type_name']}) to Processing");
         $alert_msg = "Request status updated to <strong>Processing</strong>.{$mail_info}";
         $req['status'] = 'Processing';
         $req['current_stage'] = 2;
@@ -184,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        log_audit_action($pdo, $user_name, $actor_role, "Returned Request {$req['tracking_number']} for Revision");
+        log_audit_action($pdo, $user_name, $actor_role, "Returned Request {$req['tracking_number']} ({$req['request_type_name']}) for Revision");
         $alert_msg = "Request Returned for Revision. Requester has been notified via portal & email.{$mail_info}";
         $req['status'] = 'Returned for Revision';
 
@@ -215,7 +215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        log_audit_action($pdo, $user_name, $actor_role, "Rejected Request {$req['tracking_number']}");
+        log_audit_action($pdo, $user_name, $actor_role, "Rejected Request {$req['tracking_number']} ({$req['request_type_name']})");
         $alert_msg = "Request has been rejected. Requester has been notified via email.{$mail_info}";
         $req['status'] = 'Rejected';
     }

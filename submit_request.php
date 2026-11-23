@@ -258,17 +258,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $initial_remarks
             ]);
 
-            // Audit log
-            $copy_txt = $copies > 1 ? " ({$copies} copies)" : " (1 copy)";
-            $log_desc = ($doc_code === 'CR')
-                ? "Submitted Certificate of Rating {$tracking_num}{$copy_txt} (3-Yr Ratings Awaiting Admin Verification)"
-                : "Submitted New Request {$tracking_num}{$copy_txt} (Auto-Set to Processing)";
-            log_audit_action($pdo, $user_name, $user_role, $log_desc);
-
-            // Fetch request type name for alert
+            // Fetch request type name for audit log and notifications
             $stmt = $pdo->prepare("SELECT name FROM request_types WHERE id = ?");
             $stmt->execute([$doc_type_id]);
             $type_name = $stmt->fetchColumn() ?: $selected_type_name;
+
+            // Audit log
+            $copy_txt = $copies > 1 ? " ({$copies} copies)" : " (1 copy)";
+            $doc_name_str = !empty($type_name) ? " for {$type_name}" : "";
+            $log_desc = ($doc_code === 'CR')
+                ? "Submitted Certificate of Rating {$tracking_num}{$copy_txt} (3-Yr Ratings Awaiting Admin Verification)"
+                : "Submitted New Request {$tracking_num}{$doc_name_str}{$copy_txt} (Auto-Set to Processing)";
+            log_audit_action($pdo, $user_name, $user_role, $log_desc);
 
             // Notify Active Registrars (for student) or Admins (for teacher)
             if ($user_role === 'teacher') {

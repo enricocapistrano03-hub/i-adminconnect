@@ -210,6 +210,7 @@ CREATE TABLE `users` (
   `year_level` varchar(50) DEFAULT NULL,
   `course` varchar(100) DEFAULT NULL,
   `status` enum('Active','Inactive','Dropped','Pending') NOT NULL DEFAULT 'Active',
+  `login_attempts` int(11) NOT NULL DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),

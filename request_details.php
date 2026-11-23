@@ -401,7 +401,7 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
       <div style="background: #ffffff; border: 1px solid #fed7aa; border-left: 4px solid #ea580c; border-radius: 8px; padding: 10px 14px; font-size: 0.83rem; color: #7c2d12; line-height: 1.5;">
         <strong>🔍 Administrator Action Guide:</strong><br>
         • <strong>Kung TAMA ang points:</strong> I-click ang <strong>"Mark Ready for Release"</strong>.<br>
-        • <strong>Kung MALI ang points:</strong> I-click ang <strong>"Reject"</strong> ➔ piliin ang <strong>"Reject for Revision"</strong>. I-note na kailangan makipag-coordinate sa kanilang <em>Subject or Head Coordinator</em> para sa kanilang final rating bago mag-request muli.
+        • <strong>Kung MALI ang points:</strong> I-click ang <strong>"Reject"</strong> at ilagay ang dahilan. I-note na kailangan makipag-coordinate sa kanilang <em>Subject or Head Coordinator</em> para sa kanilang final rating bago mag-request muli.
       </div>
     </div>
   <?php endif; ?>
@@ -455,11 +455,11 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
   <div class="modal-dialog" style="max-width: 560px; width: 100%; max-height: 90vh; overflow-y: auto; background: #ffffff; padding: 26px 28px; border-radius: 18px; box-shadow: 0 20px 40px rgba(0,0,0,0.25);" onclick="event.stopPropagation()">
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; border-bottom: 1px solid #f1f5f9; padding-bottom: 14px;">
       <div style="display: flex; align-items: center; gap: 12px;">
-        <div style="width: 44px; height: 44px; border-radius: 12px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
-          ⚠️
+        <div style="width: 44px; height: 44px; border-radius: 12px; background: #ffedd5; color: #ea580c; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+          🔄
         </div>
         <div>
-          <h3 style="margin: 0; font-size: 1.18rem; font-weight: 800; color: #0f172a;">Decline / Reject Request</h3>
+          <h3 style="margin: 0; font-size: 1.18rem; font-weight: 800; color: #0f172a;">Decline / Return for Revision</h3>
           <p style="margin: 3px 0 0 0; font-size: 0.84rem; color: #64748b;">
             <strong><?= htmlspecialchars($req['tracking_number']) ?></strong> &bull; <?= htmlspecialchars($req['full_name']) ?> (<?= htmlspecialchars($req['request_type_name']) ?>)
           </p>
@@ -468,48 +468,17 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
       <button type="button" class="modal-close-btn" onclick="closeRejectModal()" style="position: static; font-size: 1.5rem; line-height: 1; padding: 0; cursor: pointer; color: #94a3b8; background: transparent; border: none;" aria-label="Close modal">&times;</button>
     </div>
 
-    <!-- Option Selection Cards -->
-    <div style="margin-bottom: 18px;">
-      <label class="form-label" style="font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 8px; display: block;">
-        Piliin ang Aksyon (Action Type) <span style="color: #ef4444;">*</span>
-      </label>
-      
-      <div style="display: flex; flex-direction: column; gap: 10px;">
-        <!-- Option 1: Reject for Revision -->
-        <label id="card-option-revise" style="display: flex; align-items: flex-start; gap: 12px; padding: 13px 15px; border: 2px solid #ea580c; background: #fff7ed; border-radius: 12px; cursor: pointer; transition: all 0.2s ease;">
-          <input type="radio" name="modal_action_choice" id="choice_revise" value="revise" checked onchange="switchRejectAction('revise')" style="margin-top: 3px; accent-color: #ea580c; width: 17px; height: 17px;">
-          <div style="flex: 1;">
-            <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; color: #c2410c; font-size: 0.93rem;">
-              <span>🔄 Reject for Revision (Return for Revision)</span>
-              <span style="background: #fed7aa; color: #9a3412; font-size: 0.72rem; padding: 2px 7px; border-radius: 5px; font-weight: 800;">RECOMMENDED</span>
-            </div>
-            <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: #9a3412; line-height: 1.45;">
-              Ibabalik ang request sa <?= strtolower($req['requester_role']) ?> upang makapag-upload o makapag-ayos siya ng mga kailangang dokumento gamit ang <strong>"Edit"</strong> button sa kanyang dashboard.
-            </p>
-          </div>
-        </label>
-
-        <!-- Option 2: Permanent Rejection -->
-        <label id="card-option-reject" style="display: flex; align-items: flex-start; gap: 12px; padding: 13px 15px; border: 1.5px solid #cbd5e1; background: #f8fafc; border-radius: 12px; cursor: pointer; transition: all 0.2s ease;">
-          <input type="radio" name="modal_action_choice" id="choice_reject" value="reject" onchange="switchRejectAction('reject')" style="margin-top: 3px; accent-color: #dc2626; width: 17px; height: 17px;">
-          <div style="flex: 1;">
-            <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; color: #334155; font-size: 0.93rem;">
-              <span>❌ Permanent Rejection (Diretsong Reject)</span>
-            </div>
-            <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: #64748b; line-height: 1.45;">
-              Tuluyang tatanggihan at isasara ang request na ito (halimbawa: ineligible, pekeng dokumento, o hindi pinapayagang transaksyon). Hindi na ito mabubuksan pa muli.
-            </p>
-          </div>
-        </label>
-      </div>
+    <!-- Instructions / Guide Note -->
+    <div style="background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; font-size: 0.85rem; color: #9a3412; line-height: 1.45;">
+      Ibabalik ang request sa <strong><?= strtolower($req['requester_role']) ?></strong> kalakip ang inyong ibibigay na dahilan o tagubilin upang makapag-upload o makapag-ayos siya ng mga kailangang dokumento gamit ang kanyang portal.
     </div>
 
     <!-- Reason / Note Field -->
     <div style="margin-bottom: 18px;">
       <label class="form-label" style="font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 6px; display: block;">
-        <span id="note-label-text">Revision Instructions / Note para sa Requester</span> <span style="color: #ef4444;">*</span>
+        Dahilan / Remarks para sa Requester <span style="color: #ef4444;">*</span>
       </label>
-      <textarea id="modal_remarks_input" class="form-control" rows="3" placeholder="Ilagay ang tagubilin o kulang na dokumento para sa requester..." style="width: 100%; border-radius: 10px; font-size: 0.88rem; padding: 10px 12px; box-sizing: border-box; resize: vertical; border: 1.5px solid #cbd5e1; line-height: 1.45;"></textarea>
+      <textarea id="modal_remarks_input" class="form-control" rows="3" placeholder="Ilagay ang dahilan o tagubilin kung bakit ibinabalik ang request..." style="width: 100%; border-radius: 10px; font-size: 0.88rem; padding: 10px 12px; box-sizing: border-box; resize: vertical; border: 1.5px solid #cbd5e1; line-height: 1.45;"></textarea>
 
       <!-- Quick Note Suggestion Chips -->
       <div id="quick-presets-wrapper" style="margin-top: 8px;">
@@ -534,7 +503,7 @@ function openRejectModal() {
   if (modal) {
     modal.classList.add('active');
     modal.style.display = 'flex';
-    switchRejectAction('revise');
+    renderChips(revisionPresets);
     setTimeout(() => {
       const input = document.getElementById('modal_remarks_input');
       if (input) input.focus();
@@ -562,78 +531,26 @@ const docCode = <?= json_encode($req['request_type_code'] ?? '') ?>;
 const isGMC = (docCode === 'GMC' || <?= (stripos($req['request_type_name'], 'Good Moral') !== false) ? 'true' : 'false' ?>);
 
 let revisionPresets = [];
-let rejectPresets = [];
 
 if (isTeacher) {
   // Admin (Teacher requests)
-  // For Certificate of Rating, show only Rating Discrepancy preset for revision
   if (isCR) {
     revisionPresets = [
       "Rating Discrepancy: Mali ang ipinasang 3-year rating points. Mangyaring makipag-ugnayan sa inyong Subject o Head Coordinator para makuha ang inyong official final rating bago mag-request muli."
     ];
   } else {
-    // COE, Service Record, and other faculty requests: no presets (admin types custom remarks)
     revisionPresets = [];
   }
-  // Permanent rejection for Admin has NO presets (admin types custom remarks)
-  rejectPresets = [];
 } else {
   // Registrar (Student requests)
   if (isGMC) {
-    // Good Moral Certificate has NO presets in both revision and rejection as instructed
     revisionPresets = [];
-    rejectPresets = [];
   } else {
-    // Other student requests (Form 137, Certificate of Grades, Certificate of Enrollment)
     revisionPresets = [
       "Blurry or unreadable document copy. Please re-upload a clear copy.",
       "Formal Request Letter addressed to the Registrar / Admin required.",
       "Please provide section, school year, and specific purpose in notes."
     ];
-    rejectPresets = [
-      "Incorrect document type requested. Please submit a new request.",
-      "Duplicate request already being processed."
-    ];
-  }
-}
-
-function switchRejectAction(type) {
-  const cardRevise = document.getElementById('card-option-revise');
-  const cardReject = document.getElementById('card-option-reject');
-  const radioRevise = document.getElementById('choice_revise');
-  const radioReject = document.getElementById('choice_reject');
-  const submitBtn = document.getElementById('modal-submit-action-btn');
-  const noteLabel = document.getElementById('note-label-text');
-  const remarksInput = document.getElementById('modal_remarks_input');
-
-  if (type === 'revise') {
-    radioRevise.checked = true;
-    cardRevise.style.border = '2px solid #ea580c';
-    cardRevise.style.background = '#fff7ed';
-    cardReject.style.border = '1.5px solid #cbd5e1';
-    cardReject.style.background = '#f8fafc';
-
-    submitBtn.className = 'btn-action-revise';
-    submitBtn.style.background = '#e67e22';
-    submitBtn.innerHTML = '🔄 Submit Return for Revision';
-    noteLabel.innerHTML = 'Revision Instructions / Note para sa Requester';
-    remarksInput.placeholder = 'Ilagay ang tagubilin o kulang na detalye para sa requester...';
-
-    renderChips(revisionPresets);
-  } else {
-    radioReject.checked = true;
-    cardReject.style.border = '2px solid #dc2626';
-    cardReject.style.background = '#fef2f2';
-    cardRevise.style.border = '1.5px solid #cbd5e1';
-    cardRevise.style.background = '#f8fafc';
-
-    submitBtn.className = 'btn-action-reject';
-    submitBtn.style.background = '#dc2626';
-    submitBtn.innerHTML = '❌ Confirm Permanent Rejection';
-    noteLabel.innerHTML = 'Official Reason for Rejection';
-    remarksInput.placeholder = 'Ilagay ang opisyal na dahilan kung bakit tinanggihan ang request...';
-
-    renderChips(rejectPresets);
   }
 }
 
@@ -666,8 +583,6 @@ function renderChips(presets) {
 }
 
 function submitModalAction() {
-  const radioRevise = document.getElementById('choice_revise');
-  const actionType = radioRevise.checked ? 'revise' : 'reject';
   const remarks = document.getElementById('modal_remarks_input').value.trim();
 
   if (!remarks) {
@@ -677,7 +592,7 @@ function submitModalAction() {
   }
 
   const form = document.getElementById('action-form');
-  document.getElementById('action-type').value = actionType;
+  document.getElementById('action-type').value = 'revise';
   document.getElementById('action-remarks').value = remarks;
 
   closeRejectModal();

@@ -99,6 +99,17 @@ try {
         // Silently ignore if already migrated
     }
 
+    // Auto-migrate login_attempts column in users table
+    try {
+        $pdo->query("SELECT login_attempts FROM users LIMIT 1");
+    } catch (Exception $e) {
+        try {
+            $pdo->exec("ALTER TABLE users ADD COLUMN login_attempts INT NOT NULL DEFAULT 0 AFTER status");
+        } catch (Exception $ex) {
+            // Silently ignore if concurrently added
+        }
+    }
+
     // Auto-migrate attached_filename to TEXT to support multiple documents JSON
     try {
         $pdo->exec("ALTER TABLE requests MODIFY COLUMN attached_filename TEXT DEFAULT NULL");

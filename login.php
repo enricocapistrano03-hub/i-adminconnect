@@ -44,17 +44,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $user = $stmt->fetch();
 
         if ($user) {
-            // Check status if available
-            if (isset($user['status']) && $user['status'] !== 'Active') {
-                if ($user['status'] === 'Pending') {
-                    $role_label = ucfirst($user['role'] ?? 'User');
-                    $error = "Your {$role_label} account is currently PENDING ADMINISTRATOR APPROVAL. You will be able to log in once an Administrator activates your account.";
-                } else {
-                    $error = "Your account status is currently '" . htmlspecialchars($user['status']) . "'. Please contact the Administrator.";
-                }
+            $user_status = $user['status'] ?? 'Active';
+            $attempts = (int)($user['login_attempts'] ?? 0);
+
+            // Check if already locked (3 or more attempts OR Inactive due to lock)
+            if ($attempts >= 3 || $user_status === 'Inactive') {
+                $error = '<strong>Account Locked!</strong> Naabot mo na ang 3 sunod-sunod na maling pagsubok sa pag-login. Para sa seguridad, na-lock ang iyong account.<br><br>Mangyaring <strong>makipag-ugnayan sa School Administrator</strong> upang maayos at ma-unlock ang iyong account.';
+                $active_tab = 'login';
+            } elseif ($user_status === 'Pending') {
+                $role_label = ucfirst($user['role'] ?? 'User');
+                $error = "Your {$role_label} account is currently PENDING ADMINISTRATOR APPROVAL. You will be able to log in once an Administrator activates your account.";
+                $active_tab = 'login';
+            } elseif ($user_status === 'Dropped') {
+                $error = "Your account is marked as Dropped. Please coordinate with the School Administration.";
                 $active_tab = 'login';
             } elseif ($user['password'] === $password || password_verify($password, $user['password']) || $password === 'password123' || $password === 'admin123') {
-                // Successful Login
+                // Successful Login: Reset login attempts back to 0
+                try {
+                    $pdo->prepare("UPDATE users SET login_attempts = 0 WHERE id = ?")->execute([$user['id']]);
+                } catch (Exception $e) {}
+
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['full_name'] = $user['full_name'];
@@ -66,7 +75,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 header("Location: dashboard.php");
                 exit();
             } else {
-                $error = 'Invalid credentials. Please verify your password.';
+                // Increment failed login attempt counter
+                $new_attempts = $attempts + 1;
+                if ($new_attempts >= 3) {
+                    try {
+                        $pdo->prepare("UPDATE users SET login_attempts = 3, status = 'Inactive' WHERE id = ?")->execute([$user['id']]);
+                    } catch (Exception $e) {}
+                    log_audit_action($pdo, $user['full_name'], $user['role'], "Account locked after 3 consecutive failed login attempts");
+                    $error = '<strong>Account Locked!</strong> Naka-3 sunod-sunod na maling pagsubok ka na sa password. Para sa seguridad, pansamantalang na-lock ang iyong account.<br><br>Mangyaring <strong>makipag-ugnayan sa School Administrator</strong> upang maayos at ma-unlock ang iyong account.';
+                } else {
+                    try {
+                        $pdo->prepare("UPDATE users SET login_attempts = ? WHERE id = ?")->execute([$new_attempts, $user['id']]);
+                    } catch (Exception $e) {}
+                    $remaining = 3 - $new_attempts;
+                    $error = "Maling password (Attempt {$new_attempts} of 3). May <strong>{$remaining}</strong> na lamang na natitirang pagsubok bago ma-lock ang iyong account. Kung nakalimutan ang password, mangyaring makipag-ugnayan sa School Administrator.";
+                }
                 $active_tab = 'login';
             }
         } else {

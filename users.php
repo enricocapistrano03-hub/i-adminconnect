@@ -14,7 +14,7 @@ $bulk_summary = null;
 
 // 1. Handle Approval of Pending Registrar/User
 if ($action === 'approve' && $target_id > 0) {
-    $stmt = $pdo->prepare("UPDATE users SET status = 'Active' WHERE id = ? AND status = 'Pending'");
+    $stmt = $pdo->prepare("UPDATE users SET status = 'Active', login_attempts = 0 WHERE id = ? AND status = 'Pending'");
     $stmt->execute([$target_id]);
 
     $stmt_u = $pdo->prepare("SELECT full_name, email, role FROM users WHERE id = ?");
@@ -24,6 +24,21 @@ if ($action === 'approve' && $target_id > 0) {
     if ($u_info) {
         log_audit_action($pdo, $user_name, 'ADMIN', "Approved and activated account: {$u_info['full_name']} ({$u_info['email']})");
         $success_msg = "Account for <strong>" . htmlspecialchars($u_info['full_name']) . "</strong> has been approved and activated! They can now log in and access the system.";
+    }
+}
+
+// 1b. Handle Unlocking of Locked / Inactive User (Reset failed login attempts)
+if ($action === 'unlock' && $target_id > 0) {
+    $stmt = $pdo->prepare("UPDATE users SET status = 'Active', login_attempts = 0 WHERE id = ?");
+    $stmt->execute([$target_id]);
+
+    $stmt_u = $pdo->prepare("SELECT full_name, email, role FROM users WHERE id = ?");
+    $stmt_u->execute([$target_id]);
+    $u_info = $stmt_u->fetch();
+
+    if ($u_info) {
+        log_audit_action($pdo, $user_name, 'ADMIN', "Unlocked account and reset login attempts: {$u_info['full_name']} ({$u_info['email']})");
+        $success_msg = "Account for <strong>" . htmlspecialchars($u_info['full_name']) . "</strong> has been successfully unlocked! Failed login attempts were reset to 0, and account status is now Active.";
     }
 }
 
@@ -127,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'edit_user') {
             if ($id_conflict) {
                 $error_msg = "That ID / Employee Number is already assigned to another user.";
             } else {
+                $reset_attempts_sql = ($status === 'Active') ? ", login_attempts = 0" : "";
                 $upd = $pdo->prepare("UPDATE users SET 
                     id_number = ?, 
                     full_name = ?, 
@@ -134,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'edit_user') {
                     role = ?, 
                     department = ?, 
                     course = ?, 
-                    status = ? 
+                    status = ?{$reset_attempts_sql} 
                     WHERE id = ?");
                 $course_val = ($role === 'student' ? $department : null);
                 $upd->execute([
@@ -528,7 +544,9 @@ $all_users = $stmt->fetchAll();
               <td><span class="badge-status <?= $badge_color ?>"><?= strtoupper($u['role']) ?></span></td>
               <td><?= htmlspecialchars($u['department'] ?: '—') ?></td>
               <td>
-                <?php if ($u['status'] === 'Pending'): ?>
+                <?php if ((int)($u['login_attempts'] ?? 0) >= 3): ?>
+                  <span class="badge-status" style="background: #fee2e2; color: #b91c1c; font-weight: 700;" title="Account locked after 3 failed login attempts">🔒 Locked (3 Attempts)</span>
+                <?php elseif ($u['status'] === 'Pending'): ?>
                   <span class="badge-status" style="background: #fef3c7; color: #b45309; font-weight: 700;">Pending Approval</span>
                 <?php elseif ($u['status'] === 'Active'): ?>
                   <span style="color: #16a34a; font-weight: 700;">Active</span>
@@ -538,6 +556,12 @@ $all_users = $stmt->fetchAll();
               </td>
               <td style="text-align: right; white-space: nowrap;">
                 <div style="display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end;">
+                  <?php if ((int)($u['login_attempts'] ?? 0) >= 3 || ($u['status'] === 'Inactive' && (int)($u['login_attempts'] ?? 0) > 0)): ?>
+                    <a href="users.php?action=unlock&id=<?= $u['id'] ?>" class="btn-user-action" style="background: #dcfce7; color: #166534; border: 1.5px solid #86efac; font-weight: 700; text-decoration: none; padding: 4px 10px; border-radius: 6px;" title="Unlock account and reset failed login attempts" onclick="return confirm('Unlock account for <?= htmlspecialchars(addslashes($u['full_name'])) ?>? This will reset failed login attempts to 0 and activate the account.');">
+                      🔓 Unlock
+                    </a>
+                  <?php endif; ?>
+
                   <?php if ($u['status'] === 'Pending'): ?>
                     <a href="users.php?action=approve&id=<?= $u['id'] ?>" class="btn-user-action approve" title="Approve and activate this account" onclick="return confirm('Approve and activate this account?');">
                       ✔ Approve

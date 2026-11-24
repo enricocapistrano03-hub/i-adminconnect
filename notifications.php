@@ -28,8 +28,12 @@ require_once __DIR__ . '/includes/header.php';
 $stmt = $pdo->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ?");
 $stmt->execute([$user_id]);
 
-// Fetch all notifications for this user
-$stmt = $pdo->prepare("SELECT * FROM notifications WHERE user_id = ? ORDER BY id DESC");
+// Fetch all notifications for this user with live request status
+$stmt = $pdo->prepare("SELECT n.*, r.status as current_request_status, r.current_stage 
+    FROM notifications n 
+    LEFT JOIN requests r ON n.request_id = r.tracking_number 
+    WHERE n.user_id = ? 
+    ORDER BY n.id DESC");
 $stmt->execute([$user_id]);
 $notifications = $stmt->fetchAll();
 ?>
@@ -66,11 +70,35 @@ $notifications = $stmt->fetchAll();
   <?php else: ?>
     <?php foreach ($notifications as $n): 
       $time_str = date('F j, Y g:i A', strtotime($n['created_at']));
+      $req_status = $n['current_request_status'] ?? '';
+      $is_completed = ($req_status === 'Completed' || $req_status === 'Released');
+      $is_ready = ($req_status === 'Ready for Release');
+
+      // Dynamically reflect current status on legacy "in Processing" titles
+      $display_title = $n['title'];
+      if ($is_completed && strpos($display_title, 'in Processing') !== false) {
+          $display_title = "Request " . ($n['request_id'] ?? '') . " Completed";
+      } elseif ($is_ready && strpos($display_title, 'in Processing') !== false) {
+          $display_title = "Request " . ($n['request_id'] ?? '') . " Ready for Release";
+      }
     ?>
-      <div class="notification-card">
+      <div class="notification-card" style="<?= $is_completed ? 'border-left: 4px solid #10b981;' : ($is_ready ? 'border-left: 4px solid #0284c7;' : '') ?>">
         <div>
-          <div class="notification-title">
-            <span>✔</span> <?= htmlspecialchars($n['title']) ?>
+          <div class="notification-title" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span><?= $is_completed ? '🎉' : '✔' ?></span> <?= htmlspecialchars($display_title) ?>
+            <?php if (!empty($req_status)): ?>
+              <?php if ($is_completed): ?>
+                <span class="badge-status" style="background: #d1fae5; color: #065f46; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;">✔ Completed</span>
+              <?php elseif ($is_ready): ?>
+                <span class="badge-status" style="background: #dcfce7; color: #15803d; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;">Ready for Release</span>
+              <?php elseif ($req_status === 'Returned for Revision'): ?>
+                <span class="badge-status" style="background: #ffedd5; color: #c2410c; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;">Revision Needed</span>
+              <?php elseif ($req_status === 'Rejected'): ?>
+                <span class="badge-status" style="background: #fee2e2; color: #b91c1c; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;">Rejected</span>
+              <?php else: ?>
+                <span class="badge-status" style="background: #e0f2fe; color: #0369a1; font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;">Processing</span>
+              <?php endif; ?>
+            <?php endif; ?>
           </div>
           <div class="notification-details">
             <?= htmlspecialchars($n['message']) ?>
@@ -79,22 +107,27 @@ $notifications = $stmt->fetchAll();
                 📍 <?= htmlspecialchars($n['location']) ?>
               </div>
             <?php endif; ?>
+            <?php if ($is_completed && strpos($n['message'], 'Auto-set to Processing') !== false): ?>
+              <div style="margin-top: 5px; color: #166534; font-size: 0.82rem; font-weight: 600;">
+                🎉 Note: This document request has been processed and is officially Completed.
+              </div>
+            <?php endif; ?>
           </div>
           <div class="notification-meta"><?= $time_str ?></div>
         </div>
         <?php if (!empty($n['request_id'])): ?>
           <?php if ($user_role === 'admin'): ?>
             <!-- Admin can view request in management/details -->
-            <a href="manage_requests.php?search=<?= urlencode($n['request_id']) ?>" class="btn-primary-cta" style="padding: 8px 18px; font-size: 0.85rem; text-decoration: none; display: inline-block;">
-              Review Request
+            <a href="manage_requests.php?search=<?= urlencode($n['request_id']) ?>" class="btn-primary-cta" style="padding: 8px 18px; font-size: 0.85rem; text-decoration: none; display: inline-block; <?= $is_completed ? 'background: #10b981;' : '' ?>">
+              <?= $is_completed ? 'View Completed' : 'Review Request' ?>
             </a>
           <?php elseif ($user_role === 'registrar'): ?>
-            <a href="assigned_requests.php?search=<?= urlencode($n['request_id']) ?>" class="btn-primary-cta" style="padding: 8px 18px; font-size: 0.85rem; text-decoration: none; display: inline-block;">
-              Process Request
+            <a href="assigned_requests.php?search=<?= urlencode($n['request_id']) ?>" class="btn-primary-cta" style="padding: 8px 18px; font-size: 0.85rem; text-decoration: none; display: inline-block; <?= $is_completed ? 'background: #10b981;' : '' ?>">
+              <?= $is_completed ? 'View Completed' : 'Process Request' ?>
             </a>
           <?php else: ?>
-            <button type="button" class="btn-primary-cta" style="padding: 8px 18px; font-size: 0.85rem; cursor: pointer;" onclick="openTrackerModal('<?= htmlspecialchars($n['request_id'], ENT_QUOTES) ?>')">
-              View Request
+            <button type="button" class="btn-primary-cta" style="padding: 8px 18px; font-size: 0.85rem; cursor: pointer; <?= $is_completed ? 'background: #10b981;' : '' ?>" onclick="openTrackerModal('<?= htmlspecialchars($n['request_id'], ENT_QUOTES) ?>')">
+              <?= $is_completed ? 'View Completed' : 'View Request' ?>
             </button>
           <?php endif; ?>
         <?php endif; ?>

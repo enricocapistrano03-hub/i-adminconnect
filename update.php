@@ -24,6 +24,7 @@ $files = [
     'admin_dashboard_view.php',
     'reports.php',
     'dashboard.php',
+    'notifications.php',
     'css/style.css',
     'style.css',
     'config/announcements.json',

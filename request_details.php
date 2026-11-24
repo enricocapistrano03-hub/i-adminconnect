@@ -134,6 +134,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Registrar\'s Office')");
         $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Completed", $notif_msg]);
 
+        // Insert Notification for Active Registrars and Admins
+        $staff_target_office = ($req['requester_role'] === 'teacher') ? 'Administrator Office' : 'Office of the Registrar';
+        $staff_roles = ($req['requester_role'] === 'teacher') ? "('admin')" : "('registrar', 'admin')";
+        $staff_stmt = $pdo->query("SELECT id FROM users WHERE role IN {$staff_roles} AND status = 'Active'");
+        foreach ($staff_stmt->fetchAll() as $staff) {
+            $stmt_notif->execute([
+                $staff['id'],
+                $req['tracking_number'],
+                "Request {$req['tracking_number']} Completed",
+                "Document request {$req['tracking_number']} ({$req['request_type_name']}) for {$req['full_name']} has been released and completed.",
+                $staff_target_office
+            ]);
+        }
+
         // Send Real-Time Email Notification
         $mail_info = '';
         if (!empty($req['requester_email'])) {

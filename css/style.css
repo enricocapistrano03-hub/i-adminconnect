@@ -65,6 +65,10 @@ body {
   flex-shrink: 0;
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.05);
   z-index: 20;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .sidebar-logo-container {
@@ -72,7 +76,8 @@ body {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
 .sidebar-logo-circle {
@@ -107,6 +112,23 @@ body {
   flex-direction: column;
   gap: 10px;
   flex-grow: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 5px;
+}
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .nav-item {
@@ -138,7 +160,9 @@ body {
 
 .sidebar-footer {
   margin-top: auto;
-  padding-top: 20px;
+  padding-top: 16px;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .logout-btn {
@@ -195,6 +219,39 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.header-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #ffffff;
+  color: #dc2626;
+  border: 1.5px solid #fecaca;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.header-logout-btn:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.15);
+}
+
+.header-logout-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.header-logout-btn:hover svg {
+  transform: translateX(2px);
 }
 
 .badge-live {

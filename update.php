@@ -32,6 +32,7 @@ $files = [
     'includes/header.php',
     'includes/footer.php',
     'includes/registrar_overview_view.php',
+    'header.php',
     'login.php',
     'logout.php',
     'index.php',

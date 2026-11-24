@@ -84,51 +84,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete_user' && $targe
         if (!$del_user) {
             $error_msg = "User record not found or already deleted.";
         } else {
-            // Find all requests for this user and remove physical file uploads
-            $req_stmt = $pdo->prepare("SELECT id, tracking_number, attached_filename FROM requests WHERE user_id = ?");
-            $req_stmt->execute([$target_id]);
-            $user_requests = $req_stmt->fetchAll();
+            // Check if user has existing transaction records in the system
+            $cnt_stmt = $pdo->prepare("SELECT COUNT(*) FROM requests WHERE user_id = ?");
+            $cnt_stmt->execute([$target_id]);
+            $req_count = (int)$cnt_stmt->fetchColumn();
 
-            $uploads_dir = __DIR__ . '/uploads/';
-            foreach ($user_requests as $req) {
-                if (!empty($req['attached_filename'])) {
-                    $atts = parse_attachments($req['attached_filename'], $req['file_size_kb'] ?? '');
-                    foreach ($atts as $att) {
-                        $fn = $att['file'];
-                        $clean_fn = preg_replace('/[^a-zA-Z0-9._-]/', '_', $fn);
-                        if (file_exists($uploads_dir . $fn)) {
-                            @unlink($uploads_dir . $fn);
-                        } elseif (file_exists($uploads_dir . $clean_fn)) {
-                            @unlink($uploads_dir . $clean_fn);
-                        } else {
-                            $matches = glob($uploads_dir . '*' . $clean_fn);
-                            if (!empty($matches)) {
-                                foreach ($matches as $m) @unlink($m);
-                            }
-                        }
-                    }
-                }
+            if ($req_count > 0) {
+                // Record Protection: User has transactions, preserve historical records for school compliance!
+                $pdo->prepare("UPDATE users SET status = 'Inactive', login_attempts = 3 WHERE id = ?")->execute([$target_id]);
+                log_audit_action($pdo, $user_name, 'ADMIN', "Deactivated user account ID {$target_id}: {$del_user['full_name']} ({$del_user['email']}, {$del_user['role']}) - Safely preserved {$req_count} historical request records");
+                $success_msg = "User <strong>" . htmlspecialchars($del_user['full_name']) . "</strong> has <strong>{$req_count} transaction records</strong> in the system. To prevent loss of institutional history, the account was safely <strong>Deactivated (Inactive)</strong> instead of deleting their records.";
+            } else {
+                // User has no request records: Safe to permanently delete
+                $pdo->prepare("DELETE FROM notifications WHERE user_id = ?")->execute([$target_id]);
+                $pdo->prepare("DELETE FROM otp_verifications WHERE email = ?")->execute([$del_user['email']]);
+                $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$target_id]);
 
-                // Delete notifications tied to this tracking number
-                $pdo->prepare("DELETE FROM notifications WHERE request_id = ?")->execute([$req['tracking_number']]);
+                // Log audit action
+                log_audit_action($pdo, $user_name, 'ADMIN', "Permanently deleted user account ID {$target_id}: {$del_user['full_name']} ({$del_user['role']}) (No request records found)");
+
+                $success_msg = "User <strong>" . htmlspecialchars($del_user['full_name']) . "</strong> (" . ucfirst($del_user['role']) . ") has been permanently deleted from the system.";
             }
-
-            // Delete notifications sent to this user
-            $pdo->prepare("DELETE FROM notifications WHERE user_id = ?")->execute([$target_id]);
-
-            // Delete all requests of this user
-            $pdo->prepare("DELETE FROM requests WHERE user_id = ?")->execute([$target_id]);
-
-            // Delete OTP records for this email
-            $pdo->prepare("DELETE FROM otp_verifications WHERE email = ?")->execute([$del_user['email']]);
-
-            // Delete the user record from database
-            $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$target_id]);
-
-            // Log audit action
-            log_audit_action($pdo, $user_name, 'ADMIN', "Permanently deleted user account ID {$target_id}: {$del_user['full_name']} ({$del_user['role']}) and all related records");
-
-            $success_msg = "User <strong>" . htmlspecialchars($del_user['full_name']) . "</strong> (" . ucfirst($del_user['role']) . ") and all related requests, files, and data were permanently deleted from the system.";
         }
     }
 }
@@ -640,10 +616,10 @@ $all_users = $stmt->fetchAll();
 
                   <!-- Delete Button -->
                   <?php if ((int)$u['id'] !== (int)$user_id): ?>
-                    <form method="POST" action="users.php" style="display: inline; margin: 0;" onsubmit="return confirm('⚠️ WARNING: Are you sure you want to permanently delete <?= htmlspecialchars(addslashes($u['full_name']), ENT_QUOTES) ?> (<?= ucfirst($u['role']) ?>)?\n\nThis will remove their account and ALL associated requests, uploaded documents, and notifications from the system. This cannot be undone.');">
+                    <form method="POST" action="users.php" style="display: inline; margin: 0;" onsubmit="return confirm('⚠️ Are you sure you want to remove user <?= htmlspecialchars(addslashes($u['full_name']), ENT_QUOTES) ?> (<?= ucfirst($u['role']) ?>)?\n\nNote: If this user has existing transaction records, the system will safely deactivate the account to preserve all institutional records and audit trails.');">
                       <input type="hidden" name="action" value="delete_user">
                       <input type="hidden" name="target_id" value="<?= $u['id'] ?>">
-                      <button type="submit" class="btn-user-action delete" title="Permanently delete user and records">
+                      <button type="submit" class="btn-user-action delete" title="Remove or deactivate user">
                         🗑️ Delete
                       </button>
                     </form>

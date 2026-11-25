@@ -18,3 +18,4 @@ raw_students.txt
 # Uploaded documents / attachments (keep folder structure)
 uploads/*
 !uploads/.gitkeep
+!uploads/.htaccess

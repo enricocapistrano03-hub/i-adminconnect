@@ -1,0 +1,13 @@
+# ==============================================================================
+# i-AdminConnect Uploads Directory Hardening
+# Blocks direct script execution in uploaded files directory
+# ==============================================================================
+
+# Disable directory browsing
+Options -Indexes
+
+# Block execution of all executable scripts and backdoors
+<FilesMatch "\.(php|php3|php4|php5|php7|php8|phtml|phps|pl|py|cgi|sh|exe|asp|aspx|jsp)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

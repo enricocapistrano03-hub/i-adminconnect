@@ -18,6 +18,24 @@
 # Disable Directory Browsing
 Options -Indexes
 
+# 3. HTTP Security Headers (OWASP Recommended)
+<IfModule mod_headers.c>
+    # Protect against Clickjacking attacks
+    Header always set X-Frame-Options "SAMEORIGIN"
+    # Prevent MIME-type sniffing
+    Header always set X-Content-Type-Options "nosniff"
+    # Cross-site scripting filter
+    Header always set X-XSS-Protection "1; mode=block"
+    # Strict Referrer Policy to protect URL tokens
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# 4. Protect Sensitive Files & Directories
+<FilesMatch "^(\.git|\.env|composer\.|package\.|\.ht)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
 # Upload file size settings (for hosts supporting php_value in .htaccess)
 <IfModule mod_php.c>
     php_value upload_max_filesize 20M

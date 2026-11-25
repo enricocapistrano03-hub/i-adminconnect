@@ -41,7 +41,8 @@ $files = [
     'index.php',
     'assets/logo.png',
     'assets/iAdminConnect LOGO.png',
-    '.htaccess'
+    '.htaccess',
+    'uploads/.htaccess'
 ];
 
 $ctx = stream_context_create([

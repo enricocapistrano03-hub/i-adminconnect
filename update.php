@@ -30,6 +30,7 @@ $files = [
     'style.css',
     'config/announcements.json',
     'includes/mailer.php',
+    'includes/bulk_user_parser.php',
     'includes/sidebar.php',
     'includes/header.php',
     'includes/footer.php',

@@ -128,9 +128,27 @@ function parse_bulk_users_input($input, $default_role = 'student', $default_stat
             }
         }
 
+        // Auto-clean common typographical errors in user input
+        $sanitized_email = $raw_email;
+        // 1. Remove spaces around @ (e.g. "rainjiadalimane @gmail.com" -> "rainjiadalimane@gmail.com")
+        $sanitized_email = preg_replace('/\s*@\s*/', '@', $sanitized_email);
+        // 2. Fix comma before TLD (e.g. "user@gmail,com" -> "user@gmail.com")
+        $sanitized_email = preg_replace('/,([a-zA-Z]{2,})/i', '.$1', $sanitized_email);
+        // 3. Fix missing domain before .com (e.g. "schacc.saa@.com" -> "schacc.saa@gmail.com")
+        $sanitized_email = preg_replace('/@\.com/i', '@gmail.com', $sanitized_email);
+        // 4. Auto-append @gmail.com if user only entered username prefix without spaces
+        if (!empty($sanitized_email) && strpos($sanitized_email, '@') === false && strpos($sanitized_email, ' ') === false) {
+            $sanitized_email .= '@gmail.com';
+        }
+
         $clean_email = '';
-        if (preg_match('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', $raw_email, $matches)) {
+        if (preg_match('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', $sanitized_email, $matches)) {
             $clean_email = strtolower(trim($matches[0]));
+        }
+
+        // Fallback: If still empty but LRN / ID is available, auto-generate institutional email
+        if (empty($clean_email) && !empty($id_num)) {
+            $clean_email = strtolower($id_num . '@student.taguigscience.edu.ph');
         }
 
         // Skip rows without at least a Name and a valid Email

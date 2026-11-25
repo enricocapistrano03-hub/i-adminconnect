@@ -308,6 +308,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'bulk_upload') {
     }
 
     if (empty($error_msg) && !empty($raw_input)) {
+        @set_time_limit(300);
+        @ini_set('max_execution_time', '300');
+        @ini_set('memory_limit', '256M');
+
         require_once __DIR__ . '/includes/bulk_user_parser.php';
         $parsed_users = parse_bulk_users_input($raw_input, $default_role, $default_status);
 
@@ -318,6 +322,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'bulk_upload') {
             $updated_count = 0;
             $skipped_count = 0;
             $error_details = [];
+
+            $in_trx = false;
+            try {
+                $pdo->beginTransaction();
+                $in_trx = true;
+            } catch (Exception $te) {}
 
             $stmt_ins = $pdo->prepare("INSERT INTO users 
                 (username, password, full_name, email, role, id_number, department, section, year_level, course, status) 
@@ -369,6 +379,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'bulk_upload') {
                     $skipped_count++;
                     $error_details[] = "Row #" . ($idx + 1) . " (" . htmlspecialchars($u['full_name']) . "): " . $e->getMessage();
                 }
+            }
+
+            if ($in_trx && $pdo->inTransaction()) {
+                $pdo->commit();
             }
 
             $total_processed = count($parsed_users);

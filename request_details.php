@@ -96,29 +96,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare($update_sql);
         $stmt->execute([$now_str, $req_id]);
 
+        log_audit_action($pdo, $user_name, $actor_role, "Approved Request {$req['tracking_number']} ({$req['request_type_name']}) - Ready for Release");
+
         // Insert Notification for User
-        $notif_msg = "Your request for {$req['request_type_name']} has been approved and marked Ready for Release by the Office of the Registrar. Please proceed to the Registrar's Office to claim your document.";
-        $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Please visit the Registrar\'s Office to claim your document.')");
-        $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Ready for Release", $notif_msg]);
+        try {
+            $notif_msg = "Your request for {$req['request_type_name']} has been approved and marked Ready for Release by the Office of the Registrar. Please proceed to the Registrar's Office to claim your document.";
+            $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Please visit the Registrar\'s Office to claim your document.')");
+            $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Ready for Release", $notif_msg]);
+        } catch (Exception $ne) {
+            error_log("Failed to insert ready notification: " . $ne->getMessage());
+        }
 
         // Send Real-Time Email Notification
         $mail_info = '';
         if (!empty($req['requester_email'])) {
-            $m_res = send_request_status_email(
-                $req['requester_email'],
-                $req['full_name'],
-                $req['tracking_number'],
-                $req['request_type_name'],
-                'Ready for Release',
-                'Your request has been approved and marked Ready for Release. Please proceed to the Registrar\'s Office to claim your document.',
-                'Office of the Registrar'
-            );
-            if ($m_res['success']) {
-                $mail_info = " &bull; Real-time notification email sent to <strong>{$req['requester_email']}</strong>";
+            try {
+                $m_res = send_request_status_email(
+                    $req['requester_email'],
+                    $req['full_name'],
+                    $req['tracking_number'],
+                    $req['request_type_name'],
+                    'Ready for Release',
+                    'Your request has been approved and marked Ready for Release. Please proceed to the Registrar\'s Office to claim your document.',
+                    'Office of the Registrar'
+                );
+                if ($m_res['success']) {
+                    $mail_info = " &bull; Real-time notification email sent to <strong>{$req['requester_email']}</strong>";
+                }
+            } catch (Exception $me) {
+                error_log("Failed to send approve email: " . $me->getMessage());
             }
         }
-
-        log_audit_action($pdo, $user_name, $actor_role, "Approved Request {$req['tracking_number']} ({$req['request_type_name']}) - Ready for Release");
 
         $alert_msg = "Request Approved Successfully! You have marked request <strong>{$req['tracking_number']}</strong> as Ready for Release.{$mail_info}";
         $req['status'] = 'Ready for Release';
@@ -129,43 +137,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare($update_sql);
         $stmt->execute([$now_str, $req_id]);
 
-        // Insert Notification for User
-        $notif_msg = "Your request for {$req['request_type_name']} ({$req['tracking_number']}) has been officially completed and released.";
-        $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Registrar\'s Office')");
-        $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Completed", $notif_msg]);
+        // Immediately log audit trail so it is guaranteed to be recorded!
+        log_audit_action($pdo, $user_name, $actor_role, "Marked Request {$req['tracking_number']} ({$req['request_type_name']}) as Completed");
 
-        // Insert Notification for Active Registrars and Admins
-        $staff_target_office = ($req['requester_role'] === 'teacher') ? 'Administrator Office' : 'Office of the Registrar';
-        $staff_roles = ($req['requester_role'] === 'teacher') ? "('admin')" : "('registrar', 'admin')";
-        $staff_stmt = $pdo->query("SELECT id FROM users WHERE role IN {$staff_roles} AND status = 'Active'");
-        foreach ($staff_stmt->fetchAll() as $staff) {
-            $stmt_notif->execute([
-                $staff['id'],
-                $req['tracking_number'],
-                "Request {$req['tracking_number']} Completed",
-                "Document request {$req['tracking_number']} ({$req['request_type_name']}) for {$req['full_name']} has been released and completed.",
-                $staff_target_office
-            ]);
+        // Insert Notifications safely
+        try {
+            $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, ?)");
+            $notif_msg = "Your request for {$req['request_type_name']} ({$req['tracking_number']}) has been officially completed and released.";
+            $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Completed", $notif_msg, "Registrar's Office"]);
+
+            // Insert Notification for Active Registrars and Admins
+            $staff_target_office = ($req['requester_role'] === 'teacher') ? 'Administrator Office' : 'Office of the Registrar';
+            $staff_roles = ($req['requester_role'] === 'teacher') ? "('admin')" : "('registrar', 'admin')";
+            $staff_stmt = $pdo->query("SELECT id FROM users WHERE role IN {$staff_roles} AND status = 'Active'");
+            foreach ($staff_stmt->fetchAll() as $staff) {
+                $stmt_notif->execute([
+                    $staff['id'],
+                    $req['tracking_number'],
+                    "Request {$req['tracking_number']} Completed",
+                    "Document request {$req['tracking_number']} ({$req['request_type_name']}) for {$req['full_name']} has been released and completed.",
+                    $staff_target_office
+                ]);
+            }
+        } catch (Exception $ne) {
+            error_log("Failed to insert complete notification: " . $ne->getMessage());
         }
 
-        // Send Real-Time Email Notification
+        // Send Real-Time Email Notification safely
         $mail_info = '';
         if (!empty($req['requester_email'])) {
-            $m_res = send_request_status_email(
-                $req['requester_email'],
-                $req['full_name'],
-                $req['tracking_number'],
-                $req['request_type_name'],
-                'Completed',
-                'Your document has been released and the transaction is officially completed.',
-                'Office of the Registrar'
-            );
-            if ($m_res['success']) {
-                $mail_info = " &bull; Real-time confirmation email sent to <strong>{$req['requester_email']}</strong>";
+            try {
+                $m_res = send_request_status_email(
+                    $req['requester_email'],
+                    $req['full_name'],
+                    $req['tracking_number'],
+                    $req['request_type_name'],
+                    'Completed',
+                    'Your document has been released and the transaction is officially completed.',
+                    'Office of the Registrar'
+                );
+                if ($m_res['success']) {
+                    $mail_info = " &bull; Real-time confirmation email sent to <strong>{$req['requester_email']}</strong>";
+                }
+            } catch (Exception $me) {
+                error_log("Failed to send complete email: " . $me->getMessage());
             }
         }
-
-        log_audit_action($pdo, $user_name, $actor_role, "Marked Request {$req['tracking_number']} ({$req['request_type_name']}) as Completed");
 
         $alert_msg = "Transaction Complete! Request <strong>{$req['tracking_number']}</strong> is now marked as <strong>Completed</strong>.{$mail_info}";
         $req['status'] = 'Completed';

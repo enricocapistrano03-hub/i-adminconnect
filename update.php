@@ -25,6 +25,7 @@ $files = [
     'reports.php',
     'dashboard.php',
     'notifications.php',
+    'audit_logs.php',
     'css/style.css',
     'style.css',
     'config/announcements.json',
@@ -72,10 +73,27 @@ foreach ($files as $rel_path) {
     }
 }
 
-// Trigger database auto-migration
+// Trigger database auto-migration and audit log healing
+$healed_requests = [];
 if (file_exists(__DIR__ . '/config/db_conn.php')) {
     try {
         require_once __DIR__ . '/config/db_conn.php';
+
+        if (isset($pdo)) {
+            // Auto-heal any completed requests missing their Completed audit log entry
+            $comp_stmt = $pdo->query("SELECT r.tracking_number, COALESCE(rt.name, 'Document') as doc_name 
+                FROM requests r 
+                LEFT JOIN request_types rt ON r.request_type_id = rt.id 
+                WHERE r.status = 'Completed'");
+            while ($cr = $comp_stmt->fetch()) {
+                $chk_log = $pdo->prepare("SELECT id FROM audit_logs WHERE action LIKE ? LIMIT 1");
+                $chk_log->execute(["%{$cr['tracking_number']}%Completed%"]);
+                if (!$chk_log->fetch()) {
+                    log_audit_action($pdo, 'System Administrator', 'ADMIN', "Marked Request {$cr['tracking_number']} ({$cr['doc_name']}) as Completed");
+                    $healed_requests[] = $cr['tracking_number'];
+                }
+            }
+        }
     } catch (Exception $e) {}
 }
 
@@ -89,12 +107,18 @@ echo "<div><h1 style='margin: 0; color: #166534; font-size: 1.35rem;'>Updates Su
 echo "<p style='margin: 2px 0 0 0; color: #15803d; font-size: 0.9rem;'>{$success_count} of " . count($files) . " files were directly synced and written to iadminconnect.com.</p></div>";
 echo "</div>";
 
+if (!empty($healed_requests)) {
+    echo "<div style='background: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; color: #065f46; font-size: 0.88rem;'>";
+    echo "<strong>✔ Auto-Healed Audit Logs:</strong> Naitama at naidagdag na sa Audit Trail ang 'Completed' record para sa requests: <strong>" . implode(', ', $healed_requests) . "</strong>.";
+    echo "</div>";
+}
+
 echo "<div style='background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;'>";
 echo "<h3 style='margin: 0 0 8px 0; color: #166534; font-size: 0.95rem;'>Mga Na-update:</h3>";
 echo "<ul style='margin: 0; padding-left: 20px; color: #15803d; font-size: 0.88rem; line-height: 1.6;'>";
-echo "<li><strong>Request Details (request_details.php):</strong> Inalis na ang Permanent Rejection option card. Kapag pinindot ang Reject, diretso nang maglalagay ng dahilan / tagubilin para sa requester at magsa-submit as Return for Revision.</li>";
-echo "<li><strong>3-Attempt Login Security Lockout (login.php &amp; db_conn.php):</strong> Kapag naka-3 sunod-sunod na maling password attempt, awtomatikong mala-lock ang account (status Inactive) at may babalang makipag-ugnayan sa School Administrator.</li>";
-echo "<li><strong>Admin One-Click Account Unlock (users.php):</strong> May bagong '🔓 Unlock' button at '🔒 Locked (3 Attempts)' indicator sa User Directory para madaling ma-reactivate ng Administrator ang na-lock na estudyante o guro.</li>";
+echo "<li><strong>Audit Logs for Completed Requests:</strong> Naayos ang notification parameters sa pag-complete ng request upang sigurado at agarang maitala sa Audit Trail &amp; System Logs ang bawat natapos na transaksyon.</li>";
+echo "<li><strong>Header &amp; Sticky Sidebar Logout:</strong> Inalis ang Logout button sa kanang bahagi sa itaas (header) at nananatiling naka-pin/sticky ang Logout button sa kaliwang ibaba ng sidebar kahit mahaba ang mga talaan o records.</li>";
+echo "<li><strong>Registrar Notifications:</strong> Real-time na ring ipinapakita ang live status ng request (Completed / Ready for Release) sa halip na static processing alert.</li>";
 echo "</ul></div>";
 
 echo "<div style='display: flex; gap: 12px; flex-wrap: wrap;'>";

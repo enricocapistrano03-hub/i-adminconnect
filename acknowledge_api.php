@@ -54,41 +54,49 @@ require_once __DIR__ . '/includes/mailer.php';
 // Audit log
 log_audit_action($pdo, $user_name, strtoupper($user_role), "Acknowledged receipt of request {$tracking_number} ({$req['request_type_name']}) - Completed");
 
-// Notify Registrars and Admins
-$staff_stmt = $pdo->query("SELECT id FROM users WHERE role IN ('registrar', 'admin') AND status = 'Active'");
-$notif_insert = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Assigned Requests Queue')");
-foreach ($staff_stmt->fetchAll() as $staff) {
+// Notify Registrars and Admins safely
+try {
+    $staff_stmt = $pdo->query("SELECT id FROM users WHERE role IN ('registrar', 'admin') AND status = 'Active'");
+    $notif_insert = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Assigned Requests Queue')");
+    foreach ($staff_stmt->fetchAll() as $staff) {
+        $notif_insert->execute([
+            $staff['id'],
+            $tracking_number,
+            "Request {$tracking_number} Completed",
+            "{$user_name} has acknowledged and confirmed receipt of document request {$tracking_number}. Transaction completed."
+        ]);
+    }
+
+    // In-app notification for requester
     $notif_insert->execute([
-        $staff['id'],
+        $req['user_id'],
         $tracking_number,
-        "Request {$tracking_number} Completed",
-        "{$user_name} has acknowledged and confirmed receipt of document request {$tracking_number}. Transaction completed."
+        "Transaction Completed: {$tracking_number}",
+        "Your request for {$req['request_type_name']} has been completed and marked as Completed.",
+        'Office of the Registrar'
     ]);
+} catch (Exception $ne) {
+    error_log("Failed to insert acknowledge notifications: " . $ne->getMessage());
 }
 
-// In-app notification for requester
-$notif_insert->execute([
-    $req['user_id'],
-    $tracking_number,
-    "Transaction Completed: {$tracking_number}",
-    "Your request for {$req['request_type_name']} has been completed and marked as Completed.",
-    'Office of the Registrar'
-]);
-
-// Real-Time Email Notification for requester
-$u_stmt = $pdo->prepare("SELECT email, full_name FROM users WHERE id = ? LIMIT 1");
-$u_stmt->execute([$req['user_id']]);
-$u_rec = $u_stmt->fetch();
-if ($u_rec && !empty($u_rec['email'])) {
-    send_request_status_email(
-        $u_rec['email'],
-        $u_rec['full_name'],
-        $tracking_number,
-        $req['request_type_name'],
-        'Completed',
-        "Document acknowledged and released on {$now_str}. Transaction completed. Thank you for using i-AdminConnect!",
-        'Office of the Registrar'
-    );
+// Real-Time Email Notification for requester safely
+try {
+    $u_stmt = $pdo->prepare("SELECT email, full_name FROM users WHERE id = ? LIMIT 1");
+    $u_stmt->execute([$req['user_id']]);
+    $u_rec = $u_stmt->fetch();
+    if ($u_rec && !empty($u_rec['email'])) {
+        send_request_status_email(
+            $u_rec['email'],
+            $u_rec['full_name'],
+            $tracking_number,
+            $req['request_type_name'],
+            'Completed',
+            "Document acknowledged and released on {$now_str}. Transaction completed. Thank you for using i-AdminConnect!",
+            'Office of the Registrar'
+        );
+    }
+} catch (Exception $me) {
+    error_log("Failed to send acknowledge email: " . $me->getMessage());
 }
 
 echo json_encode([

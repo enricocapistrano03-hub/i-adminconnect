@@ -68,10 +68,15 @@ $is_f137 = (($req['request_type_code'] ?? '') === 'F137'
     || ($req['request_type_name'] ?? '') === 'Form 137 / SF10'
     || strpos($req['additional_notes'] ?? '', '[Form 137 Student Records Info]') !== false);
 
-// Detect if this is Good Moral Certificate (GMC)
-$is_gmc = (($req['request_type_code'] ?? '') === 'GMC'
-    || ($req['request_type_name'] ?? '') === 'Good Moral Certificate'
-    || strpos($req['additional_notes'] ?? '', '[Good Moral Certificate Details]') !== false);
+// Detect if this is a Student Certificate (GMC, COG, COE_ST)
+$is_student_cert = (
+    in_array($req['request_type_code'] ?? '', ['GMC', 'COG', 'COE_ST'])
+    || in_array($req['request_type_name'] ?? '', ['Good Moral Certificate', 'Certificate of Grades', 'Certificate of Enrollment'])
+    || strpos($req['additional_notes'] ?? '', '[Good Moral Certificate Details]') !== false
+    || strpos($req['additional_notes'] ?? '', '[Certificate of Grades Details]') !== false
+    || strpos($req['additional_notes'] ?? '', '[Certificate of Enrollment Details]') !== false
+);
+$is_gmc = $is_student_cert; // alias for backwards compatibility
 
 // Detect if this is COE or Service Record
 $is_coe = (($req['request_type_code'] ?? '') === 'COE' || strpos($req['additional_notes'] ?? '', '[Certificate of Employment (COE) Details]') !== false);
@@ -137,8 +142,9 @@ if ($is_cr) {
     $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update Ratings</div><h1>Resubmit Rating Details</h1><p>Update your 3-Year Performance Ratings for administrative verification.</p>';
 } elseif ($is_f137) {
     $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update Form 137 Info</div><h1>Update Form 137 Details</h1><p>Update your school and section details requested by the registrar.</p>';
-} elseif ($is_gmc) {
-    $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update Good Moral Info</div><h1>Update Good Moral Details</h1><p>Update your section, student status, or destination school for guidance verification.</p>';
+} elseif ($is_student_cert) {
+    $doc_lbl = htmlspecialchars($req['request_type_name'] ?? 'Student Certificate');
+    $page_title_custom = "<div class=\"breadcrumb-nav\"><a href=\"my_requests.php\" style=\"color: inherit; text-decoration: none;\">My Requests</a> &gt; Update {$doc_lbl} Info</div><h1>Update {$doc_lbl} Details</h1><p>Update your section, student status, or destination school for office verification.</p>";
 } elseif ($is_coe) {
     $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update COE Details</div><h1>Update COE Details</h1><p>Update your Certificate of Employment details for administrative processing.</p>';
 } elseif ($is_sr) {
@@ -349,7 +355,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            if ($is_gmc && isset($_POST['gmc_full_name'])) {
+            if ($is_student_cert && isset($_POST['gmc_full_name'])) {
                 $g_name = trim($_POST['gmc_full_name'] ?? '');
                 $g_sec = trim($_POST['gmc_section_strand'] ?? '');
                 $g_status = trim($_POST['gmc_status'] ?? 'Currently Enrolled');
@@ -364,16 +370,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ? ('Graduated / Alumnus' . (!empty($g_yr) ? ' (Batch / Year: ' . $g_yr . ')' : ''))
                         : ('Currently Enrolled (Undergraduate)' . (!empty($g_yr) ? ' [Expected: ' . $g_yr . ']' : ''));
 
-                    $gmc_summary = "[Good Moral Certificate Details]\n"
+                    $cert_title = $req['request_type_name'] ?? 'Student Certificate';
+                    $cert_summary = "[{$cert_title} Details]\n"
                         . "• Full Name: " . $g_name . "\n"
                         . "• Section / Strand: " . $g_sec . "\n"
                         . "• Student Status: " . $status_str . "\n"
                         . "• Destination / Purpose: " . $g_purp;
 
-                    $cleaned_notes = preg_replace('/\[Good Moral Certificate Details\][\s\S]*?(?=\n\n|\[Revision|$)/u', '', $req['additional_notes'] ?? '');
+                    $cleaned_notes = preg_replace('/\\[(?:Good Moral Certificate|Certificate of Grades|Certificate of Enrollment|[^\\]]+) Details\\][\\s\\S]*?(?=\\n\\n|\\[Revision|$)/u', '', $req['additional_notes'] ?? '');
                     $cleaned_notes = trim($cleaned_notes);
 
-                    $updated_notes = $gmc_summary;
+                    $updated_notes = $cert_summary;
                     if (!empty($cleaned_notes)) {
                         $updated_notes .= "\n\n" . $cleaned_notes;
                     }
@@ -814,11 +821,17 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
             <?php endif; ?>
           </div>
         </div>
-      <?php elseif ($is_gmc): ?>
-        <!-- Good Moral Certificate Dedicated Student Information Inputs -->
+      <?php elseif ($is_student_cert): ?>
+        <?php
+          $edit_doc_name = htmlspecialchars($req['request_type_name'] ?? 'Student Certificate');
+          $edit_is_gmc = (($req['request_type_code'] ?? '') === 'GMC' || stripos($edit_doc_name, 'Good Moral') !== false);
+          $edit_badge = $edit_is_gmc ? 'Required by Guidance Office' : 'Required by Registrar';
+          $edit_icon = $edit_is_gmc ? '📜' : ((stripos($edit_doc_name, 'Grades') !== false) ? '📊' : '🎓');
+        ?>
+        <!-- Student Certificate Dedicated Student Information Inputs -->
         <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 18px 20px; margin-bottom: 22px;">
           <div style="font-weight: 800; color: #166534; font-size: 0.98rem; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
-            <span>📜</span> Good Moral Certificate Student Information <span style="font-size: 0.75rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 6px;">Required by Guidance Office</span>
+            <span><?= $edit_icon ?></span> <?= $edit_doc_name ?> Student Information <span style="font-size: 0.75rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 6px;"><?= $edit_badge ?></span>
           </div>
           <p style="font-size: 0.82rem; color: #166534; margin: 0 0 14px 0; line-height: 1.45;">
             Maaari ninyong baguhin o i-update ang inyong student details kung kinakailangan:

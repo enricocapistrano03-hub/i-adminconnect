@@ -346,10 +346,12 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
       ($req['request_type_code'] ?? '') === 'F137' || 
       strpos($req['additional_notes'] ?? '', '[Form 137 Student Records Info]') !== false
   );
-  $has_gmc_info = (
-      ($req['request_type_code'] ?? '') === 'GMC' || 
-      ($req['request_type_name'] ?? '') === 'Good Moral Certificate' ||
-      strpos($req['additional_notes'] ?? '', '[Good Moral Certificate Details]') !== false
+  $has_student_doc_info = (
+      in_array($req['request_type_code'] ?? '', ['GMC', 'COG', 'COE_ST']) || 
+      in_array($req['request_type_name'] ?? '', ['Good Moral Certificate', 'Certificate of Grades', 'Certificate of Enrollment']) ||
+      strpos($req['additional_notes'] ?? '', '[Good Moral Certificate Details]') !== false ||
+      strpos($req['additional_notes'] ?? '', '[Certificate of Grades Details]') !== false ||
+      strpos($req['additional_notes'] ?? '', '[Certificate of Enrollment Details]') !== false
   );
   $has_coe_info = (
       ($req['request_type_code'] ?? '') === 'COE' || 
@@ -361,21 +363,27 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
   );
   ?>
 
-  <?php if ($has_gmc_info): ?>
-    <!-- Dedicated Good Moral Certificate Student Records Panel for Guidance / Registrar -->
+  <?php if ($has_student_doc_info): ?>
+    <?php
+      $doc_title_display = htmlspecialchars($req['request_type_name'] ?? 'Student Certificate');
+      $is_gmc_doc = (($req['request_type_code'] ?? '') === 'GMC' || stripos($doc_title_display, 'Good Moral') !== false);
+      $badge_label = $is_gmc_doc ? 'Guidance / Registrar Record' : 'Office of the Registrar';
+      $icon_display = $is_gmc_doc ? '📜' : ((stripos($doc_title_display, 'Grades') !== false) ? '📊' : '🎓');
+    ?>
+    <!-- Dedicated Student Certificate Records Panel for Guidance / Registrar -->
     <div style="background: #f0fdf4; border: 2px solid #86efac; border-radius: 14px; padding: 20px 22px; margin-bottom: 22px; box-shadow: 0 4px 15px rgba(22, 101, 52, 0.06);">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid #bbf7d0; padding-bottom: 12px; margin-bottom: 14px;">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 1.6rem;">📜</span>
+          <span style="font-size: 1.6rem;"><?= $icon_display ?></span>
           <div>
-            <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #166534;">Good Moral Certificate (GMC) Student Details</h3>
+            <h3 style="margin: 0; font-size: 1.05rem; font-weight: 800; color: #166534;"><?= $doc_title_display ?> Student Details</h3>
             <p style="margin: 2px 0 0 0; font-size: 0.82rem; color: #15803d;">
-              Opisyal na impormasyon ng mag-aaral para sa paggawa ng Certificate of Good Moral Character:
+              Opisyal na impormasyon ng mag-aaral para sa paghahanda at pag-verify ng <?= $doc_title_display ?>:
             </p>
           </div>
         </div>
         <span style="background: #166534; color: #ffffff; font-size: 0.78rem; font-weight: 800; padding: 4px 12px; border-radius: 20px;">
-          Guidance / Registrar Record
+          <?= $badge_label ?>
         </span>
       </div>
       <div style="white-space: pre-line; font-size: 0.92rem; color: #0f172a; line-height: 1.7; background: #ffffff; padding: 14px 18px; border-radius: 10px; border: 1.5px solid #bbf7d0; border-left: 4px solid #16a34a;">

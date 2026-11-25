@@ -137,8 +137,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Special validation & processing for Good Moral Certificate (GMC)
-    if ($doc_code === 'GMC') {
+    // Special validation & processing for Good Moral Certificate (GMC), Certificate of Grades (COG), and Certificate of Enrollment (COE_ST)
+    if (in_array($doc_code, ['GMC', 'COG', 'COE_ST'])) {
         $gmc_name = trim($_POST['gmc_full_name'] ?? '');
         $gmc_sec = trim($_POST['gmc_section_strand'] ?? '');
         $gmc_status = trim($_POST['gmc_status'] ?? 'Currently Enrolled');
@@ -155,8 +155,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $gmc_purpose = $purpose;
         }
 
+        $doc_title_label = ($doc_code === 'GMC') ? 'Good Moral Certificate' : (($doc_code === 'COG') ? 'Certificate of Grades' : 'Certificate of Enrollment');
+
         if (empty($gmc_name) || empty($gmc_sec) || empty($gmc_purpose)) {
-            $error_msg = 'Please fill in your Full Name, Section / Strand, and Specific School / Purpose for the Good Moral Certificate.';
+            $error_msg = "Please fill in your Full Name, Section / Strand, and Specific School / Purpose for the {$doc_title_label}.";
         } elseif ($gmc_status === 'Graduated' && empty($gmc_year)) {
             $error_msg = 'Please specify your Year Graduated / Batch since you indicated you have graduated.';
         } else {
@@ -166,7 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ? ('Graduated / Alumnus' . (!empty($gmc_year) ? ' (Batch / Year: ' . $gmc_year . ')' : ''))
                 : ('Currently Enrolled (Undergraduate)' . (!empty($gmc_year) ? ' [Expected: ' . $gmc_year . ']' : ''));
 
-            $gmc_summary = "[Good Moral Certificate Details]\n"
+            $gmc_summary = "[{$doc_title_label} Details]\n"
                 . "• Full Name: " . $gmc_name . "\n"
                 . "• Section / Strand: " . $gmc_sec . "\n"
                 . "• Student Status: " . $status_str . "\n"
@@ -696,13 +698,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
     </div>
 
-    <!-- Good Moral Certificate Dedicated Student Information Panel (Shown only when Good Moral Certificate is selected) -->
+    <!-- Student Certificate Dedicated Student Information Panel (Shown for GMC, COG, and COE_ST) -->
     <div id="gmc-fields-group" style="display: none; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 18px 20px; margin-bottom: 22px;">
       <div style="font-weight: 800; color: #166534; font-size: 0.98rem; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
-        <span>📜</span> Good Moral Certificate Student Information <span style="font-size: 0.75rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 6px;">Required by Guidance Office</span>
+        <span id="student-doc-icon">📜</span> <span id="student-doc-title">Student Information</span> <span id="student-doc-badge" style="font-size: 0.75rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 6px;">Required by Office</span>
       </div>
-      <p style="font-size: 0.82rem; color: #166534; margin: 0 0 14px 0; line-height: 1.45;">
-        Kinakailangan ng Guidance Office ang mga impormasyong ito upang mabilis at tumpak na maihanda ang inyong Certificate of Good Moral Character:
+      <p id="student-doc-desc" style="font-size: 0.82rem; color: #166534; margin: 0 0 14px 0; line-height: 1.45;">
+        Kinakailangan ang mga impormasyong ito upang mabilis at tumpak na maihanda ang inyong opisyal na sertipiko:
       </p>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
@@ -776,7 +778,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <!-- Target School / University or Purpose -->
         <div style="grid-column: 1 / -1;">
           <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
-            Specific School / University or Purpose (Saan gagamitin) <span style="color: #ef4444;">*</span>
+            Specific School / University or Purpose <span style="color: #ef4444;">*</span>
           </label>
           <input 
             type="text" 
@@ -786,7 +788,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             placeholder="e.g., PUP Manila - College Admission / UST / DOST Scholarship / Employment"
             style="background: #ffffff;"
           />
-          <small style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Pangalan ng school/kolehiyo o layunin kung bakit kailangan ang Good Moral.</small>
+          <small id="student-doc-purpose-hint" style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Pangalan ng school/kolehiyo o layunin kung bakit kinakailangan ang dokumento.</small>
         </div>
 
         <!-- Optional Additional Notes -->
@@ -946,7 +948,7 @@ function updateGmcGradStatus() {
       yearHint.textContent = 'Pakilagay ang taon ng inyong pagtatapos (hal. 2024 / Batch 2023).';
     }
     yearInput.placeholder = 'e.g., 2024 / Batch 2023';
-    if (curCode === 'GMC') {
+    if (['GMC', 'COG', 'COE_ST'].includes(curCode)) {
       yearInput.required = true;
     }
   } else {
@@ -1098,7 +1100,7 @@ function updateRequirements(select) {
       if (facultyTitle) facultyTitle.textContent = 'Service Record (SR) Employee Information';
       if (withCompGroup) withCompGroup.style.display = 'none';
     }
-  } else if (code === 'GMC') {
+  } else if (code === 'GMC' || code === 'COG' || code === 'COE_ST') {
     if (gmcGroup) gmcGroup.style.display = 'block';
     if (facultyGroup) facultyGroup.style.display = 'none';
     if (generalPurposeGroup) generalPurposeGroup.style.display = 'none';
@@ -1122,6 +1124,30 @@ function updateRequirements(select) {
     if (gmcName) gmcName.required = true;
     if (gmcSec) gmcSec.required = true;
     if (gmcPurp) gmcPurp.required = true;
+
+    // Dynamically adjust header and text for GMC vs COG vs COE_ST
+    const docIcon = document.getElementById('student-doc-icon');
+    const docTitle = document.getElementById('student-doc-title');
+    const docBadge = document.getElementById('student-doc-badge');
+    const docDesc = document.getElementById('student-doc-desc');
+
+    if (code === 'GMC') {
+      if (docIcon) docIcon.textContent = '📜';
+      if (docTitle) docTitle.textContent = 'Good Moral Certificate Student Information';
+      if (docBadge) docBadge.textContent = 'Required by Guidance Office';
+      if (docDesc) docDesc.textContent = 'Kinakailangan ng Guidance Office ang mga impormasyong ito upang mabilis at tumpak na maihanda ang inyong Certificate of Good Moral Character:';
+    } else if (code === 'COG') {
+      if (docIcon) docIcon.textContent = '📊';
+      if (docTitle) docTitle.textContent = 'Certificate of Grades Student Information';
+      if (docBadge) docBadge.textContent = 'Required by Registrar';
+      if (docDesc) docDesc.textContent = 'Kinakailangan ng Registrar ang mga impormasyong ito upang mabilis at tumpak na maihanda ang inyong Certificate of Grades:';
+    } else if (code === 'COE_ST') {
+      if (docIcon) docIcon.textContent = '🎓';
+      if (docTitle) docTitle.textContent = 'Certificate of Enrollment Student Information';
+      if (docBadge) docBadge.textContent = 'Required by Registrar';
+      if (docDesc) docDesc.textContent = 'Kinakailangan ng Registrar ang mga impormasyong ito upang ma-verify at maihanda ang inyong official Certificate of Enrollment:';
+    }
+
     updateGmcGradStatus();
   } else if (code === 'F137') {
     if (f137Group) f137Group.style.display = 'block';
@@ -1205,6 +1231,10 @@ function updateRequirements(select) {
     if (attHint) {
       if (code === 'GMC') {
         attHint.innerHTML = 'Uploading files is optional. Maaari kang mag-attach ng inyong <strong>Guidance Clearance Form</strong> o <strong>Valid School ID</strong> kung mayroon na kayo. Allowed formats: PDF, JPG, PNG (hanggang 10MB bawat file).';
+      } else if (code === 'COG') {
+        attHint.innerHTML = 'Uploading files is optional. Maaari kang mag-attach ng inyong <strong>Previous Semester Grade Slip</strong> o <strong>Valid School ID</strong> kung mayroon na kayo. Allowed formats: PDF, JPG, PNG (hanggang 10MB bawat file).';
+      } else if (code === 'COE_ST') {
+        attHint.innerHTML = 'Uploading files is optional. Maaari kang mag-attach ng inyong <strong>Registration Card (COR)</strong> o <strong>Valid School ID</strong> kung mayroon na kayo. Allowed formats: PDF, JPG, PNG (hanggang 10MB bawat file).';
       } else {
         attHint.innerHTML = 'Uploading files is optional. Maaari kang mag-attach ng maraming dokumento sabay-sabay (hal. Valid ID, Formal Letter, SF10, Certificates). Allowed formats: PDF, JPG, PNG (hanggang 10MB bawat file).';
       }

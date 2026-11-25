@@ -42,7 +42,8 @@ $files = [
     'assets/logo.png',
     'assets/iAdminConnect LOGO.png',
     '.htaccess',
-    'uploads/.htaccess'
+    'uploads/.htaccess',
+    'defense_reviewer.html'
 ];
 
 $ctx = stream_context_create([

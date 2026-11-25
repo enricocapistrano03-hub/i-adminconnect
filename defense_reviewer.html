@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="tl">
+<head>
+  <meta charset="UTF-8">
+  <title>i-AdminConnect - Official Capstone & Thesis Defense Reviewer</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+      line-height: 1.6;
+      color: #0f172a;
+      background-color: #f8fafc;
+      margin: 0;
+      padding: 40px 20px;
+    }
+
+    .document-container {
+      max-width: 860px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 50px 60px;
+      border-radius: 16px;
+      box-shadow: 0 4px 25px rgba(0,0,0,0.06);
+      border: 1px solid #e2e8f0;
+    }
+
+    /* Print Controls */
+    .print-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #ecfdf5;
+      border: 1.5px solid #a7f3d0;
+      padding: 16px 24px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+    }
+
+    .btn-print {
+      background: #059669;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+      transition: background 0.2s;
+    }
+
+    .btn-print:hover {
+      background: #047857;
+    }
+
+    h1 {
+      font-size: 1.85rem;
+      color: #14532d;
+      margin-top: 0;
+      margin-bottom: 6px;
+      font-weight: 800;
+    }
+
+    .subtitle {
+      color: #475569;
+      font-size: 0.95rem;
+      margin-bottom: 25px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 15px;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      color: #166534;
+      border-left: 5px solid #16a34a;
+      padding-left: 12px;
+      margin-top: 36px;
+      margin-bottom: 14px;
+      font-weight: 800;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      color: #0f172a;
+      margin-top: 22px;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    p, li {
+      font-size: 0.95rem;
+      color: #334155;
+    }
+
+    ul, ol {
+      padding-left: 24px;
+      margin-top: 6px;
+      margin-bottom: 14px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    .card-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin: 16px 0;
+    }
+
+    .speech-box {
+      background: #f0fdf4;
+      border: 1.5px solid #bbf7d0;
+      border-left: 5px solid #16a34a;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-style: italic;
+      color: #166534;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .demo-box {
+      background: #fff7ed;
+      border: 1.5px solid #fed7aa;
+      border-left: 5px solid #ea580c;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin: 16px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 10px 14px;
+      text-align: left;
+    }
+
+    th {
+      background: #f1f5f9;
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    code {
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.88rem;
+    }
+
+    /* Print Stylesheet */
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+
+      .print-actions {
+        display: none !important;
+      }
+
+      .document-container {
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+
+      h2 {
+        page-break-after: avoid;
+      }
+
+      .card-box, .speech-box, .demo-box, table {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="document-container">
+    
+    <!-- Print Bar (Hidden during printing) -->
+    <div class="print-actions">
+      <div>
+        <strong style="color: #065f46; font-size: 1.05rem;">🖨️ Ready to Print / Save as PDF</strong>
+        <div style="font-size: 0.85rem; color: #047857; margin-top: 2px;">I-click ang button sa kanan o pindutin ang <strong>Ctrl + P</strong> sa keyboard.</div>
+      </div>
+      <button class="btn-print" onclick="window.print()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        Print Reviewer / Save as PDF
+      </button>
+    </div>
+
+    <h1>🎓 i-AdminConnect: Official Capstone & Thesis Defense Reviewer</h1>
+    <div class="subtitle">
+      <strong>Project Title:</strong> i-AdminConnect: An Automated Administrative Services &amp; Record Tracking System<br>
+      <strong>Live Production Portal:</strong> https://iadminconnect.com &bull; <strong>Target Architecture:</strong> Web-Based Cloud Application
+    </div>
+
+    <!-- PART 1 -->
+    <h2>PART 1: Paano Ginawa ang System from Start to Finish?</h2>
+    <p><em>(Metodolohiya: Software Development Life Cycle - Iterative &amp; Agile Methodology)</em></p>
+
+    <h3>Phase 1: Requirements Gathering &amp; Problem Analysis</h3>
+    <ul>
+      <li><strong>Ang Suliranin:</strong> Mano-manong logbook, matagal na pagpila sa Registrar, kakulangan sa live tracking ng dokumento, at nawawalang physical paper trails.</li>
+      <li><strong>Ang Solusyon:</strong> Binuo ang isang centralized online platform para sa apat na authorized roles: <strong>Student, Teacher, Registrar, at System Administrator</strong>.</li>
+      <li><strong>Ang 4-Stage Lifecycle Model:</strong> <code>1. Submitted</code> &rarr; <code>2. Processing</code> &rarr; <code>3. Ready for Release</code> &rarr; <code>4. Completed &amp; Claimed</code>.</li>
+    </ul>
+
+    <h3>Phase 2: System Architecture &amp; Database Modeling</h3>
+    <ul>
+      <li><strong>Database (MySQL / MariaDB):</strong>
+        <ul>
+          <li><code>users</code> &ndash; LRN, email, encrypted passwords, roles, at failed login counter.</li>
+          <li><code>requests</code> &ndash; Unique tracking IDs (hal. RQ-045), multi-copy requests, layunin, at stage timestamps.</li>
+          <li><code>request_types</code> &ndash; Mga opisyal na dokumentong pwedeng i-request (TOR/Form 137, Good Moral, Rating, atbp.).</li>
+          <li><code>notifications</code> &ndash; Real-time in-app alerts para sa staff at estudyante.</li>
+          <li><code>audit_logs</code> &ndash; Immutable activity ledger na may IP addresses alinsunod sa Data Privacy Act (RA 10173).</li>
+        </ul>
+      </li>
+      <li><strong>UI/UX Design:</strong> Responsive layout gamit ang institutional green branding, custom Plus Jakarta Sans typography, at sticky navigation.</li>
+    </ul>
+
+    <h3>Phase 3: Implementation &amp; Coding (Tech Stack)</h3>
+    <ul>
+      <li><strong>Frontend:</strong> Modern HTML5, Responsive CSS3 (Flexbox/Grid), Vanilla JavaScript (ES6+ Fetch API para sa asynchronous real-time tracking nang walang page refresh).</li>
+      <li><strong>Backend:</strong> Native PHP 8.x &ndash; magaan, napakabilis, walang mabigat na framework overhead, at optimized para sa institutional cloud hosting.</li>
+      <li><strong>Database Access:</strong> 100% PDO (PHP Data Objects) na may parameterized prepared statements.</li>
+      <li><strong>Notification Services:</strong> PHPMailer / SMTP para sa automated claiming advisories at 6-digit OTP codes.</li>
+      <li><strong>Bulk Processing Engine:</strong> Batch upload parser na may database transactions (500+ records nai-insert sa loob ng 1 segundo).</li>
+    </ul>
+
+    <h3>Phase 4: Testing &amp; Quality Assurance</h3>
+    <ul>
+      <li><strong>Functional Testing:</strong> Sinubukan ang bawat end-to-end workflow mula submission, evaluation, approval, claiming, hanggang completion.</li>
+      <li><strong>Security Testing:</strong> Sinubukang pasukin gamit ang SQL Injection, Cross-Site Scripting (XSS), Brute Force, at URL tampering.</li>
+      <li><strong>Load/Batch Testing:</strong> In-optimize ang bulk import gamit ang auto-correct sa human typos sa emails.</li>
+    </ul>
+
+    <h3>Phase 5: Cloud Deployment &amp; Maintenance</h3>
+    <ul>
+      <li><strong>Live Hosting:</strong> Hostinger Cloud LiteSpeed Web Server gamit ang live domain na <code>https://iadminconnect.com</code>.</li>
+      <li><strong>Security Layer:</strong> 256-bit TLS/SSL certificate, <code>.htaccess</code> server hardening, at automated GitHub live-sync pipeline (<code>update.php</code>).</li>
+    </ul>
+
+    <div class="speech-box">
+      <strong>🎙️ 2-Minutong Speech para sa Panel:</strong><br>
+      "Good day, respected members of the panel. Ang pagkakabuo po ng i-AdminConnect ay sumailalim sa isang maayos at sistematikong Software Development Life Cycle (SDLC) mula simula hanggang dulo: Nagsimula kami sa Requirements Analysis upang tugunan ang mabagal na pila sa Registrar; sinundan ng Database at UI Architecture; binuo gamit ang Native PHP at MySQL gamit ang PDO; sumailalim sa masusing security at functional testing; at matagumpay na nai-deploy live sa internet sa <code>https://iadminconnect.com</code> na protektado ng SSL encryption at audit logging."
+    </div>
+
+    <!-- PART 2 -->
+    <h2>PART 2: Paano Masasabing Secured ang System &amp; Code Level?</h2>
+    
+    <h3>1. Proteksyon Laban sa SQL Injection (SQLi)</h3>
+    <p>100% ng dynamic database transactions ay gumagamit ng <strong>PDO Parameterized Prepared Statements</strong>. Walang direct string concatenation ng user inputs sa SQL queries. Ligtas itong tinatrato ng database bilang literal values at hindi executable commands.</p>
+
+    <h3>2. Proteksyon Laban sa Cross-Site Scripting (XSS)</h3>
+    <p>Ang lahat ng ipinapasok na datos mula sa form inputs at URL parameters ay sinasala gamit ang output encoding (<code>htmlspecialchars($data, ENT_QUOTES, 'UTF-8')</code>) bago i-render sa browser. Ang mga script tulad ng <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> ay nagiging plain text lamang.</p>
+
+    <h3>3. Proteksyon Laban sa Brute Force Attacks (3-Attempt Lockout)</h3>
+    <p>Kapag umabot sa <strong>3 sunod-sunod na maling password</strong>, awtomatikong mala-lock ang account (status: <code>Inactive</code>). Tanging ang System Administrator lamang ang maaaring mag-unlock nito gamit ang <strong>One-Click Unlock</strong> feature sa <code>users.php</code>.</p>
+
+    <h3>4. Proteksyon sa File Uploads (Anti-Malware &amp; Web Shell)</h3>
+    <ul>
+      <li><strong>Strict Extension Whitelist:</strong> Tanging <code>.pdf</code>, <code>.jpg</code>, <code>.jpeg</code>, at <code>.png</code> lamang ang pinapayagan. Bawal ang anumang <code>.php</code> o <code>.exe</code>.</li>
+      <li><strong>File Size Cap:</strong> Hanggang 10MB lamang bawat file.</li>
+      <li><strong>Filename Sanitization:</strong> Pinalitan ang file name gamit ang unique timestamps at hashes upang maiwasan ang directory traversal at file overwriting.</li>
+    </ul>
+
+    <!-- PART 3 -->
+    <h2>PART 3: Paano Masasabing Secured ang Website &amp; Server Infrastructure?</h2>
+    
+    <h3>1. 256-Bit TLS/SSL Encryption (HTTPS)</h3>
+    <p>Lahat ng komunikasyon sa pagitan ng browser at server ay encrypted. Makikita ang <strong>Padlock Icon</strong> 🔒 sa browser. May automated rule sa <code>.htaccess</code> na pumupwersa sa lahat ng <code>http://</code> patungo sa secure na <code>https://</code>.</p>
+
+    <h3>2. Anti-Directory Browsing (<code>Options -Indexes</code>)</h3>
+    <p>Nakatago ang mga directory ng website. Kapag binuksan ng publiko ang <code>https://iadminconnect.com/uploads/</code> o <code>/config/</code>, lalabas ang <strong>403 Forbidden</strong>.</p>
+
+    <h3>3. Uploads Execution Shield (<code>uploads/.htaccess</code>)</h3>
+    <p>Kahit makapaglusot ng script ang isang attacker sa upload folder, <strong>hindi ito ie-execute ng server</strong> dahil may FilesMatch security rule na humaharang sa lahat ng server-side executable scripts.</p>
+
+    <h3>4. HTTP Security Response Headers (OWASP Standards)</h3>
+    <ul>
+      <li><code>X-Frame-Options: SAMEORIGIN</code> &ndash; Hinaharang ang Clickjacking (bawal i-iframe ang portal sa ibang phishing site).</li>
+      <li><code>X-Content-Type-Options: nosniff</code> &ndash; Pinipigilan ang MIME-type sniffing ng mga browser.</li>
+      <li><code>X-XSS-Protection: 1; mode=block</code> &ndash; Built-in anti-XSS protection sa mga modernong browsers.</li>
+    </ul>
+
+    <!-- PART 4 -->
+    <h2>PART 4: Paano Pinoprotektahan ang Data ng Paaralan at Estudyante?</h2>
+    <p><em>(Data Privacy Act of 2012 / RA 10173 Compliance)</em></p>
+
+    <h3>1. Principle of Least Privilege &amp; Strict Data Isolation</h3>
+    <p>Ang bawat estudyante o guro ay <strong>may access lamang sa sarili nilang mga dokumento</strong> (<code>WHERE user_id = :session_id</code>). Hindi nila masisilip ang requests o attachment ng ibang tao.</p>
+
+    <h3>2. Immutable Audit Trail &amp; System Logs (Accountability)</h3>
+    <p>Alinsunod sa RA 10173, ang bawat kritikal na galaw sa system ay awtomatikong itinatala sa <code>audit_logs</code> table:</p>
+    <ul>
+      <li><strong>User Name at Role:</strong> Sino ang gumawa?</li>
+      <li><strong>Action Performed:</strong> Ano ang ginawa? (hal. <code>Marked Request RQ-045 as Completed</code>)</li>
+      <li><strong>IP Address:</strong> Saan nanggaling ang request?</li>
+      <li><strong>Exact Timestamp:</strong> Kailan nangyari?</li>
+    </ul>
+
+    <!-- PART 5 -->
+    <h2>PART 5: Killer Panel Questions &amp; Live Demo Guide</h2>
+
+    <div class="demo-box">
+      <h3>Tanong 1: "Paano kung may estudyanteng palitan ang URL mula my_requests.php papuntang users.php o audit_logs.php?"</h3>
+      <p><strong>Sagot Mo:</strong> "Hindi po sila makakapasok sir/ma'am. Hindi kami umaasa sa pagtatago lamang ng buttons sa screen. Sa pinaka-unang linya pa lamang ng aming server-side PHP script, chine-check na ang Session Role. Kapag hindi <code>admin</code>, pinapatay agad ng server ang script (<code>die()</code>) at naglalabas ng Access Denied."</p>
+      <p><strong>Live Demo Steps:</strong></p>
+      <ol>
+        <li>Mag-login bilang Student sa harap ng panel.</li>
+        <li>Sa address bar ng browser, palitan ang URL ng: <code>https://iadminconnect.com/users.php</code> &rarr; Pindutin ang Enter.</li>
+        <li>Ipakita sa panel ang screen: <strong>&ldquo;⚠️ Access Denied: Administrator privileges required.&rdquo;</strong></li>
+      </ol>
+    </div>
+
+    <div class="demo-box">
+      <h3>Tanong 2: "Paano kung hulaan ng attacker ang password gamit ang bot (Brute Force)?"</h3>
+      <p><strong>Sagot Mo:</strong> "Mayroon po kaming automated Brute-Force lockout mechanism. Sa ika-3 sunod-sunod na maling subok, awtomatikong mala-lock ang account."</p>
+      <p><strong>Live Demo Steps:</strong></p>
+      <ol>
+        <li>Sa login screen, mag-type ng maling password nang tatlong (3) beses.</li>
+        <li>Ipakita ang prompt: <strong>&ldquo;Account Locked! Naka-3 sunod-sunod na maling pagsubok ka na...&rdquo;</strong></li>
+        <li>Mag-login bilang Admin at buksan ang <code>users.php</code> &ndash; ipakita ang pulang <strong>🔒 Locked (3 Attempts)</strong> badge at i-click ang <strong>🔓 Unlock</strong> button para ma-restore ang account.</li>
+      </ol>
+    </div>
+
+    <div class="demo-box">
+      <h3>Tanong 3: "Paano kung mag-upload ng virus o backdoor sa attachment ng request?"</h3>
+      <p><strong>Sagot Mo:</strong> "May dalawang layer ng proteksyon: Una, whitelist validation (.pdf, .jpg, .png lamang ang tinatanggap). Pangalawa, may <code>uploads/.htaccess</code> shield na nagbabawal sa server na magpatakbo ng anumang script sa loob ng upload folder."</p>
+      <p><strong>Live Demo Steps:</strong></p>
+      <ol>
+        <li>I-type sa browser ang <code>https://iadminconnect.com/uploads/</code> &rarr; Ipakita ang <strong>403 Forbidden</strong>.</li>
+      </ol>
+    </div>
+
+  </div>
+
+</body>
+</html>

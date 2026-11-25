@@ -68,6 +68,11 @@ $is_f137 = (($req['request_type_code'] ?? '') === 'F137'
     || ($req['request_type_name'] ?? '') === 'Form 137 / SF10'
     || strpos($req['additional_notes'] ?? '', '[Form 137 Student Records Info]') !== false);
 
+// Detect if this is Good Moral Certificate (GMC)
+$is_gmc = (($req['request_type_code'] ?? '') === 'GMC'
+    || ($req['request_type_name'] ?? '') === 'Good Moral Certificate'
+    || strpos($req['additional_notes'] ?? '', '[Good Moral Certificate Details]') !== false);
+
 // Detect if this is COE or Service Record
 $is_coe = (($req['request_type_code'] ?? '') === 'COE' || strpos($req['additional_notes'] ?? '', '[Certificate of Employment (COE) Details]') !== false);
 $is_sr = (($req['request_type_code'] ?? '') === 'SR' || strpos($req['additional_notes'] ?? '', '[Service Record (SR) Details]') !== false);
@@ -93,6 +98,27 @@ if ($is_f137 && !empty($req['additional_notes'])) {
     if (preg_match('/•\s*Specific School[^:]*:\s*([^\n]+)/u', $req['additional_notes'], $m)) $f137_sch = trim($m[1]);
 }
 
+$gmc_name = $user_name;
+$gmc_sec = '';
+$gmc_status = 'Currently Enrolled';
+$gmc_yr = '';
+$gmc_purp = $req['purpose'] ?? '';
+if ($is_gmc && !empty($req['additional_notes'])) {
+    if (preg_match('/•\s*Full Name:\s*([^\n]+)/u', $req['additional_notes'], $m)) $gmc_name = trim($m[1]);
+    if (preg_match('/•\s*Section \/ Strand:\s*([^\n]+)/u', $req['additional_notes'], $m)) $gmc_sec = trim($m[1]);
+    if (preg_match('/•\s*Student Status:\s*([^\n]+)/u', $req['additional_notes'], $m)) {
+        $st_str = trim($m[1]);
+        if (stripos($st_str, 'Graduated') !== false) {
+            $gmc_status = 'Graduated';
+            if (preg_match('/(?:Batch|Year):\s*([^\)]+)/u', $st_str, $ym)) $gmc_yr = trim($ym[1]);
+        } else {
+            $gmc_status = 'Currently Enrolled';
+            if (preg_match('/\[(?:Expected|Target):\s*([^\]]+)\]/u', $st_str, $ym)) $gmc_yr = trim($ym[1]);
+        }
+    }
+    if (preg_match('/•\s*(?:Destination \/ Purpose|Purpose \/ Target School):\s*([^\n]+)/u', $req['additional_notes'], $m)) $gmc_purp = trim($m[1]);
+}
+
 // Extract pre-filled 3-year performance ratings if available
 $cr_sy1 = '2022–2023'; $cr_r1 = '';
 $cr_sy2 = '2023–2024'; $cr_r2 = '';
@@ -111,6 +137,8 @@ if ($is_cr) {
     $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update Ratings</div><h1>Resubmit Rating Details</h1><p>Update your 3-Year Performance Ratings for administrative verification.</p>';
 } elseif ($is_f137) {
     $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update Form 137 Info</div><h1>Update Form 137 Details</h1><p>Update your school and section details requested by the registrar.</p>';
+} elseif ($is_gmc) {
+    $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update Good Moral Info</div><h1>Update Good Moral Details</h1><p>Update your section, student status, or destination school for guidance verification.</p>';
 } elseif ($is_coe) {
     $page_title_custom = '<div class="breadcrumb-nav"><a href="my_requests.php" style="color: inherit; text-decoration: none;">My Requests</a> &gt; Update COE Details</div><h1>Update COE Details</h1><p>Update your Certificate of Employment details for administrative processing.</p>';
 } elseif ($is_sr) {
@@ -321,7 +349,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            if (!$has_new_file && empty($uploaded_file_name) && empty($requester_notes) && !$is_f137 && !$is_coe && !$is_sr) {
+            if ($is_gmc && isset($_POST['gmc_full_name'])) {
+                $g_name = trim($_POST['gmc_full_name'] ?? '');
+                $g_sec = trim($_POST['gmc_section_strand'] ?? '');
+                $g_status = trim($_POST['gmc_status'] ?? 'Currently Enrolled');
+                $g_yr = trim($_POST['gmc_year_graduated'] ?? '');
+                $g_purp = trim($_POST['gmc_purpose_school'] ?? '');
+
+                if (empty($g_name)) $g_name = $user_name;
+                if (!empty($g_name) && !empty($g_sec) && !empty($g_purp)) {
+                    $gmc_name = $g_name; $gmc_sec = $g_sec; $gmc_status = $g_status; $gmc_yr = $g_yr; $gmc_purp = $g_purp;
+
+                    $status_str = ($g_status === 'Graduated')
+                        ? ('Graduated / Alumnus' . (!empty($g_yr) ? ' (Batch / Year: ' . $g_yr . ')' : ''))
+                        : ('Currently Enrolled (Undergraduate)' . (!empty($g_yr) ? ' [Expected: ' . $g_yr . ']' : ''));
+
+                    $gmc_summary = "[Good Moral Certificate Details]\n"
+                        . "• Full Name: " . $g_name . "\n"
+                        . "• Section / Strand: " . $g_sec . "\n"
+                        . "• Student Status: " . $status_str . "\n"
+                        . "• Destination / Purpose: " . $g_purp;
+
+                    $cleaned_notes = preg_replace('/\[Good Moral Certificate Details\][\s\S]*?(?=\n\n|\[Revision|$)/u', '', $req['additional_notes'] ?? '');
+                    $cleaned_notes = trim($cleaned_notes);
+
+                    $updated_notes = $gmc_summary;
+                    if (!empty($cleaned_notes)) {
+                        $updated_notes .= "\n\n" . $cleaned_notes;
+                    }
+
+                    $pdo->prepare("UPDATE requests SET purpose = ? WHERE id = ?")->execute([$g_purp, $req_id]);
+                }
+            }
+
+            if (!$has_new_file && empty($uploaded_file_name) && empty($requester_notes) && !$is_f137 && !$is_coe && !$is_sr && !$is_gmc) {
                 $error_msg = "Please attach the required document or provide explanation notes for revision.";
             } else {
                 if (!empty($requester_notes)) {
@@ -751,6 +812,86 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
                 </div>
               </div>
             <?php endif; ?>
+          </div>
+        </div>
+      <?php elseif ($is_gmc): ?>
+        <!-- Good Moral Certificate Dedicated Student Information Inputs -->
+        <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 18px 20px; margin-bottom: 22px;">
+          <div style="font-weight: 800; color: #166534; font-size: 0.98rem; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+            <span>📜</span> Good Moral Certificate Student Information <span style="font-size: 0.75rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 6px;">Required by Guidance Office</span>
+          </div>
+          <p style="font-size: 0.82rem; color: #166534; margin: 0 0 14px 0; line-height: 1.45;">
+            Maaari ninyong baguhin o i-update ang inyong student details kung kinakailangan:
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+            <div style="grid-column: 1 / -1;">
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+                Full Name (Pangalan ng Mag-aaral) <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="text" 
+                name="gmc_full_name" 
+                class="form-control" 
+                value="<?= htmlspecialchars($gmc_name) ?>" 
+                required
+                style="background: #ffffff;"
+              />
+            </div>
+
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+                Section / Strand (e.g. STEM / ABM) <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="text" 
+                name="gmc_section_strand" 
+                class="form-control" 
+                value="<?= htmlspecialchars($gmc_sec) ?>" 
+                required
+                placeholder="e.g., Grade 12 - STEM 1 / Grade 12 - ABM"
+                style="background: #ffffff;"
+              />
+            </div>
+
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+                Student Status <span style="color: #ef4444;">*</span>
+              </label>
+              <select name="gmc_status" class="form-control" style="background: #ffffff;">
+                <option value="Currently Enrolled" <?= ($gmc_status === 'Currently Enrolled') ? 'selected' : '' ?>>Currently Enrolled (Kasalukuyang Nag-aaral)</option>
+                <option value="Graduated" <?= ($gmc_status === 'Graduated') ? 'selected' : '' ?>>Graduated / Alumnus (Naka-graduate na)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+                Year Graduated (Optional kung Currently Enrolled)
+              </label>
+              <input 
+                type="text" 
+                name="gmc_year_graduated" 
+                class="form-control" 
+                value="<?= htmlspecialchars($gmc_yr) ?>" 
+                placeholder="e.g., 2024 / Batch 2023"
+                style="background: #ffffff;"
+              />
+            </div>
+
+            <div style="grid-column: 1 / -1;">
+              <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+                Specific School / University or Purpose <span style="color: #ef4444;">*</span>
+              </label>
+              <input 
+                type="text" 
+                name="gmc_purpose_school" 
+                class="form-control" 
+                value="<?= htmlspecialchars($gmc_purp) ?>" 
+                required
+                placeholder="e.g., PUP Manila - College Admission / UST / DOST Scholarship"
+                style="background: #ffffff;"
+              />
+            </div>
           </div>
         </div>
       <?php endif; ?>

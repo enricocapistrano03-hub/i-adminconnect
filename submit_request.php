@@ -137,6 +137,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    // Special validation & processing for Good Moral Certificate (GMC)
+    if ($doc_code === 'GMC') {
+        $gmc_name = trim($_POST['gmc_full_name'] ?? '');
+        $gmc_sec = trim($_POST['gmc_section_strand'] ?? '');
+        $gmc_status = trim($_POST['gmc_status'] ?? 'Currently Enrolled');
+        $gmc_year = trim($_POST['gmc_year_graduated'] ?? '');
+        $gmc_purpose = trim($_POST['gmc_purpose_school'] ?? '');
+        $gmc_notes = trim($_POST['gmc_notes'] ?? '');
+
+        if (empty($gmc_name)) {
+            $gmc_name = $user_name;
+        }
+
+        // Fallback to general purpose if entered
+        if (empty($gmc_purpose) && !empty($purpose)) {
+            $gmc_purpose = $purpose;
+        }
+
+        if (empty($gmc_name) || empty($gmc_sec) || empty($gmc_purpose)) {
+            $error_msg = 'Please fill in your Full Name, Section / Strand, and Specific School / Purpose for the Good Moral Certificate.';
+        } elseif ($gmc_status === 'Graduated' && empty($gmc_year)) {
+            $error_msg = 'Please specify your Year Graduated / Batch since you indicated you have graduated.';
+        } else {
+            $purpose = $gmc_purpose;
+
+            $status_str = ($gmc_status === 'Graduated')
+                ? ('Graduated / Alumnus' . (!empty($gmc_year) ? ' (Batch / Year: ' . $gmc_year . ')' : ''))
+                : ('Currently Enrolled (Undergraduate)' . (!empty($gmc_year) ? ' [Expected: ' . $gmc_year . ']' : ''));
+
+            $gmc_summary = "[Good Moral Certificate Details]\n"
+                . "• Full Name: " . $gmc_name . "\n"
+                . "• Section / Strand: " . $gmc_sec . "\n"
+                . "• Student Status: " . $status_str . "\n"
+                . "• Destination / Purpose: " . $gmc_purpose;
+
+            if (!empty($gmc_notes)) {
+                $gmc_summary .= "\n• Remarks: " . $gmc_notes;
+            }
+
+            $notes = empty($notes) ? $gmc_summary : $gmc_summary . "\n\nAdditional Notes: " . $notes;
+        }
+    }
+
     if (empty($error_msg) && ($doc_type_id <= 0 || empty($purpose))) {
         $error_msg = 'Please select a document type and fill in the purpose.';
     } elseif (empty($error_msg)) {
@@ -653,6 +696,116 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </div>
     </div>
 
+    <!-- Good Moral Certificate Dedicated Student Information Panel (Shown only when Good Moral Certificate is selected) -->
+    <div id="gmc-fields-group" style="display: none; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 18px 20px; margin-bottom: 22px;">
+      <div style="font-weight: 800; color: #166534; font-size: 0.98rem; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+        <span>📜</span> Good Moral Certificate Student Information <span style="font-size: 0.75rem; font-weight: 700; color: #15803d; background: #dcfce7; padding: 2px 8px; border-radius: 6px;">Required by Guidance Office</span>
+      </div>
+      <p style="font-size: 0.82rem; color: #166534; margin: 0 0 14px 0; line-height: 1.45;">
+        Kinakailangan ng Guidance Office ang mga impormasyong ito upang mabilis at tumpak na maihanda ang inyong Certificate of Good Moral Character:
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+        <!-- Full Name -->
+        <div style="grid-column: 1 / -1;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Full Name (Pangalan ng Mag-aaral) <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="gmc_full_name" 
+            id="gmc_full_name" 
+            class="form-control" 
+            value="<?= htmlspecialchars($user_name) ?>"
+            placeholder="e.g., Juan M. Dela Cruz"
+            style="background: #ffffff;"
+          />
+          <small style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Siguraduhing tama ang spelling ng inyong buong opisyal na pangalan.</small>
+        </div>
+
+        <!-- Section / Strand -->
+        <div>
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Section / Strand (e.g. STEM / ABM / Grade &amp; Section) <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="gmc_section_strand" 
+            id="gmc_section_strand" 
+            class="form-control" 
+            placeholder="e.g., Grade 12 - STEM 1 / Grade 12 - ABM / Grade 10 - Einstein"
+            style="background: #ffffff;"
+          />
+          <small style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Ilagay ang inyong Section at Strand (e.g. STEM, ABM, GAS, HUMSS, TVL).</small>
+        </div>
+
+        <!-- Student Status (Currently Enrolled vs Graduated) -->
+        <div>
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Student Status <span style="color: #ef4444;">*</span>
+          </label>
+          <select 
+            name="gmc_status" 
+            id="gmc_status" 
+            class="form-control" 
+            onchange="updateGmcGradStatus()"
+            style="background: #ffffff;"
+          >
+            <option value="Currently Enrolled">Currently Enrolled (Kasalukuyang Nag-aaral)</option>
+            <option value="Graduated">Graduated / Alumnus (Naka-graduate na)</option>
+          </select>
+          <small style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Pumili kung kasalukuyang mag-aaral o nagtapos na.</small>
+        </div>
+
+        <!-- Year Graduated (Required only if Graduated, optional if Currently Enrolled) -->
+        <div>
+          <label id="gmc_year_label" class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Year Graduated <span id="gmc_year_req_badge" style="font-weight: normal; color: #64748b;">(Optional kung Currently Enrolled)</span>
+          </label>
+          <input 
+            type="text" 
+            name="gmc_year_graduated" 
+            id="gmc_year_graduated" 
+            class="form-control" 
+            placeholder="Leave blank (Currently Enrolled) or expected year"
+            style="background: #ffffff;"
+          />
+          <small id="gmc_year_hint" style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Kung hindi pa graduate, iwanang blangko.</small>
+        </div>
+
+        <!-- Target School / University or Purpose -->
+        <div style="grid-column: 1 / -1;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Specific School / University or Purpose (Saan gagamitin) <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="gmc_purpose_school" 
+            id="gmc_purpose_school" 
+            class="form-control" 
+            placeholder="e.g., PUP Manila - College Admission / UST / DOST Scholarship / Employment"
+            style="background: #ffffff;"
+          />
+          <small style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Pangalan ng school/kolehiyo o layunin kung bakit kailangan ang Good Moral.</small>
+        </div>
+
+        <!-- Optional Additional Notes -->
+        <div style="grid-column: 1 / -1;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
+            Additional Notes &amp; Special Instructions <span style="font-weight: normal; color: #64748b;">(Optional)</span>
+          </label>
+          <input 
+            type="text" 
+            name="gmc_notes" 
+            id="gmc_notes" 
+            class="form-control" 
+            placeholder="e.g., Special deadline, requested for college application form, etc."
+            style="background: #ffffff;"
+          />
+        </div>
+      </div>
+    </div>
+
     <div id="general-notes-group" class="form-group">
       <label class="form-label"><?= $notes_label ?></label>
       <input 
@@ -774,25 +927,87 @@ function calculateRatingAvg() {
   }
 }
 
+function updateGmcGradStatus() {
+  const statusSelect = document.getElementById('gmc_status');
+  const yearInput = document.getElementById('gmc_year_graduated');
+  const yearBadge = document.getElementById('gmc_year_req_badge');
+  const yearHint = document.getElementById('gmc_year_hint');
+  
+  if (!statusSelect || !yearInput) return;
+
+  const docTypeSelect = document.getElementById('doc_type_id');
+  const curCode = docTypeSelect ? docTypeSelect.options[docTypeSelect.selectedIndex]?.getAttribute('data-code') : '';
+
+  if (statusSelect.value === 'Graduated') {
+    if (yearBadge) {
+      yearBadge.innerHTML = '<span style="color: #ef4444; font-weight: 800;">*</span> <span style="font-weight: 700; color: #166534; background: #dcfce7; padding: 1px 6px; border-radius: 4px; font-size: 0.72rem;">Required para sa Alumnus</span>';
+    }
+    if (yearHint) {
+      yearHint.textContent = 'Pakilagay ang taon ng inyong pagtatapos (hal. 2024 / Batch 2023).';
+    }
+    yearInput.placeholder = 'e.g., 2024 / Batch 2023';
+    if (curCode === 'GMC') {
+      yearInput.required = true;
+    }
+  } else {
+    if (yearBadge) {
+      yearBadge.innerHTML = '(Optional kung Currently Enrolled)';
+    }
+    if (yearHint) {
+      yearHint.textContent = 'Kung kasalukuyang nag-aaral pa, iwanang blangko.';
+    }
+    yearInput.placeholder = 'Leave blank (Currently Enrolled) or expected year';
+    yearInput.required = false;
+  }
+}
+
 function updateRequirements(select) {
   const selectedOption = select.options[select.selectedIndex];
   const box = document.getElementById('requirements-box');
   const ratingsSection = document.getElementById('ratings-section');
+  const facultyGroup = document.getElementById('faculty-emp-fields-group');
+  const facultyTitle = document.getElementById('faculty-emp-fields-title');
+  const withCompGroup = document.getElementById('with-compensation-group');
+  const generalPurposeGroup = document.getElementById('general-purpose-group');
+  const generalPurposeInput = document.getElementById('general_purpose_input');
+  const f137Group = document.getElementById('f137-fields-group');
+  const gmcGroup = document.getElementById('gmc-fields-group');
+  const generalNotes = document.getElementById('general-notes-group');
+
+  const empName = document.getElementById('emp_full_name');
+  const empNum = document.getElementById('emp_number');
+  const empPos = document.getElementById('emp_position');
+  const empSg = document.getElementById('emp_salary_grade');
+  const empStep = document.getElementById('emp_step');
+  const empDh = document.getElementById('emp_date_hired');
+  const empPurp = document.getElementById('emp_purpose');
+
+  const fSec = document.getElementById('f137_recent_section');
+  const fYr = document.getElementById('f137_year_graduated');
+  const fSch = document.getElementById('f137_transferee_school');
+
+  const gmcName = document.getElementById('gmc_full_name');
+  const gmcSec = document.getElementById('gmc_section_strand');
+  const gmcPurp = document.getElementById('gmc_purpose_school');
+  const gmcYear = document.getElementById('gmc_year_graduated');
+
+  const attLabel = document.getElementById('attachment-label');
+  const attOptionalBadge = document.getElementById('attachment-optional-badge');
+  const attChosen = document.getElementById('file-chosen-text');
+  const attHint = document.getElementById('attachment-hint-text');
+  const guardText = document.getElementById('smart-guard-text');
+  const guardBox = document.getElementById('smart-guard-box');
   
   if (!select.value) {
     box.className = 'form-control';
     box.style.background = '#f8fafc';
     box.innerHTML = '<span style="color: #94a3b8; font-size: 0.9rem;">Select a document type to view the requirements and guidelines</span>';
     if (ratingsSection) ratingsSection.style.display = 'none';
-    const f137Group = document.getElementById('f137-fields-group');
-    const generalNotes = document.getElementById('general-notes-group');
-    const facultyGroup = document.getElementById('faculty-emp-fields-group');
-    const generalPurposeGroup = document.getElementById('general-purpose-group');
-    const generalPurposeInput = document.getElementById('general_purpose_input');
     if (facultyGroup) facultyGroup.style.display = 'none';
+    if (f137Group) f137Group.style.display = 'none';
+    if (gmcGroup) gmcGroup.style.display = 'none';
     if (generalPurposeGroup) generalPurposeGroup.style.display = 'block';
     if (generalPurposeInput) generalPurposeInput.required = true;
-    if (f137Group) f137Group.style.display = 'none';
     if (generalNotes) generalNotes.style.display = 'block';
     return;
   }
@@ -848,28 +1063,13 @@ function updateRequirements(select) {
     }
   }
 
-  // Toggle Dedicated COE & Service Record (SR) Fields vs Form 137 vs General Purpose/Notes
-  const facultyGroup = document.getElementById('faculty-emp-fields-group');
-  const facultyTitle = document.getElementById('faculty-emp-fields-title');
-  const withCompGroup = document.getElementById('with-compensation-group');
-  const generalPurposeGroup = document.getElementById('general-purpose-group');
-  const generalPurposeInput = document.getElementById('general_purpose_input');
-  const f137Group = document.getElementById('f137-fields-group');
-  const generalNotes = document.getElementById('general-notes-group');
-
-  const empName = document.getElementById('emp_full_name');
-  const empNum = document.getElementById('emp_number');
-  const empPos = document.getElementById('emp_position');
-  const empSg = document.getElementById('emp_salary_grade');
-  const empStep = document.getElementById('emp_step');
-  const empDh = document.getElementById('emp_date_hired');
-  const empPurp = document.getElementById('emp_purpose');
-
+  // Toggle Dedicated COE & Service Record (SR) Fields vs GMC vs Form 137 vs General Purpose/Notes
   if (code === 'COE' || code === 'SR') {
     if (facultyGroup) facultyGroup.style.display = 'block';
     if (generalPurposeGroup) generalPurposeGroup.style.display = 'none';
     if (generalNotes) generalNotes.style.display = 'none';
     if (f137Group) f137Group.style.display = 'none';
+    if (gmcGroup) gmcGroup.style.display = 'none';
 
     if (generalPurposeInput) generalPurposeInput.required = false;
 
@@ -881,6 +1081,15 @@ function updateRequirements(select) {
     if (empDh) empDh.required = true;
     if (empPurp) empPurp.required = true;
 
+    if (fSec) fSec.required = false;
+    if (fYr) fYr.required = false;
+    if (fSch) fSch.required = false;
+
+    if (gmcName) gmcName.required = false;
+    if (gmcSec) gmcSec.required = false;
+    if (gmcPurp) gmcPurp.required = false;
+    if (gmcYear) gmcYear.required = false;
+
     if (code === 'COE') {
       if (facultyTitle) facultyTitle.textContent = 'Certificate of Employment (COE) Employee Information';
       if (withCompGroup) withCompGroup.style.display = 'block';
@@ -889,9 +1098,38 @@ function updateRequirements(select) {
       if (facultyTitle) facultyTitle.textContent = 'Service Record (SR) Employee Information';
       if (withCompGroup) withCompGroup.style.display = 'none';
     }
-  } else {
+  } else if (code === 'GMC') {
+    if (gmcGroup) gmcGroup.style.display = 'block';
     if (facultyGroup) facultyGroup.style.display = 'none';
+    if (generalPurposeGroup) generalPurposeGroup.style.display = 'none';
+    if (generalNotes) generalNotes.style.display = 'none';
+    if (f137Group) f137Group.style.display = 'none';
+
+    if (generalPurposeInput) generalPurposeInput.required = false;
+
+    if (empName) empName.required = false;
+    if (empNum) empNum.required = false;
+    if (empPos) empPos.required = false;
+    if (empSg) empSg.required = false;
+    if (empStep) empStep.required = false;
+    if (empDh) empDh.required = false;
+    if (empPurp) empPurp.required = false;
+
+    if (fSec) fSec.required = false;
+    if (fYr) fYr.required = false;
+    if (fSch) fSch.required = false;
+
+    if (gmcName) gmcName.required = true;
+    if (gmcSec) gmcSec.required = true;
+    if (gmcPurp) gmcPurp.required = true;
+    updateGmcGradStatus();
+  } else if (code === 'F137') {
+    if (f137Group) f137Group.style.display = 'block';
     if (generalPurposeGroup) generalPurposeGroup.style.display = 'block';
+    if (generalNotes) generalNotes.style.display = 'none';
+    if (facultyGroup) facultyGroup.style.display = 'none';
+    if (gmcGroup) gmcGroup.style.display = 'none';
+
     if (generalPurposeInput) generalPurposeInput.required = true;
 
     if (empName) empName.required = false;
@@ -901,27 +1139,44 @@ function updateRequirements(select) {
     if (empStep) empStep.required = false;
     if (empDh) empDh.required = false;
     if (empPurp) empPurp.required = false;
-  }
 
-  // Toggle Form 137 specific inputs vs general notes (for student documents)
-  const fSec = document.getElementById('f137_recent_section');
-  const fYr = document.getElementById('f137_year_graduated');
-  const fSch = document.getElementById('f137_transferee_school');
-  const attLabel = document.getElementById('attachment-label');
-  const attOptionalBadge = document.getElementById('attachment-optional-badge');
-  const attChosen = document.getElementById('file-chosen-text');
-  const attHint = document.getElementById('attachment-hint-text');
-  const guardText = document.getElementById('smart-guard-text');
-  const guardBox = document.getElementById('smart-guard-box');
-
-  if (code === 'F137') {
-    if (f137Group) f137Group.style.display = 'block';
-    if (generalNotes) generalNotes.style.display = 'none';
     if (fSec) fSec.required = true;
     if (fYr) fYr.required = true;
     if (fSch) fSch.required = true;
 
-    // Enforce Required in UI for Form 137
+    if (gmcName) gmcName.required = false;
+    if (gmcSec) gmcSec.required = false;
+    if (gmcPurp) gmcPurp.required = false;
+    if (gmcYear) gmcYear.required = false;
+  } else {
+    if (facultyGroup) facultyGroup.style.display = 'none';
+    if (f137Group) f137Group.style.display = 'none';
+    if (gmcGroup) gmcGroup.style.display = 'none';
+    if (generalPurposeGroup) generalPurposeGroup.style.display = 'block';
+    if (generalNotes) generalNotes.style.display = 'block';
+
+    if (generalPurposeInput) generalPurposeInput.required = true;
+
+    if (empName) empName.required = false;
+    if (empNum) empNum.required = false;
+    if (empPos) empPos.required = false;
+    if (empSg) empSg.required = false;
+    if (empStep) empStep.required = false;
+    if (empDh) empDh.required = false;
+    if (empPurp) empPurp.required = false;
+
+    if (fSec) fSec.required = false;
+    if (fYr) fYr.required = false;
+    if (fSch) fSch.required = false;
+
+    if (gmcName) gmcName.required = false;
+    if (gmcSec) gmcSec.required = false;
+    if (gmcPurp) gmcPurp.required = false;
+    if (gmcYear) gmcYear.required = false;
+  }
+
+  // Toggle Form 137 specific attachment requirements vs other documents
+  if (code === 'F137') {
     if (attOptionalBadge) {
       attOptionalBadge.innerHTML = '<span style="color: #ef4444; font-weight: 800;">*</span> <span style="font-weight: 700; color: #b91c1c; background: #fee2e2; padding: 2px 8px; border-radius: 4px; font-size: 0.78rem;">Required — Mag-attach ng dokumento</span>';
     }
@@ -939,13 +1194,7 @@ function updateRequirements(select) {
         guardBox.style.color = '#92400e';
       }
     }
-  } else if (code !== 'COE' && code !== 'SR') {
-    if (f137Group) f137Group.style.display = 'none';
-    if (generalNotes) generalNotes.style.display = 'block';
-    if (fSec) fSec.required = false;
-    if (fYr) fYr.required = false;
-    if (fSch) fSch.required = false;
-
+  } else {
     // Revert to Optional for other documents
     if (attOptionalBadge) {
       attOptionalBadge.innerHTML = '(Optional — Pwede mag-attach ng kahit ilan / Multiple Documents)';
@@ -954,7 +1203,11 @@ function updateRequirements(select) {
       attChosen.textContent = 'No file selected (Optional). Pwede pumili ng higit sa isang dokumento.';
     }
     if (attHint) {
-      attHint.innerHTML = 'Uploading files is optional. Maaari kang mag-attach ng maraming dokumento sabay-sabay (hal. Valid ID, Formal Letter, SF10, Certificates). Allowed formats: PDF, JPG, PNG (hanggang 10MB bawat file).';
+      if (code === 'GMC') {
+        attHint.innerHTML = 'Uploading files is optional. Maaari kang mag-attach ng inyong <strong>Guidance Clearance Form</strong> o <strong>Valid School ID</strong> kung mayroon na kayo. Allowed formats: PDF, JPG, PNG (hanggang 10MB bawat file).';
+      } else {
+        attHint.innerHTML = 'Uploading files is optional. Maaari kang mag-attach ng maraming dokumento sabay-sabay (hal. Valid ID, Formal Letter, SF10, Certificates). Allowed formats: PDF, JPG, PNG (hanggang 10MB bawat file).';
+      }
     }
     if (guardText && selectedFiles.length === 0) {
       guardText.textContent = 'Smart Guard: Optional. Supports single or multiple documents. Allowed formats: PDF, JPG, PNG (Max 10MB each).';
@@ -1111,6 +1364,11 @@ function validateSmartGuard(input) {
 
 // Ensure all attached files are sanitized right before form submission and validate Form 137
 document.addEventListener('DOMContentLoaded', function() {
+  const docTypeSelect = document.getElementById('doc_type_id');
+  if (docTypeSelect && docTypeSelect.value) {
+    updateRequirements(docTypeSelect);
+  }
+
   const form = document.querySelector('form');
   if (form) {
     form.addEventListener('submit', function(e) {

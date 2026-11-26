@@ -25,7 +25,7 @@ if (isset($_SESSION['flash_error'])) {
     unset($_SESSION['flash_error']);
 }
 if (isset($_GET['timeout'])) {
-    $error = 'For your security, your session has expired due to 15 minutes of inactivity. Please log in again.';
+    $error = 'For your security, your session has expired due to 5 minutes of inactivity. Please log in again.';
 }
 
 // ------------------------------------------------------------------------------

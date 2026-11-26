@@ -18,10 +18,10 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // ------------------------------------------------------------------------------
-// 15-Minute Session Inactivity Timeout Guard (900 seconds)
+// 5-Minute Session Inactivity Timeout Guard (300 seconds)
 // Protects student and faculty data if a device is left unattended
 // ------------------------------------------------------------------------------
-$session_timeout_seconds = 15 * 60; // 900 seconds = 15 minutes
+$session_timeout_seconds = 5 * 60; // 300 seconds = 5 minutes
 
 if (!empty($_SESSION['user_id'])) {
     if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $session_timeout_seconds)) {
@@ -42,7 +42,7 @@ if (!empty($_SESSION['user_id'])) {
         if ($is_api) {
             http_response_code(401);
             header('Content-Type: application/json');
-            echo json_encode(['error' => 'session_timeout', 'message' => 'Your session has expired due to 15 minutes of inactivity. Please log in again.']);
+            echo json_encode(['error' => 'session_timeout', 'message' => 'Your session has expired due to 5 minutes of inactivity. Please log in again.']);
             exit();
         } elseif ($current_script !== 'login.php' && $current_script !== 'logout.php') {
             header("Location: login.php?timeout=1");

@@ -343,13 +343,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (backdrop) backdrop.addEventListener('click', closeSidebar);
 
   // ============================================================================
-  // 15-Minute Session Inactivity Timeout Guard
-  // Shows warning dialog at 13 minutes (2-minute countdown), then logs out at 15
+  // 5-Minute Session Inactivity Timeout Guard
+  // Shows warning dialog at 3 minutes (2-minute countdown), then logs out at 5
   // ============================================================================
   (function initSessionTimeoutGuard() {
-    const WARN_AFTER_MS = 13 * 60 * 1000;      // 13 minutes idle -> show warning modal
-    const COUNTDOWN_SECONDS = 2 * 60;          // 120 seconds countdown
-    const KEEPALIVE_INTERVAL_MS = 3 * 60 * 1000; // Ping server every 3 mins while actively using
+    const WARN_AFTER_MS = 3 * 60 * 1000;        // 3 minutes idle -> show warning modal
+    const COUNTDOWN_SECONDS = 2 * 60;            // 120 seconds countdown
+    const KEEPALIVE_INTERVAL_MS = 1 * 60 * 1000; // Ping server every 1 min while actively using
 
     const modal = document.getElementById('session-timeout-modal');
     const timerDisplay = document.getElementById('session-countdown-timer');

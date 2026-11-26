@@ -110,6 +110,24 @@ try {
         }
     }
 
+    // Auto-migrate lockout_time column in users table for temporary rate limiting (15-minute cooldown)
+    try {
+        $pdo->query("SELECT lockout_time FROM users LIMIT 1");
+    } catch (Exception $e) {
+        try {
+            $pdo->exec("ALTER TABLE users ADD COLUMN lockout_time INT NOT NULL DEFAULT 0 AFTER login_attempts");
+        } catch (Exception $ex) {
+            // Silently ignore if concurrently added
+        }
+    }
+
+    // Auto-restore any accounts that were permanently set to Inactive by legacy 3-attempt lockout
+    try {
+        $pdo->exec("UPDATE users SET status = 'Active', login_attempts = 0, lockout_time = 0 WHERE status = 'Inactive' AND login_attempts >= 3");
+    } catch (Exception $e) {
+        // Silently ignore
+    }
+
     // Auto-migrate attached_filename to TEXT to support multiple documents JSON
     try {
         $pdo->exec("ALTER TABLE requests MODIFY COLUMN attached_filename TEXT DEFAULT NULL");

@@ -46,51 +46,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if ($user) {
             $user_status = $user['status'] ?? 'Active';
             $attempts = (int)($user['login_attempts'] ?? 0);
+            $lockout_time = (int)($user['lockout_time'] ?? 0);
+            $now = time();
 
-            // Check if already locked (3 or more attempts OR Inactive due to lock)
-            if ($attempts >= 3 || $user_status === 'Inactive') {
-                $error = 'Account Locked! Naabot mo na ang 3 sunod-sunod na maling pagsubok sa pag-login. Para sa seguridad, na-lock ang iyong account. Mangyaring makipag-ugnayan sa School Administrator upang maayos at ma-unlock ang iyong account.';
+            // 1. Check if user is currently under temporary login restriction (15-minute cooldown)
+            if ($lockout_time > $now) {
+                $rem_secs = $lockout_time - $now;
+                $rem_mins = ceil($rem_secs / 60);
+                $error = "Temporary Login Restriction! Naka-restrict ang pag-login dahil sa 5 sunod-sunod na maling pagsubok sa password. Para sa seguridad laban sa automated brute-force attacks, mangyaring maghintay ng {$rem_mins} minuto bago subukang mag-login muli. (Maaari ring i-unlock agad ng Administrator).";
                 $active_tab = 'login';
-            } elseif ($user_status === 'Pending') {
-                $role_label = ucfirst($user['role'] ?? 'User');
-                $error = "Your {$role_label} account is currently PENDING ADMINISTRATOR APPROVAL. You will be able to log in once an Administrator activates your account.";
-                $active_tab = 'login';
-            } elseif ($user_status === 'Dropped') {
-                $error = "Your account is marked as Dropped. Please coordinate with the School Administration.";
-                $active_tab = 'login';
-            } elseif ($user['password'] === $password || password_verify($password, $user['password']) || $password === 'password123' || $password === 'admin123') {
-                // Successful Login: Reset login attempts back to 0
-                try {
-                    $pdo->prepare("UPDATE users SET login_attempts = 0 WHERE id = ?")->execute([$user['id']]);
-                } catch (Exception $e) {}
-
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['username'] = $user['username'];
-                $_SESSION['full_name'] = $user['full_name'];
-                $_SESSION['role'] = $user['role'];
-                $_SESSION['department'] = $user['department'] ?? '';
-                $_SESSION['last_activity'] = time();
-                
-                log_audit_action($pdo, $user['full_name'], $user['role'], "Logged into System");
-                header("Location: dashboard.php");
-                exit();
             } else {
-                // Increment failed login attempt counter
-                $new_attempts = $attempts + 1;
-                if ($new_attempts >= 3) {
+                // If the 15-minute cooldown period has passed, auto-reset the failed attempt counter
+                if ($lockout_time > 0 && $lockout_time <= $now) {
+                    $attempts = 0;
+                    $lockout_time = 0;
                     try {
-                        $pdo->prepare("UPDATE users SET login_attempts = 3, status = 'Inactive' WHERE id = ?")->execute([$user['id']]);
+                        $pdo->prepare("UPDATE users SET login_attempts = 0, lockout_time = 0 WHERE id = ?")->execute([$user['id']]);
                     } catch (Exception $e) {}
-                    log_audit_action($pdo, $user['full_name'], $user['role'], "Account locked after 3 consecutive failed login attempts");
-                    $error = 'Account Locked! Naka-3 sunod-sunod na maling pagsubok ka na sa password. Para sa seguridad, pansamantalang na-lock ang iyong account. Mangyaring makipag-ugnayan sa School Administrator upang maayos at ma-unlock ang iyong account.';
-                } else {
-                    try {
-                        $pdo->prepare("UPDATE users SET login_attempts = ? WHERE id = ?")->execute([$new_attempts, $user['id']]);
-                    } catch (Exception $e) {}
-                    $remaining = 3 - $new_attempts;
-                    $error = "Maling password (Attempt {$new_attempts} of 3). May {$remaining} na lamang na natitirang pagsubok bago ma-lock ang iyong account. Kung nakalimutan ang password, mangyaring makipag-ugnayan sa School Administrator.";
                 }
-                $active_tab = 'login';
+
+                if ($user_status === 'Pending') {
+                    $role_label = ucfirst($user['role'] ?? 'User');
+                    $error = "Your {$role_label} account is currently PENDING ADMINISTRATOR APPROVAL. You will be able to log in once an Administrator activates your account.";
+                    $active_tab = 'login';
+                } elseif ($user_status === 'Dropped') {
+                    $error = "Your account is marked as Dropped. Please coordinate with the School Administration.";
+                    $active_tab = 'login';
+                } elseif ($user_status === 'Inactive') {
+                    $error = "Your account is currently Inactive. Please coordinate with the School Administrator.";
+                    $active_tab = 'login';
+                } elseif ($user['password'] === $password || password_verify($password, $user['password']) || $password === 'password123' || $password === 'admin123') {
+                    // Successful Login: Reset login attempts and lockout timestamp back to 0
+                    try {
+                        $pdo->prepare("UPDATE users SET login_attempts = 0, lockout_time = 0 WHERE id = ?")->execute([$user['id']]);
+                    } catch (Exception $e) {}
+
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['username'] = $user['username'];
+                    $_SESSION['full_name'] = $user['full_name'];
+                    $_SESSION['role'] = $user['role'];
+                    $_SESSION['department'] = $user['department'] ?? '';
+                    $_SESSION['last_activity'] = time();
+                    
+                    log_audit_action($pdo, $user['full_name'], $user['role'], "Logged into System");
+                    header("Location: dashboard.php");
+                    exit();
+                } else {
+                    // Increment failed login attempt counter (Rate limiting: 5 attempts -> 15-minute temporary lockout)
+                    $new_attempts = $attempts + 1;
+                    if ($new_attempts >= 5) {
+                        $new_lockout_until = $now + (15 * 60); // 15-minute restriction window
+                        try {
+                            $pdo->prepare("UPDATE users SET login_attempts = 5, lockout_time = ? WHERE id = ?")->execute([$new_lockout_until, $user['id']]);
+                        } catch (Exception $e) {}
+                        log_audit_action($pdo, $user['full_name'], $user['role'], "Temporary login restriction applied: 5 consecutive failed login attempts (15-minute cooldown)");
+                        $error = "Temporary Login Restriction! Naka-5 sunod-sunod na maling pagsubok ka na sa password. Para maprotektahan ang account laban sa automated brute-force attacks, pansamantalang pinatawan ng 15 minutong restriction ang pag-login. Maaari kang mag-login muli pagkatapos ng 15 minuto o makipag-ugnayan sa Administrator.";
+                    } else {
+                        try {
+                            $pdo->prepare("UPDATE users SET login_attempts = ?, lockout_time = 0 WHERE id = ?")->execute([$new_attempts, $user['id']]);
+                        } catch (Exception $e) {}
+                        $remaining = 5 - $new_attempts;
+                        $error = "Maling password (Attempt {$new_attempts} of 5). May {$remaining} na lamang na natitirang pagsubok bago pansamantalang ma-restrict ang pag-login sa loob ng 15 minuto. Kung nakalimutan ang password, mangyaring makipag-ugnayan sa School Administrator.";
+                    }
+                    $active_tab = 'login';
+                }
             }
         } else {
             $error = 'No account found with those credentials. Please check your LRN, Username, or Email, or coordinate with the School Administrator.';

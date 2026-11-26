@@ -279,8 +279,12 @@
     <h3>2. Proteksyon Laban sa Cross-Site Scripting (XSS)</h3>
     <p>Ang lahat ng ipinapasok na datos mula sa form inputs at URL parameters ay sinasala gamit ang output encoding (<code>htmlspecialchars($data, ENT_QUOTES, 'UTF-8')</code>) bago i-render sa browser. Ang mga script tulad ng <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> ay nagiging plain text lamang.</p>
 
-    <h3>3. Proteksyon Laban sa Brute Force Attacks (3-Attempt Lockout)</h3>
-    <p>Kapag umabot sa <strong>3 sunod-sunod na maling password</strong>, awtomatikong mala-lock ang account (status: <code>Inactive</code>). Tanging ang System Administrator lamang ang maaaring mag-unlock nito gamit ang <strong>One-Click Unlock</strong> feature sa <code>users.php</code>.</p>
+    <h3>3. Proteksyon Laban sa Brute Force Attacks (Login Rate Limiting &amp; Temporary Lockout)</h3>
+    <p>Gumagamit ang system ng <strong>Temporary Rate Limiting (5 failed attempts within 15 minutes)</strong> alinsunod sa OWASP authentication guidelines. Kapag umabot sa <strong>5 sunod-sunod na maling password</strong>, awtomatikong pinapatawan ang account ng <strong>15-minute temporary restriction</strong> na may countdown sa screen.</p>
+    <ul>
+      <li><strong>Bakit Temporary Restriction imbes na Permanent Lockout?</strong> Upang maiwasan ang <em>Account Lockout Denial-of-Service (DoS) Attack</em> kung saan sadyang ini-enter ng attacker ang username ng guro o admin para i-lock sila palabas. Pinapayagan din nito ang mga lehitimong gumagamit na makabalik nang kusa pagkatapos ng 15 minuto nang hindi naiistorbo ang Administrator.</li>
+      <li><strong>Immediate Admin Override:</strong> May nakalaang <strong>One-Click Unlock</strong> button ang Administrator sa <code>users.php</code> para ma-clear agad ang restriction sakaling personal na humingi ng tulong ang estudyante o guro sa tanggapan.</li>
+    </ul>
 
     <h3>4. Proteksyon sa File Uploads (Anti-Malware &amp; Web Shell)</h3>
     <ul>
@@ -339,13 +343,13 @@
     </div>
 
     <div class="demo-box">
-      <h3>Tanong 2: "Paano kung hulaan ng attacker ang password gamit ang bot (Brute Force)?"</h3>
-      <p><strong>Sagot Mo:</strong> "Mayroon po kaming automated Brute-Force lockout mechanism. Sa ika-3 sunod-sunod na maling subok, awtomatikong mala-lock ang account."</p>
+      <h3>Tanong 2: "Paano kung hulaan ng attacker ang password gamit ang bot (Brute Force)? At bakit hindi permanent lockout ang ginawa ninyo?"</h3>
+      <p><strong>Sagot Mo:</strong> "Mayroon po kaming automated Login Rate Limiting mechanism alinsunod sa OWASP standards. Pagkatapos ng limang (5) sunod-sunod na maling subok sa password, awtomatikong nagpapatupad ang system ng 15-minutong temporary cooldown. <em>Hindi po kami nagpatupad ng permanent account lockout</em> upang maiwasan ang <strong>Account Lockout Denial-of-Service (DoS) attack</strong> kung saan sadyaing ita-type ng attacker ang username ng guro o administrator upang sila ay ma-lock out. Sa aming approach, epektibong napapabagal ang automated bot guessing habang pinapayagan ang lehitimong user na makapasok muli matapos ang 15 minuto o agad sa pamamagitan ng One-Click Unlock ng Administrator."</p>
       <p><strong>Live Demo Steps:</strong></p>
       <ol>
-        <li>Sa login screen, mag-type ng maling password nang tatlong (3) beses.</li>
-        <li>Ipakita ang prompt: <strong>&ldquo;Account Locked! Naka-3 sunod-sunod na maling pagsubok ka na...&rdquo;</strong></li>
-        <li>Mag-login bilang Admin at buksan ang <code>users.php</code> &ndash; ipakita ang pulang <strong>🔒 Locked (3 Attempts)</strong> badge at i-click ang <strong>🔓 Unlock</strong> button para ma-restore ang account.</li>
+        <li>Sa login screen, mag-type ng maling password (makikita ang counter: <em>Attempt 1 of 5... Attempt 5 of 5</em>).</li>
+        <li>Sa ika-5 pagsubok, ipakita ang alert: <strong>&ldquo;Temporary Login Restriction! Naka-5 sunod-sunod na maling pagsubok ka na sa password... maghintay ng 15 minuto...&rdquo;</strong></li>
+        <li>Mag-login bilang Admin at buksan ang <code>users.php</code> &ndash; ipakita ang <strong>⏳ Restricted (15m left)</strong> badge at i-click ang <strong>🔓 Unlock</strong> button para maipakita ang agarang override!</li>
       </ol>
     </div>
 
@@ -356,6 +360,11 @@
       <ol>
         <li>I-type sa browser ang <code>https://iadminconnect.com/uploads/</code> &rarr; Ipakita ang <strong>403 Forbidden</strong>.</li>
       </ol>
+    </div>
+
+    <div class="demo-box">
+      <h3>Tanong 4: "Bakit kailangan ng 15-Minute Session Inactivity Timeout Guard?"</h3>
+      <p><strong>Sagot Mo:</strong> "Alinsunod po ito sa Data Privacy Act (RA 10173). Kapag ang computer sa library o computer lab ay naiwang nakabukas ng isang estudyante o guro, kusa pong pinapatay ng server ang session matapos ang 15 minutong walang galaw (inactivity) upang hindi ma-hijack ng ibang tao ang sensitibong rekord ng account."</p>
     </div>
 
   </div>

@@ -10,12 +10,12 @@ $is_teacher = ($user_role === 'teacher');
 // Role-specific field labels and placeholders
 if ($is_teacher) {
     $purpose_label = 'Purpose / Reason <span style="color: #ef4444;">*</span>';
-    $purpose_placeholder = 'e.g., DepEd Promotion / Ranking, GSIS / Pag-IBIG Loan, Visa Application, Step Increment, Retirement, etc.';
+    $purpose_placeholder = 'For Update Service Credit / Absent';
     $purpose_hint = '';
 
-    $notes_label = 'Additional Notes & Specific Instructions <span style="font-weight: normal; color: #64748b;">(WITH SALARY BREAKDOWN, INCLUSIVE DATES / SCHOOL YEAR, ADDRESSED TO)</span>';
-    $notes_placeholder = 'e.g., With compensation breakdown; Addressed to GSIS Taguig; Covering SY 2022–2025; For Step Increment...';
-    $notes_hint = 'Indicate specific inclusions (e.g., with gross salary breakdown, inclusive school years/dates, or whom the document should be addressed to).';
+    $notes_label = 'Additional Notes & Specific Instructions <span style="font-weight: normal; color: #64748b;">(Optional)</span>';
+    $notes_placeholder = 'e.g., Inclusive dates or school year, special instructions...';
+    $notes_hint = '';
 } else {
     $purpose_label = 'Purpose / Reason <span style="color: #ef4444;">*</span>';
     $purpose_placeholder = 'e.g., College Admission, Scholarship Application, Transfer to Another School, Employment, etc.';
@@ -630,7 +630,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <!-- Generic Purpose Group (Shown for non-COE/SR documents) -->
     <div class="form-group" id="general-purpose-group">
-      <label class="form-label"><?= $purpose_label ?></label>
+      <label class="form-label" id="general-purpose-label"><?= $purpose_label ?></label>
       <input 
         type="text" 
         name="purpose" 
@@ -639,9 +639,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         placeholder="<?= htmlspecialchars($purpose_placeholder) ?>" 
         required 
       />
-      <?php if (!empty($purpose_hint)): ?>
-        <small style="color: #64748b; font-size: 0.78rem; display: block; margin-top: 4px;"><?= $purpose_hint ?></small>
-      <?php endif; ?>
+      <small id="general-purpose-hint" style="color: #64748b; font-size: 0.78rem; display: <?= !empty($purpose_hint) ? 'block' : 'none' ?>; margin-top: 4px;"><?= $purpose_hint ?></small>
     </div>
 
     <!-- Form 137 Dedicated Student Record Inputs (Shown only when Form 137 is selected) -->
@@ -809,7 +807,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <div id="general-notes-group" class="form-group">
-      <label class="form-label"><?= $notes_label ?></label>
+      <label class="form-label" id="general-notes-label"><?= $notes_label ?></label>
       <input 
         type="text" 
         name="notes" 
@@ -817,7 +815,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         class="form-control" 
         placeholder="<?= htmlspecialchars($notes_placeholder) ?>" 
       />
-      <small style="color: #64748b; font-size: 0.78rem; display: block; margin-top: 4px;"><?= $notes_hint ?></small>
+      <small id="general-notes-hint" style="color: #64748b; font-size: 0.78rem; display: <?= !empty($notes_hint) ? 'block' : 'none' ?>; margin-top: 4px;"><?= $notes_hint ?></small>
     </div>
 
     <div class="form-group" id="attachment-form-group">
@@ -853,6 +851,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
+const isTeacher = <?= $is_teacher ? 'true' : 'false' ?>;
+
 // Document-specific guidance and reminders
 const docGuidance = {
   // Teacher Documents
@@ -860,13 +860,13 @@ const docGuidance = {
     badge: 'Faculty Guide',
     badgeColor: '#1e40af',
     badgeBg: '#dbeafe',
-    text: '<strong>Certificate of Employment (COE):</strong> In <em>Additional Notes</em>, state if you require <strong>With Compensation Breakdown (Gross Monthly Salary)</strong> or <strong>Without Compensation</strong>, and the addressed institution (e.g., Bank loan, Visa application, GSIS).'
+    text: '<strong>Certificate of Employment (COE):</strong> Piliin kung <strong>With Compensation Breakdown (Gross Monthly Salary)</strong> o <strong>Without Compensation</strong> sa form, at ilagay ang purpose o addressed institution (e.g., Bank loan, Visa application, GSIS).'
   },
   'LC': {
     badge: 'Faculty Guide',
     badgeColor: '#1e40af',
     badgeBg: '#dbeafe',
-    text: '<strong>Leave Credits:</strong> Specify the inclusive calendar years or purpose in <em>Additional Notes</em> (e.g., Terminal Leave, Transfer to another Division, Vacation/Sick Leave Monetization).'
+    text: '<strong>Leave Credits:</strong> Ilagay sa <em>Purpose / Reason</em> ang <strong>For Update Service Credit / Absent</strong> o iba pang layunin, at ilagay ang inclusive calendar years sa <em>Additional Notes</em> kung may nais tukuyin.'
   },
   'SR': {
     badge: 'Faculty Guide',
@@ -972,9 +972,14 @@ function updateRequirements(select) {
   const withCompGroup = document.getElementById('with-compensation-group');
   const generalPurposeGroup = document.getElementById('general-purpose-group');
   const generalPurposeInput = document.getElementById('general_purpose_input');
+  const generalPurposeLabel = document.getElementById('general-purpose-label');
+  const generalPurposeHint = document.getElementById('general-purpose-hint');
   const f137Group = document.getElementById('f137-fields-group');
   const gmcGroup = document.getElementById('gmc-fields-group');
   const generalNotes = document.getElementById('general-notes-group');
+  const generalNotesLabel = document.getElementById('general-notes-label');
+  const generalNotesInput = document.getElementById('general_notes_input');
+  const generalNotesHint = document.getElementById('general-notes-hint');
 
   const empName = document.getElementById('emp_full_name');
   const empNum = document.getElementById('emp_number');
@@ -1199,6 +1204,76 @@ function updateRequirements(select) {
     if (gmcSec) gmcSec.required = false;
     if (gmcPurp) gmcPurp.required = false;
     if (gmcYear) gmcYear.required = false;
+  }
+
+  // Dynamically configure General Purpose and Notes fields based on selected document code
+  if (code === 'LC') {
+    if (generalPurposeLabel) generalPurposeLabel.innerHTML = 'Purpose / Reason <span style="color: #ef4444;">*</span>';
+    if (generalPurposeInput) generalPurposeInput.placeholder = 'For Update Service Credit / Absent';
+    if (generalPurposeHint) {
+      generalPurposeHint.textContent = '';
+      generalPurposeHint.style.display = 'none';
+    }
+    if (generalNotesLabel) generalNotesLabel.innerHTML = 'Additional Notes & Specific Instructions <span style="font-weight: normal; color: #64748b;">(Optional)</span>';
+    if (generalNotesInput) generalNotesInput.placeholder = 'e.g., Inclusive dates or school year, special instructions...';
+    if (generalNotesHint) {
+      generalNotesHint.textContent = '';
+      generalNotesHint.style.display = 'none';
+    }
+  } else if (code === 'CR') {
+    if (generalPurposeLabel) generalPurposeLabel.innerHTML = 'Purpose / Reason <span style="color: #ef4444;">*</span>';
+    if (generalPurposeInput) generalPurposeInput.placeholder = 'e.g., DepEd Promotion / Ranking, ERF / Reclassification, Step Increment';
+    if (generalPurposeHint) {
+      generalPurposeHint.textContent = 'Indicate the purpose for your Certificate of Rating request.';
+      generalPurposeHint.style.display = 'block';
+    }
+    if (generalNotesLabel) generalNotesLabel.innerHTML = 'Additional Notes & Specific Instructions <span style="font-weight: normal; color: #64748b;">(Optional)</span>';
+    if (generalNotesInput) generalNotesInput.placeholder = 'e.g., Inclusive 3 school years, special instructions...';
+    if (generalNotesHint) {
+      generalNotesHint.textContent = '';
+      generalNotesHint.style.display = 'none';
+    }
+  } else if (code === 'F137') {
+    if (generalPurposeLabel) generalPurposeLabel.innerHTML = 'Purpose / Reason <span style="color: #ef4444;">*</span>';
+    if (generalPurposeInput) generalPurposeInput.placeholder = 'e.g., College Entrance Exam, Transfer to Another School, Scholarship';
+    if (generalPurposeHint) {
+      generalPurposeHint.textContent = 'Specify the purpose of this request (e.g., College Entrance Exam, Scholarship, Transferee).';
+      generalPurposeHint.style.display = 'block';
+    }
+    if (generalNotesLabel) generalNotesLabel.innerHTML = 'Additional Notes <span style="font-weight: normal; color: #64748b;">(RECENT SECTION, SPECIFIC SCHOOL / TRANSFEREE UNIVERSITY)</span>';
+    if (generalNotesInput) generalNotesInput.placeholder = 'e.g., Section 10-Einstein, transferring to PUP Manila, special instructions...';
+    if (generalNotesHint) {
+      generalNotesHint.textContent = 'Mention your recent grade level, section, school year, or destination university/company.';
+      generalNotesHint.style.display = 'block';
+    }
+  } else if (!['COE', 'SR', 'GMC', 'COG', 'COE_ST'].includes(code)) {
+    if (isTeacher) {
+      if (generalPurposeLabel) generalPurposeLabel.innerHTML = 'Purpose / Reason <span style="color: #ef4444;">*</span>';
+      if (generalPurposeInput) generalPurposeInput.placeholder = 'For Update Service Credit / Absent';
+      if (generalPurposeHint) {
+        generalPurposeHint.textContent = '';
+        generalPurposeHint.style.display = 'none';
+      }
+      if (generalNotesLabel) generalNotesLabel.innerHTML = 'Additional Notes & Specific Instructions <span style="font-weight: normal; color: #64748b;">(Optional)</span>';
+      if (generalNotesInput) generalNotesInput.placeholder = 'e.g., Inclusive dates or school year, special instructions...';
+      if (generalNotesHint) {
+        generalNotesHint.textContent = '';
+        generalNotesHint.style.display = 'none';
+      }
+    } else {
+      if (generalPurposeLabel) generalPurposeLabel.innerHTML = 'Purpose / Reason <span style="color: #ef4444;">*</span>';
+      if (generalPurposeInput) generalPurposeInput.placeholder = 'e.g., College Admission, Scholarship Application, Transfer to Another School, Employment, etc.';
+      if (generalPurposeHint) {
+        generalPurposeHint.textContent = 'Specify the purpose of this request (e.g., College Entrance Exam, Scholarship, Transferee).';
+        generalPurposeHint.style.display = 'block';
+      }
+      if (generalNotesLabel) generalNotesLabel.innerHTML = 'Additional Notes <span style="font-weight: normal; color: #64748b;">(RECENT SECTION, SPECIFIC SCHOOL / TRANSFEREE UNIVERSITY)</span>';
+      if (generalNotesInput) generalNotesInput.placeholder = 'e.g., Section 10-Einstein, transferring to PUP Manila, special instructions...';
+      if (generalNotesHint) {
+        generalNotesHint.textContent = 'Mention your recent grade level, section, school year, or destination university/company.';
+        generalNotesHint.style.display = 'block';
+      }
+    }
   }
 
   // Toggle Form 137 specific attachment requirements vs other documents

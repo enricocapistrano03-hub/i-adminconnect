@@ -232,7 +232,7 @@ foreach ($allAnnouncements as $ann) {
           </div>
           <div class="leadership-card-body">
             <h4 class="leadership-name">Donald S. Bruno</h4>
-            <div class="leadership-role-title">School Principal &bull; TagSci</div>
+            <div class="leadership-role-title">School Principal</div>
             <p class="leadership-quote">
               &ldquo;Leadership is not just about giving directions, but also about guiding, inspiring, and bringing out the best in others. Every challenge is an opportunity to learn, and every success is a result of teamwork and dedication. Let us continue to serve with integrity, patience, and commitment to providing quality education for our learners.&rdquo;
             </p>
@@ -250,8 +250,8 @@ foreach ($allAnnouncements as $ann) {
             <img src="assets/Assistant.png" alt="Assistant School Principal" class="leadership-avatar-img" onerror="if(this.src.indexOf('.png') !== -1){this.src='assets/Assistant.jpg';}else{this.src='assets/image1.jpeg';}">
           </div>
           <div class="leadership-card-body">
-            <h4 class="leadership-name">Janeth G. Mamasigan</h4>
-            <div class="leadership-role-title">Assistant School Principal &bull; TagSci</div>
+            <h4 class="leadership-name">Janeth G. Mamansag</h4>
+            <div class="leadership-role-title">Assistant School Principal</div>
             <p class="leadership-quote">
               &ldquo;Education is a shared responsibility that requires dedication, understanding, and teamwork. As we continue our journey, let us always remember that our efforts, no matter how small, can make a lasting difference in the lives of our students. Let us work together with passion, respect, and a heart committed to service.&rdquo;
             </p>
@@ -777,7 +777,7 @@ foreach ($allAnnouncements as $ann) {
       },
       asst_principal: {
         pill: "Office of the Assistant School Principal",
-        name: "Janeth G. Mamasigan",
+        name: "Janeth G. Mamansag",
         title: "Assistant School Principal • Taguig Science High School",
         avatar: "assets/Assistant.jpg",
         greeting: "Warm Greetings to the Entire TagSci Academic Community,",
@@ -786,7 +786,7 @@ foreach ($allAnnouncements as $ann) {
           "As we continue our journey, let us always remember that our efforts, no matter how small, can make a lasting difference in the lives of our students.",
           "Let us work together with passion, respect, and a heart committed to service."
         ],
-        sigName: "Janeth G. Mamasigan",
+        sigName: "Janeth G. Mamansag",
         sigTitle: "Assistant School Principal • Taguig Science High School"
       }
     };

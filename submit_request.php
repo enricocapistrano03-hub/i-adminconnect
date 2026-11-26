@@ -408,12 +408,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <select name="doc_type_id" id="doc_type_id" class="form-control" required onchange="updateRequirements(this)">
         <option value="">Select Document Type...</option>
         <?php foreach ($available_types as $t): ?>
-          <option value="<?= $t['id'] ?>" data-code="<?= htmlspecialchars($t['code']) ?>" data-req='<?= htmlspecialchars($t['requirements'], ENT_QUOTES) ?>' data-name="<?= htmlspecialchars($t['name']) ?>">
+          <option value="<?= $t['id'] ?>" data-code="<?= htmlspecialchars($t['code']) ?>" data-req='<?= htmlspecialchars($t['requirements'], ENT_QUOTES) ?>' data-name="<?= htmlspecialchars($t['name']) ?>" <?= (!empty($doc_type_id) && (int)$doc_type_id === (int)$t['id']) ? 'selected' : '' ?>>
             <?= htmlspecialchars($t['name']) ?>
           </option>
         <?php endforeach; ?>
       </select>
     </div>
+
+    <!-- Request Dynamic Fields Container (Only shown when a Document Type is selected) -->
+    <div id="request-fields-container" style="display: <?= !empty($doc_type_id) ? 'block' : 'none' ?>;">
 
     <!-- Dynamic Requirements & Document Guide Panel -->
     <div class="form-group">
@@ -847,6 +850,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <button type="submit" class="btn-primary-cta">Submit Request</button>
       <a href="dashboard.php" class="btn-primary-cta" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; box-shadow: none; text-decoration: none;">✕ Cancel</a>
     </div>
+    </div><!-- End #request-fields-container -->
   </form>
 </div>
 
@@ -1005,7 +1009,10 @@ function updateRequirements(select) {
   const guardText = document.getElementById('smart-guard-text');
   const guardBox = document.getElementById('smart-guard-box');
   
+  const fieldsContainer = document.getElementById('request-fields-container');
+  
   if (!select.value) {
+    if (fieldsContainer) fieldsContainer.style.display = 'none';
     box.className = 'form-control';
     box.style.background = '#f8fafc';
     box.innerHTML = '<span style="color: #94a3b8; font-size: 0.9rem;">Select a document type to view the requirements and guidelines</span>';
@@ -1013,11 +1020,14 @@ function updateRequirements(select) {
     if (facultyGroup) facultyGroup.style.display = 'none';
     if (f137Group) f137Group.style.display = 'none';
     if (gmcGroup) gmcGroup.style.display = 'none';
-    if (generalPurposeGroup) generalPurposeGroup.style.display = 'block';
-    if (generalPurposeInput) generalPurposeInput.required = true;
-    if (generalNotes) generalNotes.style.display = 'block';
+    if (generalPurposeGroup) generalPurposeGroup.style.display = 'none';
+    if (generalPurposeInput) generalPurposeInput.required = false;
+    if (generalNotes) generalNotes.style.display = 'none';
     return;
   }
+
+  // Document type is selected: reveal dynamic fields container
+  if (fieldsContainer) fieldsContainer.style.display = 'block';
 
   const name = selectedOption.getAttribute('data-name');
   const code = selectedOption.getAttribute('data-code');
@@ -1470,7 +1480,7 @@ function validateSmartGuard(input) {
 // Ensure all attached files are sanitized right before form submission and validate Form 137
 document.addEventListener('DOMContentLoaded', function() {
   const docTypeSelect = document.getElementById('doc_type_id');
-  if (docTypeSelect && docTypeSelect.value) {
+  if (docTypeSelect) {
     updateRequirements(docTypeSelect);
   }
 

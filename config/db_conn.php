@@ -310,6 +310,12 @@ try {
     // Indexes on audit_logs table (fast audit trail pagination and search)
     $ensure_index('audit_logs', 'idx_audit_logs_created_at', '`created_at`');
     $ensure_index('audit_logs', 'idx_audit_logs_role', '`role`');
+
+    // Auto-harmonize table collations to prevent MySQL 'Illegal mix of collations'
+    try {
+        $pdo->exec("ALTER TABLE disciplinary_records CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
+        $pdo->exec("ALTER TABLE student_grades CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
+    } catch (Exception $e) {}
 } catch (PDOException $e) {
     // Helpful message if database hasn't been imported yet in phpMyAdmin
     die("<div style='font-family: sans-serif; padding: 20px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 8px; margin: 40px auto; max-width: 600px; color: #991b1b;'>

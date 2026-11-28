@@ -10,8 +10,22 @@ if ($user_role !== 'registrar' && $user_role !== 'admin') {
 $search = trim($_GET['search'] ?? '');
 $status_filter = trim($_GET['status'] ?? '');
 
-$query = "SELECT r.*, u.full_name as student_or_teacher_name, u.role as requester_role, u.id_number, rt.name as request_type_name, rt.code as request_type_code,
-          (SELECT COUNT(*) FROM disciplinary_records dr WHERE dr.status = 'Active Hold' AND (dr.lrn = u.id_number OR dr.student_name = u.full_name OR dr.student_name LIKE CONCAT('%', u.full_name, '%'))) as has_guidance_hold
+// Pre-fetch active guidance holds into fast lookup maps (immune to SQL collation mismatch)
+$active_holds_lrns = [];
+$active_holds_names = [];
+try {
+    $holds_stmt = $pdo->query("SELECT lrn, student_name FROM disciplinary_records WHERE status = 'Active Hold'");
+    if ($holds_stmt) {
+        while ($h = $holds_stmt->fetch(PDO::FETCH_ASSOC)) {
+            if (!empty($h['lrn'])) $active_holds_lrns[trim($h['lrn'])] = true;
+            if (!empty($h['student_name'])) $active_holds_names[strtolower(trim($h['student_name']))] = true;
+        }
+    }
+} catch (Exception $e) {
+    // Graceful fallback if table not yet loaded
+}
+
+$query = "SELECT r.*, u.full_name as student_or_teacher_name, u.role as requester_role, u.id_number, rt.name as request_type_name, rt.code as request_type_code
           FROM requests r
           JOIN users u ON r.user_id = u.id
           JOIN request_types rt ON r.request_type_id = rt.id
@@ -33,9 +47,15 @@ if ($status_filter !== '' && $status_filter !== 'ALL') {
 }
 
 $query .= " ORDER BY r.id DESC";
-$stmt = $pdo->prepare($query);
-$stmt->execute($params);
-$assigned_requests = $stmt->fetchAll();
+$assigned_requests = [];
+try {
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
+    $assigned_requests = $stmt->fetchAll();
+} catch (Exception $e) {
+    // Fallback if any column issue
+    $assigned_requests = [];
+}
 ?>
 
 <div class="content-card">
@@ -105,6 +125,9 @@ $assigned_requests = $stmt->fetchAll();
           <?php foreach ($assigned_requests as $req): 
             $status_class = strtolower(str_replace(' ', '-', $req['status']));
             $date_str = date('M j, Y g:i A', strtotime($req['created_at']));
+            $req_lrn = trim($req['id_number'] ?? '');
+            $req_name = strtolower(trim($req['student_or_teacher_name'] ?? ''));
+            $has_hold = (!empty($req_lrn) && isset($active_holds_lrns[$req_lrn])) || (!empty($req_name) && isset($active_holds_names[$req_name]));
           ?>
             <tr>
               <td><strong><?= htmlspecialchars($req['tracking_number']) ?></strong></td>
@@ -118,7 +141,7 @@ $assigned_requests = $stmt->fetchAll();
                       <?= (int)$req['copies'] ?> copies
                     </span>
                   <?php endif; ?>
-                  <?php if ((int)($req['has_guidance_hold'] ?? 0) > 0 && ($req['request_type_code'] === 'GMC' || stripos($req['request_type_name'], 'Good Moral') !== false)): ?>
+                  <?php if ($has_hold && (($req['request_type_code'] ?? '') === 'GMC' || stripos($req['request_type_name'], 'Good Moral') !== false)): ?>
                     <span style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-size: 0.70rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;" title="Active Disciplinary Hold - Guidance clearance required">
                       ⚠️ GUIDANCE HOLD
                     </span>

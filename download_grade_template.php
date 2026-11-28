@@ -36,7 +36,7 @@ fputcsv($output, [
 // Sample Rows to guide teachers
 fputcsv($output, [
     '136887180001',
-    'Maria Santos',
+    'Dela Cruz, Juan M.',
     'Grade 11',
     'STEM - Einstein',
     '2025-2026',
@@ -54,7 +54,7 @@ fputcsv($output, [
 
 fputcsv($output, [
     '136887180001',
-    'Maria Santos',
+    'Dela Cruz, Juan M.',
     'Grade 11',
     'STEM - Einstein',
     '2025-2026',

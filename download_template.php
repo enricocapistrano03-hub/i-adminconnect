@@ -15,7 +15,7 @@ if ($type === 'teachers') {
            "isaiahjohn.agan,488063190002@Agan,\"Agan, Isaiah John L.\",agan.isaiah04@gmail.com,488063190002,Grade 7,7-Babbage,Junior High School,Active\n" .
            "ezekielkevin.alsonado,425714190075@Alsonado,\"Alsonado, Ezekiel Kevin Q.\",aezekielkevin@gmail.com,425714190075,Grade 7,7-Babbage,Junior High School,Active\n" .
            "juan.delacruz,654651@Delacruz,\"Juan C. Dela Cruz\",juan.delacruz@gmail.com,654651,Grade 7,7-Babbage,Junior High School,Active\n" .
-           "maria.santos,654652@Santos,\"Maria S. Santos\",maria.santos@gmail.com,654652,Grade 7,7-Pascal,Junior High School,Active\n" .
+           "clarisse.santos,654652@Santos,\"Santos, Clarisse S.\",clarisse.santos@gmail.com,654652,Grade 7,7-Pascal,Junior High School,Active\n" .
            "mark.reyes,654653@Reyes,\"Mark A. Reyes\",mark.reyes@gmail.com,654653,Grade 11,11-Curie,STEM Strand,Active\n";
 }
 

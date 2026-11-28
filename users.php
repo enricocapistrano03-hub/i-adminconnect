@@ -967,7 +967,7 @@ $all_users = $stmt->fetchAll();
 
         <div class="form-group" style="margin-bottom: 14px;">
           <label class="form-label">Full Name <span style="color: #ef4444;">*</span></label>
-          <input type="text" name="full_name" class="form-control" required placeholder="e.g. Maria Clara S. Santos" oninput="this.value = this.value.replace(/[^a-zA-Z\sñÑ.'-]/g, '')">
+          <input type="text" name="full_name" class="form-control" required placeholder="e.g. Juan M. Dela Cruz" oninput="this.value = this.value.replace(/[^a-zA-Z\sñÑ.'-]/g, '')">
         </div>
 
         <div class="form-group" style="margin-bottom: 14px;">

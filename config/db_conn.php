@@ -248,7 +248,7 @@ try {
             if (empty($students_to_seed)) {
                 $students_to_seed[] = [
                     'lrn' => '136887180001',
-                    'name' => 'Maria Santos',
+                    'name' => 'Dela Cruz, Juan M.',
                     'grade' => 'Grade 11',
                     'sec' => 'STEM - Einstein'
                 ];

@@ -34,6 +34,7 @@ $files = [
     'grades_management.php',
     'my_grades.php',
     'download_grade_template.php',
+    'download_template.php',
     'includes/mailer.php',
     'includes/bulk_user_parser.php',
     'includes/sidebar.php',
@@ -89,6 +90,13 @@ if (file_exists(__DIR__ . '/config/db_conn.php')) {
         require_once __DIR__ . '/config/db_conn.php';
 
         if (isset($pdo)) {
+            // Auto-clean any dummy 'Maria Santos' default names in database
+            try {
+                $pdo->exec("UPDATE users SET full_name = 'Student Requester' WHERE full_name = 'Maria Santos' AND (email LIKE '%cmbergonia%' OR id = 804)");
+                $pdo->exec("UPDATE users SET full_name = 'Student Alumnus' WHERE full_name = 'Maria Santos'");
+                $pdo->exec("UPDATE student_grades SET student_name = 'Dela Cruz, Juan M.' WHERE student_name = 'Maria Santos'");
+            } catch (Exception $m_err) {}
+
             // Auto-heal any completed requests missing their Completed audit log entry
             $comp_stmt = $pdo->query("SELECT r.tracking_number, COALESCE(rt.name, 'Document') as doc_name 
                 FROM requests r 

@@ -770,7 +770,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <option value="School Principal III">School Principal III</option>
               <option value="School Principal IV">School Principal IV</option>
             </optgroup>
-            <optgroup label="Non-Teaching & Administrative Personnel">
+            <optgroup label="Non-Teaching &amp; Administrative Personnel">
               <option value="Administrative Officer II">Administrative Officer II</option>
               <option value="Administrative Assistant III">Administrative Assistant III</option>
               <option value="Administrative Assistant II">Administrative Assistant II</option>
@@ -778,7 +778,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <option value="Registrar I">Registrar I</option>
               <option value="Guidance Counselor I">Guidance Counselor I</option>
             </optgroup>
-            <option value="Other Faculty / Staff">Other Faculty / Staff Position</option>
           </select>
         </div>
 
@@ -793,24 +792,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             style="background: #ffffff;"
           >
             <option value="">-- Piliin ang Salary Grade --</option>
-            <option value="SG 11">SG 11 (Teacher I / Entry Level)</option>
-            <option value="SG 12">SG 12 (Teacher II)</option>
-            <option value="SG 13">SG 13 (Teacher III / SST I)</option>
-            <option value="SG 14">SG 14 (SST II / Teacher IV)</option>
-            <option value="SG 15">SG 15 (Head Teacher I / Teacher V)</option>
-            <option value="SG 16">SG 16 (Head Teacher II / Teacher VI)</option>
-            <option value="SG 17">SG 17 (Head Teacher III / Teacher VII)</option>
-            <option value="SG 18">SG 18 (Master Teacher I / Head Teacher IV)</option>
-            <option value="SG 19">SG 19 (Master Teacher II / Head Teacher V / Asst. Principal I)</option>
-            <option value="SG 20">SG 20 (Master Teacher III / Head Teacher VI / Asst. Principal II)</option>
-            <option value="SG 21">SG 21 (Master Teacher IV / Principal I)</option>
-            <option value="SG 22">SG 22 (Principal II)</option>
-            <option value="SG 23">SG 23 (Principal III)</option>
-            <option value="SG 24">SG 24 (Principal IV)</option>
-            <option value="SG 10">SG 10</option>
-            <option value="SG 9">SG 9</option>
-            <option value="SG 8">SG 8</option>
             <option value="SG 6">SG 6</option>
+            <option value="SG 8">SG 8</option>
+            <option value="SG 9">SG 9</option>
+            <option value="SG 10">SG 10</option>
+            <option value="SG 11">SG 11</option>
+            <option value="SG 12">SG 12</option>
+            <option value="SG 13">SG 13</option>
+            <option value="SG 14">SG 14</option>
+            <option value="SG 15">SG 15</option>
+            <option value="SG 16">SG 16</option>
+            <option value="SG 17">SG 17</option>
+            <option value="SG 18">SG 18</option>
+            <option value="SG 19">SG 19</option>
+            <option value="SG 20">SG 20</option>
+            <option value="SG 21">SG 21</option>
+            <option value="SG 22">SG 22</option>
+            <option value="SG 23">SG 23</option>
+            <option value="SG 24">SG 24</option>
           </select>
         </div>
 
@@ -824,15 +823,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             class="form-control" 
             style="background: #ffffff;"
           >
-            <option value="">-- Piliin ang Step Increment --</option>
-            <option value="Step 1">Step 1 (Starting / Base Step)</option>
-            <option value="Step 2">Step 2 (3 Years Satisfactory Service)</option>
-            <option value="Step 3">Step 3 (6 Years Satisfactory Service)</option>
-            <option value="Step 4">Step 4 (9 Years Satisfactory Service)</option>
-            <option value="Step 5">Step 5 (12 Years Satisfactory Service)</option>
-            <option value="Step 6">Step 6 (15 Years Satisfactory Service)</option>
-            <option value="Step 7">Step 7 (18 Years Satisfactory Service)</option>
-            <option value="Step 8">Step 8 (Maximum Step Increment)</option>
+            <option value="">-- Piliin ang Step --</option>
+            <option value="Step 1">Step 1</option>
+            <option value="Step 2">Step 2</option>
+            <option value="Step 3">Step 3</option>
+            <option value="Step 4">Step 4</option>
+            <option value="Step 5">Step 5</option>
+            <option value="Step 6">Step 6</option>
+            <option value="Step 7">Step 7</option>
+            <option value="Step 8">Step 8</option>
           </select>
         </div>
 

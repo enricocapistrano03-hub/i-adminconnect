@@ -117,11 +117,12 @@ if (!empty($healed_requests)) {
 }
 
 echo "<div style='background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;'>";
-echo "<h3 style='margin: 0 0 8px 0; color: #166534; font-size: 0.95rem;'>Mga Na-update:</h3>";
+echo "<h3 style='margin: 0 0 8px 0; color: #166534; font-size: 0.95rem;'>Mga Na-update (Phase 1 Post-Defense Revisions):</h3>";
 echo "<ul style='margin: 0; padding-left: 20px; color: #15803d; font-size: 0.88rem; line-height: 1.6;'>";
-echo "<li><strong>Audit Logs for Completed Requests:</strong> Naayos ang notification parameters sa pag-complete ng request upang sigurado at agarang maitala sa Audit Trail &amp; System Logs ang bawat natapos na transaksyon.</li>";
-echo "<li><strong>Header &amp; Sticky Sidebar Logout:</strong> Inalis ang Logout button sa kanang bahagi sa itaas (header) at nananatiling naka-pin/sticky ang Logout button sa kaliwang ibaba ng sidebar kahit mahaba ang mga talaan o records.</li>";
-echo "<li><strong>Registrar Notifications:</strong> Real-time na ring ipinapakita ang live status ng request (Completed / Ready for Release) sa halip na static processing alert.</li>";
+echo "<li><strong>Strict Input Validation:</strong> Numbers only sa Year (e.g. 2026, awtomatikong bawal ang '2026a'), LRN, at Copies; Letters only sa Full Names ng estudyante at empleyado.</li>";
+echo "<li><strong>Form 137 Top 100+ PH Universities Autocomplete:</strong> May searchable listahan ng premier state and private universities at science high schools habang nagta-type, plus 'Others' box para sa custom school address.</li>";
+echo "<li><strong>User Directory LRN Guide:</strong> Dynamic guide label para sa Student LRN (12 Digits) sa Add at Edit User modals.</li>";
+echo "<li><strong>Graduated / Alumnus Status:</strong> Naidagdag na ang 'Graduated' sa account status at awtomatikong na-migrate ang database enum.</li>";
 echo "</ul></div>";
 
 echo "<div style='display: flex; gap: 12px; flex-wrap: wrap;'>";

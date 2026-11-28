@@ -11,6 +11,7 @@ if (!isset($_SESSION['user_id']) || !in_array($user_role, ['admin', 'registrar']
 $scope = $_GET['scope'] ?? '';
 $search = trim($_GET['search'] ?? '');
 $status_filter = trim($_GET['status'] ?? '');
+$doc_filter = trim($_GET['doc'] ?? 'ALL');
 
 // Registrar is strictly limited to student requests
 if ($user_role === 'registrar') {
@@ -51,6 +52,12 @@ if ($search !== '') {
 if ($status_filter !== '' && $status_filter !== 'ALL') {
     $query .= " AND r.status = ?";
     $params[] = $status_filter;
+}
+
+if ($doc_filter !== '' && $doc_filter !== 'ALL') {
+    $query .= " AND (rt.code = ? OR rt.id = ?)";
+    $params[] = $doc_filter;
+    $params[] = $doc_filter;
 }
 
 $query .= " ORDER BY r.id DESC";

@@ -121,15 +121,17 @@ if (!empty($healed_requests)) {
 }
 
 echo "<div style='background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;'>";
-echo "<h3 style='margin: 0 0 8px 0; color: #166534; font-size: 0.95rem;'>Mga Na-update (Phase 1, Phase 2, & Phase 3 Post-Defense Revisions):</h3>";
+echo "<h3 style='margin: 0 0 8px 0; color: #166534; font-size: 0.95rem;'>Mga Na-update (Complete Post-Defense Revisions Phases 1 - 4):</h3>";
 echo "<ul style='margin: 0; padding-left: 20px; color: #15803d; font-size: 0.88rem; line-height: 1.6;'>";
+echo "<li><strong>Caching & Data Optimization (Phase 4):</strong> Na-enable ang browser static caching (1-year/1-month cache sa images, CSS, JS, fonts) at Gzip compression sa <code>.htaccess</code>. Naidagdag ang high-performance database indexes sa <code>users</code>, <code>requests</code>, at <code>audit_logs</code> upang mapabilis ang search ng libo-libong alumni records nang hindi sumasabog ang server.</li>";
+echo "<li><strong>Alumni Directory Filtering (Phase 4):</strong> Pwedeng salain ni Admin ang mga estudyante ayon sa 'Graduated (Alumni)' status sa User Directory na may pagination.</li>";
 echo "<li><strong>Viewing of Grades & SF9 Report Card (Phase 3):</strong> Bagong Student portal (<code>my_grades.php</code>) para sa real-time quarterly ratings, GWA, honors standing, at printable DepEd SF9 Report Card.</li>";
 echo "<li><strong>Grade Management & Batch CSV Uploader (Phase 3):</strong> Bagong encoding portal (<code>grades_management.php</code>) para sa Teachers at Registrar na may CSV batch uploader, official template download, at individual grade encoder.</li>";
 echo "<li><strong>Guidance Disciplinary Records & Hold Guard (Phase 2):</strong> Bagong table at management page (<code>guidance_records.php</code>) para sa Guidance & Registrar upang mag-record, mag-hold, o mag-clear ng disciplinary cases.</li>";
 echo "<li><strong>Good Moral Clearance Hold (Phase 2):</strong> Awtomatikong bina-block ang pag-request ng Good Moral Certificate ng estudyanteng may aktibong kaso sa Guidance, may red warning banner, at hindi maaaring i-release ni Registrar hangga't hindi cleared.</li>";
 echo "<li><strong>Strict Input Validation (Phase 1):</strong> Numbers only sa Year (e.g. 2026, awtomatikong bawal ang '2026a'), LRN, at Copies; Letters only sa Full Names ng estudyante at empleyado.</li>";
-echo "<li><strong>Form 137 Top 100+ PH Universities Autocomplete:</strong> May searchable listahan ng premier state and private universities at science high schools habang nagta-type, plus 'Others' box para sa custom school address.</li>";
-echo "<li><strong>User Directory & Graduated Status:</strong> Dynamic guide label para sa Student LRN (12 Digits) sa Add/Edit User modals, at 'Graduated / Alumnus' status choice.</li>";
+echo "<li><strong>Form 137 Top 100+ PH Universities Autocomplete (Phase 1):</strong> May searchable listahan ng premier state and private universities at science high schools habang nagta-type, plus 'Others' box para sa custom school address.</li>";
+echo "<li><strong>User Directory & Graduated Status (Phase 1):</strong> Dynamic guide label para sa Student LRN (12 Digits) sa Add/Edit User modals, at 'Graduated / Alumnus' status choice.</li>";
 echo "</ul></div>";
 
 echo "<div style='display: flex; gap: 12px; flex-wrap: wrap;'>";

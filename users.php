@@ -412,9 +412,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'bulk_upload') {
     }
 }
 
-// Fetch users with search, role filter, and pagination (25 per page)
+// Fetch users with search, role filter, status filter, and pagination (25 per page)
 $search = trim($_GET['search'] ?? '');
 $role_filter = trim($_GET['role_filter'] ?? 'ALL');
+$status_filter = trim($_GET['status_filter'] ?? 'ALL');
 
 $where_clauses = " WHERE 1=1";
 $params = [];
@@ -428,6 +429,11 @@ if ($search !== '') {
 if ($role_filter !== '' && $role_filter !== 'ALL') {
     $where_clauses .= " AND role = ?";
     $params[] = $role_filter;
+}
+
+if ($status_filter !== '' && $status_filter !== 'ALL') {
+    $where_clauses .= " AND status = ?";
+    $params[] = $status_filter;
 }
 
 // 1. Count total matching users
@@ -540,12 +546,12 @@ $all_users = $stmt->fetchAll();
         value="<?= htmlspecialchars($search) ?>"
       />
       <button type="submit" class="btn-primary-cta" style="padding: 10px 18px; font-size: 0.85rem;">Search</button>
-      <?php if ($search !== '' || $role_filter !== 'ALL'): ?>
+      <?php if ($search !== '' || $role_filter !== 'ALL' || $status_filter !== 'ALL'): ?>
         <a href="users.php" class="btn-primary-cta" style="background: #e2e8f0; color: #475569; padding: 10px 14px; font-size: 0.85rem; text-decoration: none;">Reset</a>
       <?php endif; ?>
     </form>
 
-    <form method="GET">
+    <form method="GET" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
       <?php if ($search !== ''): ?>
         <input type="hidden" name="search" value="<?= htmlspecialchars($search) ?>">
       <?php endif; ?>
@@ -555,6 +561,15 @@ $all_users = $stmt->fetchAll();
         <option value="teacher" <?= $role_filter === 'teacher' ? 'selected' : '' ?>>Teachers</option>
         <option value="registrar" <?= $role_filter === 'registrar' ? 'selected' : '' ?>>Registrars</option>
         <option value="admin" <?= $role_filter === 'admin' ? 'selected' : '' ?>>Administrators</option>
+      </select>
+
+      <select name="status_filter" class="form-control" style="width: auto;" onchange="this.form.submit()">
+        <option value="ALL">All Statuses</option>
+        <option value="Active" <?= $status_filter === 'Active' ? 'selected' : '' ?>>Active</option>
+        <option value="Graduated" <?= $status_filter === 'Graduated' ? 'selected' : '' ?>>🎓 Graduated (Alumni)</option>
+        <option value="Pending" <?= $status_filter === 'Pending' ? 'selected' : '' ?>>Pending Approval</option>
+        <option value="Inactive" <?= $status_filter === 'Inactive' ? 'selected' : '' ?>>Inactive</option>
+        <option value="Dropped" <?= $status_filter === 'Dropped' ? 'selected' : '' ?>>Dropped</option>
       </select>
     </form>
   </div>
@@ -679,10 +694,11 @@ $all_users = $stmt->fetchAll();
 
       <?php if ($total_pages > 1): ?>
         <?php
-          function build_user_page_url($p, $s, $r) {
+          function build_user_page_url($p, $s, $r, $st = 'ALL') {
             $params = ['page' => $p];
             if ($s !== '') $params['search'] = $s;
             if ($r !== '' && $r !== 'ALL') $params['role_filter'] = $r;
+            if ($st !== '' && $st !== 'ALL') $params['status_filter'] = $st;
             return 'users.php?' . http_build_query($params);
           }
 
@@ -693,8 +709,8 @@ $all_users = $stmt->fetchAll();
         <div class="pagination-controls">
           <!-- First & Previous -->
           <?php if ($current_page > 1): ?>
-            <a href="<?= build_user_page_url(1, $search, $role_filter) ?>" class="pagination-btn" title="First Page">&laquo;</a>
-            <a href="<?= build_user_page_url($current_page - 1, $search, $role_filter) ?>" class="pagination-btn" title="Previous Page">&lsaquo; Prev</a>
+            <a href="<?= build_user_page_url(1, $search, $role_filter, $status_filter) ?>" class="pagination-btn" title="First Page">&laquo;</a>
+            <a href="<?= build_user_page_url($current_page - 1, $search, $role_filter, $status_filter) ?>" class="pagination-btn" title="Previous Page">&lsaquo; Prev</a>
           <?php else: ?>
             <span class="pagination-btn disabled">&laquo;</span>
             <span class="pagination-btn disabled">&lsaquo; Prev</span>
@@ -702,7 +718,7 @@ $all_users = $stmt->fetchAll();
 
           <!-- First Page Jump if outside window -->
           <?php if ($start_page > 1): ?>
-            <a href="<?= build_user_page_url(1, $search, $role_filter) ?>" class="pagination-btn">1</a>
+            <a href="<?= build_user_page_url(1, $search, $role_filter, $status_filter) ?>" class="pagination-btn">1</a>
             <?php if ($start_page > 2): ?>
               <span class="pagination-ellipsis">&hellip;</span>
             <?php endif; ?>
@@ -713,7 +729,7 @@ $all_users = $stmt->fetchAll();
             <?php if ($p === $current_page): ?>
               <span class="pagination-btn active"><?= $p ?></span>
             <?php else: ?>
-              <a href="<?= build_user_page_url($p, $search, $role_filter) ?>" class="pagination-btn"><?= $p ?></a>
+              <a href="<?= build_user_page_url($p, $search, $role_filter, $status_filter) ?>" class="pagination-btn"><?= $p ?></a>
             <?php endif; ?>
           <?php endfor; ?>
 
@@ -722,13 +738,13 @@ $all_users = $stmt->fetchAll();
             <?php if ($end_page < $total_pages - 1): ?>
               <span class="pagination-ellipsis">&hellip;</span>
             <?php endif; ?>
-            <a href="<?= build_user_page_url($total_pages, $search, $role_filter) ?>" class="pagination-btn"><?= $total_pages ?></a>
+            <a href="<?= build_user_page_url($total_pages, $search, $role_filter, $status_filter) ?>" class="pagination-btn"><?= $total_pages ?></a>
           <?php endif; ?>
 
           <!-- Next & Last -->
           <?php if ($current_page < $total_pages): ?>
-            <a href="<?= build_user_page_url($current_page + 1, $search, $role_filter) ?>" class="pagination-btn" title="Next Page">Next &rsaquo;</a>
-            <a href="<?= build_user_page_url($total_pages, $search, $role_filter) ?>" class="pagination-btn" title="Last Page">&raquo;</a>
+            <a href="<?= build_user_page_url($current_page + 1, $search, $role_filter, $status_filter) ?>" class="pagination-btn" title="Next Page">Next &rsaquo;</a>
+            <a href="<?= build_user_page_url($total_pages, $search, $role_filter, $status_filter) ?>" class="pagination-btn" title="Last Page">&raquo;</a>
           <?php else: ?>
             <span class="pagination-btn disabled">Next &rsaquo;</span>
             <span class="pagination-btn disabled">&raquo;</span>

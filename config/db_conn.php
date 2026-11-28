@@ -284,6 +284,32 @@ try {
     } catch (Exception $e) {
         // Silently ignore
     }
+
+    // Auto-migrate high-performance database indexes for scale and alumni lookups (Phase 4)
+    $ensure_index = function($table, $idx_name, $cols) use ($pdo) {
+        try {
+            $chk = $pdo->query("SHOW INDEX FROM `{$table}` WHERE Key_name = '{$idx_name}'");
+            if ($chk && !$chk->fetch()) {
+                $pdo->exec("ALTER TABLE `{$table}` ADD INDEX `{$idx_name}` ({$cols})");
+            }
+        } catch (Exception $ex) {
+            // Silently ignore if already exists or table busy
+        }
+    };
+
+    // Indexes on users table (instant LRN, alumni status, and student queries)
+    $ensure_index('users', 'idx_users_id_number', '`id_number`');
+    $ensure_index('users', 'idx_users_role_status', '`role`, `status`');
+    $ensure_index('users', 'idx_users_fullname', '`full_name`(50)');
+
+    // Indexes on requests table (instant status filtering, sorting, and user queries)
+    $ensure_index('requests', 'idx_requests_status', '`status`');
+    $ensure_index('requests', 'idx_requests_user_status', '`user_id`, `status`');
+    $ensure_index('requests', 'idx_requests_created_at', '`created_at`');
+
+    // Indexes on audit_logs table (fast audit trail pagination and search)
+    $ensure_index('audit_logs', 'idx_audit_logs_created_at', '`created_at`');
+    $ensure_index('audit_logs', 'idx_audit_logs_role', '`role`');
 } catch (PDOException $e) {
     // Helpful message if database hasn't been imported yet in phpMyAdmin
     die("<div style='font-family: sans-serif; padding: 20px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 8px; margin: 40px auto; max-width: 600px; color: #991b1b;'>

@@ -37,7 +37,9 @@ CREATE TABLE `audit_logs` (
   `action` varchar(255) NOT NULL,
   `ip_address` varchar(45) NOT NULL DEFAULT '127.0.0.1',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_audit_logs_created_at` (`created_at`),
+  KEY `idx_audit_logs_role` (`role`)
 ) ENGINE=InnoDB AUTO_INCREMENT=321 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -175,6 +177,9 @@ CREATE TABLE `requests` (
   UNIQUE KEY `tracking_number` (`tracking_number`),
   KEY `user_id` (`user_id`),
   KEY `request_type_id` (`request_type_id`),
+  KEY `idx_requests_status` (`status`),
+  KEY `idx_requests_user_status` (`user_id`, `status`),
+  KEY `idx_requests_created_at` (`created_at`),
   CONSTRAINT `fk_req_type` FOREIGN KEY (`request_type_id`) REFERENCES `request_types` (`id`),
   CONSTRAINT `fk_req_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -213,7 +218,10 @@ CREATE TABLE `users` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
-  UNIQUE KEY `email` (`email`)
+  UNIQUE KEY `email` (`email`),
+  KEY `idx_users_id_number` (`id_number`),
+  KEY `idx_users_role_status` (`role`,`status`),
+  KEY `idx_users_fullname` (`full_name`)
 ) ENGINE=InnoDB AUTO_INCREMENT=805 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

@@ -92,6 +92,13 @@ try {
         }
     }
 
+    // Auto-migrate pickup_date column in requests table
+    try {
+        $pdo->exec("ALTER TABLE requests ADD COLUMN pickup_date DATE NULL DEFAULT NULL AFTER stage4_time");
+    } catch (Exception $e) {
+        // Silently ignore if already migrated
+    }
+
     // Auto-migrate status enum to support 'Completed'
     try {
         $pdo->exec("ALTER TABLE requests MODIFY COLUMN status ENUM('Pending','Under Review','Processing','Ready for Release','Released','Completed','Returned for Revision','Rejected') NOT NULL DEFAULT 'Processing'");

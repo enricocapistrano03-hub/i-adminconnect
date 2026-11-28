@@ -11,6 +11,7 @@ $base_url = 'https://raw.githubusercontent.com/enricocapistrano03-hub/i-admincon
 $files = [
     'submit_request.php',
     'request_details.php',
+    'claim_slip.php',
     'view_file.php',
     'edit_request.php',
     'records.php',

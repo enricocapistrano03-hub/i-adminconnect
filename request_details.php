@@ -28,6 +28,7 @@ $error_alert = '';
 // Check Guidance Clearance Hold for Good Moral Certificate (GMC)
 $req_id_number = $req['id_number'] ?? '';
 $is_good_moral = ($req['request_type_code'] === 'GMC' || stripos($req['request_type_name'], 'Good Moral') !== false);
+$is_f137 = (($req['request_type_code'] ?? '') === 'F137' || stripos($req['request_type_name'] ?? '', 'Form 137') !== false || stripos($req['request_type_name'] ?? '', 'SF10') !== false);
 $req_guidance_hold = null;
 if ($is_good_moral) {
     $chk_hold = $pdo->prepare("SELECT * FROM disciplinary_records WHERE status = 'Active Hold' AND (lrn = ? OR student_name = ? OR student_name LIKE ?) LIMIT 1");
@@ -102,24 +103,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $req['status'] = 'Processing';
         $req['current_stage'] = 2;
 
-    } elseif ($action === 'approve') {
-        if ($is_good_moral && $req_guidance_hold) {
-            $error_alert = "Action Blocked: Student {$req['full_name']} has an Active Guidance Disciplinary Hold (\"" . htmlspecialchars($req_guidance_hold['case_title']) . "\"). Good Moral Certificate cannot be marked as Ready for Release until cleared by the Guidance Office.";
+    } elseif ($action === 'set_pickup_date') {
+        $pickup_date_input = trim($_POST['pickup_date'] ?? '');
+        if (empty($pickup_date_input) || !strtotime($pickup_date_input)) {
+            $error_alert = "Mangyaring pumili ng wastong petsa sa kalendaryo para sa pickup schedule.";
         } else {
-            $update_sql = "UPDATE requests SET status = 'Ready for Release', current_stage = 3, stage3_time = ?, remarks = 'Document is ready for release. Please proceed to the Registrar\'s Office.' WHERE id = ?";
-            $stmt = $pdo->prepare($update_sql);
-            $stmt->execute([$now_str, $req_id]);
+            $pickup_date_val = date('Y-m-d', strtotime($pickup_date_input));
+            $formatted_pickup = date('F j, Y (l)', strtotime($pickup_date_input));
 
-            log_audit_action($pdo, $user_name, $actor_role, "Approved Request {$req['tracking_number']} ({$req['request_type_name']}) - Ready for Release");
+            $pdo->prepare("UPDATE requests SET pickup_date = ? WHERE id = ?")->execute([$pickup_date_val, $req_id]);
+            $req['pickup_date'] = $pickup_date_val;
+
+            log_audit_action($pdo, $user_name, $actor_role, "Scheduled Form 137 pickup date for Request {$req['tracking_number']} to {$formatted_pickup}");
 
             // Insert Notification for User
-            try {
-                $notif_msg = "Your request for {$req['request_type_name']} has been approved and marked Ready for Release by the Office of the Registrar. Please proceed to the Registrar's Office to claim your document.";
-                $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Please visit the Registrar\'s Office to claim your document.')");
-                $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Ready for Release", $notif_msg]);
-            } catch (Exception $ne) {
-                error_log("Failed to insert ready notification: " . $ne->getMessage());
-            }
+            $notif_msg = "Your request for {$req['request_type_name']} ({$req['tracking_number']}) has been scheduled for release on {$formatted_pickup}. Please bring your official Claim Slip and School ID to the Registrar's Office.";
+            $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Registrar\'s Office')");
+            $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Pickup Scheduled: {$req['tracking_number']}", $notif_msg]);
 
             // Send Real-Time Email Notification
             $mail_info = '';
@@ -130,8 +130,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $req['full_name'],
                         $req['tracking_number'],
                         $req['request_type_name'],
+                        $req['status'],
+                        "Your document pickup has been scheduled on {$formatted_pickup}. Please view and present your official Claim Slip upon claiming at the Registrar's Office.",
+                        'Office of the Registrar'
+                    );
+                    if ($m_res['success']) {
+                        $mail_info = " &bull; Real-time schedule email sent to <strong>{$req['requester_email']}</strong>";
+                    }
+                } catch (Exception $me) {}
+            }
+
+            $alert_msg = "📅 <strong>Pickup Schedule Successfully Updated!</strong> Nai-set ang petsa sa <strong>{$formatted_pickup}</strong>. Naabisuhan na ang mag-aaral sa portal at via email.{$mail_info}";
+        }
+
+    } elseif ($action === 'approve') {
+        if ($is_good_moral && $req_guidance_hold) {
+            $error_alert = "Action Blocked: Student {$req['full_name']} has an Active Guidance Disciplinary Hold (\"" . htmlspecialchars($req_guidance_hold['case_title']) . "\"). Good Moral Certificate cannot be marked as Ready for Release until cleared by the Guidance Office.";
+        } else {
+            $pickup_date_input = trim($_POST['pickup_date'] ?? ($req['pickup_date'] ?? ''));
+            $pickup_date_val = null;
+            $pickup_schedule_text = '';
+
+            if (!empty($pickup_date_input) && strtotime($pickup_date_input)) {
+                $pickup_date_val = date('Y-m-d', strtotime($pickup_date_input));
+                $formatted_pickup = date('F j, Y (l)', strtotime($pickup_date_input));
+                $pickup_schedule_text = " Scheduled pickup date: {$formatted_pickup}. Please present your official Claim Slip at the Registrar's Office.";
+            }
+
+            $remarks_text = 'Document is ready for release.' . $pickup_schedule_text;
+            if ($pickup_date_val) {
+                $update_sql = "UPDATE requests SET status = 'Ready for Release', current_stage = 3, stage3_time = ?, remarks = ?, pickup_date = ? WHERE id = ?";
+                $stmt = $pdo->prepare($update_sql);
+                $stmt->execute([$now_str, $remarks_text, $pickup_date_val, $req_id]);
+                $req['pickup_date'] = $pickup_date_val;
+            } else {
+                $update_sql = "UPDATE requests SET status = 'Ready for Release', current_stage = 3, stage3_time = ?, remarks = ? WHERE id = ?";
+                $stmt = $pdo->prepare($update_sql);
+                $stmt->execute([$now_str, $remarks_text, $req_id]);
+            }
+
+            log_audit_action($pdo, $user_name, $actor_role, "Approved Request {$req['tracking_number']} ({$req['request_type_name']}) - Ready for Release" . ($pickup_date_val ? " (Scheduled Pickup: {$pickup_date_val})" : ""));
+
+            // Insert Notification for User
+            try {
+                $notif_msg = "Your request for {$req['request_type_name']} has been approved and marked Ready for Release by the Office of the Registrar." . ($pickup_date_val ? " Scheduled pickup date: " . date('F j, Y', strtotime($pickup_date_val)) . ". Please view and present your Claim Slip upon claiming." : " Please proceed to the Registrar's Office to claim your document.");
+                $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Registrar\'s Office')");
+                $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Ready for Release", $notif_msg]);
+            } catch (Exception $ne) {
+                error_log("Failed to insert ready notification: " . $ne->getMessage());
+            }
+
+            // Send Real-Time Email Notification
+            $mail_info = '';
+            if (!empty($req['requester_email'])) {
+                try {
+                    $email_body = "Your request has been approved and marked Ready for Release." . ($pickup_date_val ? " Scheduled Pickup Date: " . date('F j, Y (l)', strtotime($pickup_date_val)) . ". Please present your official Claim Slip at the Registrar's Office." : " Please proceed to the Registrar's Office to claim your document.");
+                    $m_res = send_request_status_email(
+                        $req['requester_email'],
+                        $req['full_name'],
+                        $req['tracking_number'],
+                        $req['request_type_name'],
                         'Ready for Release',
-                        'Your request has been approved and marked Ready for Release. Please proceed to the Registrar\'s Office to claim your document.',
+                        $email_body,
                         'Office of the Registrar'
                     );
                     if ($m_res['success']) {
@@ -142,9 +202,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            $alert_msg = "Request Approved Successfully! You have marked request <strong>{$req['tracking_number']}</strong> as Ready for Release.{$mail_info}";
+            $alert_msg = "Request Approved Successfully! You have marked request <strong>{$req['tracking_number']}</strong> as Ready for Release" . ($pickup_date_val ? " with scheduled pickup on <strong>" . date('F j, Y', strtotime($pickup_date_val)) . "</strong>" : "") . ".{$mail_info}";
             $req['status'] = 'Ready for Release';
             $req['current_stage'] = 3;
+            $req['remarks'] = $remarks_text;
         }
 
     } elseif ($action === 'complete') {
@@ -493,6 +554,80 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
         <?= htmlspecialchars($req['additional_notes']) ?>
       </div>
     </div>
+
+    <!-- Dedicated Form 137 Release Schedule & Official Claim Slip Panel -->
+    <div style="background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); border: 2px solid #3b82f6; border-radius: 14px; padding: 20px 22px; margin-bottom: 22px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.1);">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid #bfdbfe; padding-bottom: 12px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.7rem;">📅</span>
+          <div>
+            <h3 style="margin: 0; font-size: 1.08rem; font-weight: 800; color: #1e40af;">Form 137 Pickup Scheduling &amp; Official Claim Slip</h3>
+            <p style="margin: 2px 0 0 0; font-size: 0.82rem; color: #2563eb;">
+              Itakda sa kalendaryo kung kailan maaaring kunin ng mag-aaral ang Form 137 sa Registrar's Office.
+            </p>
+          </div>
+        </div>
+        <a href="claim_slip.php?ref=<?= urlencode($req['tracking_number']) ?>" target="_blank" class="btn-primary-cta" style="background: #1d4ed8; padding: 8px 18px; font-size: 0.84rem; text-decoration: none; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(29, 78, 216, 0.25);">
+          <span>🎫</span> <span>View / Print Student Claim Slip ↗</span>
+        </a>
+      </div>
+
+      <!-- Current Scheduled Pickup Date Banner -->
+      <?php if (!empty($req['pickup_date'])): ?>
+        <div style="background: #ffffff; border: 2px solid #3b82f6; border-radius: 10px; padding: 14px 18px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="width: 52px; height: 52px; border-radius: 10px; background: #dbeafe; color: #1e40af; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; line-height: 1.1; border: 1.5px solid #93c5fd;">
+              <span style="font-size: 0.72rem; text-transform: uppercase;"><?= date('M', strtotime($req['pickup_date'])) ?></span>
+              <span style="font-size: 1.25rem;"><?= date('j', strtotime($req['pickup_date'])) ?></span>
+            </div>
+            <div>
+              <div style="font-size: 0.76rem; text-transform: uppercase; font-weight: 800; color: #2563eb; letter-spacing: 0.5px;">Scheduled Pickup Date:</div>
+              <div style="font-size: 1.15rem; font-weight: 800; color: #1e3a8a;">
+                <?= date('F j, Y', strtotime($req['pickup_date'])) ?> <span style="font-size: 0.9rem; font-weight: 600; color: #3b82f6;">(<?= date('l', strtotime($req['pickup_date'])) ?>)</span>
+              </div>
+              <div style="font-size: 0.8rem; color: #64748b; margin-top: 2px;">
+                📍 Window 1 / Window 2 &bull; Office of the Registrar &bull; Campus Hours (7:00 AM &ndash; 4:00 PM)
+              </div>
+            </div>
+          </div>
+          <span style="background: #dcfce7; color: #15803d; font-weight: 800; font-size: 0.8rem; padding: 5px 14px; border-radius: 20px; border: 1px solid #86efac; display: inline-flex; align-items: center; gap: 5px;">
+            ✔ Schedule Active
+          </span>
+        </div>
+      <?php else: ?>
+        <div style="background: #fffbeb; border: 1.5px dashed #f59e0b; border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; color: #92400e; font-size: 0.88rem; display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.3rem;">⏳</span>
+          <div>
+            <strong>Wala pang naka-set na Pickup Date.</strong> Piliin sa ibaba ang petsa sa kalendaryo kung kailan maaaring magsadya ang mag-aaral sa Registrar's Office.
+          </div>
+        </div>
+      <?php endif; ?>
+
+      <!-- Quick Calendar Date Setter Form -->
+      <form method="POST" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <input type="hidden" name="action" value="set_pickup_date">
+        <div style="flex-grow: 1; min-width: 220px;">
+          <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #1e3a8a; margin-bottom: 4px;">
+            <?= empty($req['pickup_date']) ? '📅 Pumili ng Petsa sa Kalendaryo (Set Pickup Date)' : '🔄 Baguhin ang Petsa sa Kalendaryo (Reschedule)' ?> <span style="color: #ef4444;">*</span>
+          </label>
+          <input 
+            type="date" 
+            name="pickup_date" 
+            id="f137_pickup_date_input" 
+            class="form-control" 
+            value="<?= htmlspecialchars($req['pickup_date'] ?? date('Y-m-d', strtotime('+3 weekdays'))) ?>" 
+            min="<?= date('Y-m-d') ?>"
+            required
+            style="font-size: 0.92rem; font-weight: 600;"
+          />
+        </div>
+        <div style="align-self: flex-end;">
+          <button type="submit" class="btn-primary-cta" style="background: #2563eb; padding: 9px 22px; font-size: 0.88rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);">
+            <span>📅</span> <span><?= empty($req['pickup_date']) ? 'I-save ang Schedule' : 'I-update ang Schedule' ?></span>
+          </button>
+        </div>
+      </form>
+    </div>
   <?php endif; ?>
 
   <?php if ($has_cr_ratings): ?>
@@ -544,15 +679,21 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
     </div>
   </div>
 
-  <!-- Action Buttons for Registrar & Admin (Unified 3-Button Layout) -->
+  <!-- Action Buttons for Registrar & Admin (Unified Layout) -->
   <form method="POST" id="action-form" class="details-actions-row" style="flex-wrap: wrap; gap: 10px; align-items: center;">
     <input type="hidden" name="action" id="action-type" value="">
     <input type="hidden" name="remarks" id="action-remarks" value="">
+    <input type="hidden" name="pickup_date" id="action-pickup-date" value="<?= htmlspecialchars($req['pickup_date'] ?? '') ?>">
 
     <?php if ($req['status'] === 'Completed' || $req['status'] === 'Released'): ?>
       <div style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #ecfdf5; color: #047857; font-weight: 700; border-radius: 8px; border: 1px solid #a7f3d0; font-size: 0.95rem;">
         ✔ Transaction Completed &amp; Released
       </div>
+      <?php if ($req['requester_role'] === 'student'): ?>
+        <a href="claim_slip.php?ref=<?= urlencode($req['tracking_number']) ?>" target="_blank" class="btn-primary-cta" style="background: #4338ca; padding: 10px 18px; font-size: 0.9rem; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(67, 56, 202, 0.25);">
+          <span>🎫</span> <span>Claim Slip ↗</span>
+        </a>
+      <?php endif; ?>
     <?php elseif ($req['status'] === 'Rejected'): ?>
       <div style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #fef2f2; color: #b91c1c; font-weight: 700; border-radius: 8px; border: 1px solid #fecaca; font-size: 0.95rem;">
         ✕ Request Closed (Rejected)
@@ -564,8 +705,18 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
         </button>
       <?php elseif ($req['status'] === 'Ready for Release'): ?>
         <button type="button" class="btn-primary-cta" style="background: #059669; padding: 10px 20px; font-size: 0.92rem; font-weight: 700;" onclick="submitAction('complete')">✔ Mark as Completed</button>
+        <?php if ($req['requester_role'] === 'student'): ?>
+          <a href="claim_slip.php?ref=<?= urlencode($req['tracking_number']) ?>" target="_blank" class="btn-primary-cta" style="background: #4338ca; padding: 10px 18px; font-size: 0.9rem; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(67, 56, 202, 0.25);">
+            <span>🎫</span> <span>Claim Slip ↗</span>
+          </a>
+        <?php endif; ?>
       <?php else: ?>
         <button type="button" class="btn-action-approve" onclick="submitAction('approve')">Mark Ready for Release</button>
+        <?php if ($req['requester_role'] === 'student'): ?>
+          <a href="claim_slip.php?ref=<?= urlencode($req['tracking_number']) ?>" target="_blank" class="btn-primary-cta" style="background: #4338ca; padding: 10px 18px; font-size: 0.9rem; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(67, 56, 202, 0.25);">
+            <span>🎫</span> <span>Preview Claim Slip ↗</span>
+          </a>
+        <?php endif; ?>
       <?php endif; ?>
 
       <button type="button" class="btn-action-reject" onclick="openRejectModal()">Reject</button>
@@ -731,6 +882,15 @@ function submitAction(type) {
   }
   const form = document.getElementById('action-form');
   document.getElementById('action-type').value = type;
+
+  if (type === 'approve') {
+    const f137Date = document.getElementById('f137_pickup_date_input');
+    const actionDate = document.getElementById('action-pickup-date');
+    if (f137Date && f137Date.value) {
+      actionDate.value = f137Date.value;
+    }
+  }
+
   form.submit();
 }
 </script>

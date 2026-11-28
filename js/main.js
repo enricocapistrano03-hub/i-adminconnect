@@ -240,6 +240,29 @@ function renderTrackerContent(req) {
       ` : '')}
     </div>
 
+    ${req.pickupDate ? `
+      <div style="margin-top: 15px; padding: 14px 18px; background: linear-gradient(135deg, #eff6ff 0%, #e0e7ff 100%); border: 2px solid #3b82f6; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);">
+        <div>
+          <div style="font-size: 0.76rem; font-weight: 800; text-transform: uppercase; color: #2563eb; letter-spacing: 0.5px;">📅 Scheduled Pickup Date (Petsa ng Pagkuha):</div>
+          <div style="font-size: 1.15rem; font-weight: 900; color: #1e3a8a; margin-top: 2px;">
+            ${req.pickupDate} <span style="font-size: 0.88rem; font-weight: 600; color: #3b82f6;">(${req.pickupDay || ''})</span>
+          </div>
+          <div style="font-size: 0.8rem; color: #1e40af; margin-top: 3px;">
+            📍 Office of the Registrar &bull; Ipakita ang Claim Slip sa Releasing Window
+          </div>
+        </div>
+        <a href="claim_slip.php?ref=${encodeURIComponent(req.id)}" target="_blank" class="btn-primary-cta" style="background: #1d4ed8; padding: 9px 18px; font-size: 0.86rem; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(29, 78, 216, 0.25);">
+          <span>🎫</span> <span>View Claim Slip ↗</span>
+        </a>
+      </div>
+    ` : ((req.status === 'Ready for Release' || req.status === 'Processing') ? `
+      <div style="margin-top: 12px; text-align: right;">
+        <a href="claim_slip.php?ref=${encodeURIComponent(req.id)}" target="_blank" style="font-size: 0.84rem; font-weight: 700; color: #4338ca; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+          <span>🎫</span> <span>View / Print Official Claim Slip ↗</span>
+        </a>
+      </div>
+    ` : '')}
+
     ${(req.canEdit || req.status === 'Returned for Revision') ? `
       <div id="revision-container" style="margin-top: 15px; padding: 14px 16px; background: #fffbeb; border: 1.5px solid #f59e0b; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <div style="flex: 1; min-width: 240px;">

@@ -54,6 +54,9 @@ $stage4_time = ($current_stage >= 4) ? ($req['stage4_time'] ?: date('F j, Y g:i 
 
 $is_completed = ($status === 'Completed' || $status === 'Released');
 $attachments = parse_attachments($req['attached_filename'] ?? '', $req['file_size_kb'] ?? '');
+$has_pickup_date = !empty($req['pickup_date']);
+$pickup_date_fmt = $has_pickup_date ? date('F j, Y', strtotime($req['pickup_date'])) : null;
+$pickup_day_fmt = $has_pickup_date ? date('l', strtotime($req['pickup_date'])) : null;
 
 echo json_encode([
     'id' => $req['tracking_number'],
@@ -66,6 +69,9 @@ echo json_encode([
     'stage2' => $stage2_time,
     'stage3' => $stage3_time,
     'stage4' => $stage4_time,
+    'pickupDate' => $pickup_date_fmt,
+    'pickupDay' => $pickup_day_fmt,
+    'claimSlipUrl' => 'claim_slip.php?ref=' . urlencode($req['tracking_number']),
     'remarks' => $req['remarks'] ?: ($is_completed ? 'Transaction successfully completed and document claimed.' : 'Your request is in progress.'),
     'attachedFiles' => $attachments,
     'attachedFile' => !empty($attachments) ? (count($attachments) > 1 ? count($attachments) . ' Attached Documents' : $attachments[0]['name']) : null,

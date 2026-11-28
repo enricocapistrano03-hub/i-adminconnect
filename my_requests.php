@@ -53,8 +53,13 @@ $my_requests = $stmt->fetchAll();
               <td><?= htmlspecialchars(mb_strimwidth($req['purpose'], 0, 45, '...')) ?></td>
               <td><span class="badge-status <?= $status_class ?>"><?= htmlspecialchars($req['status']) ?></span></td>
               <td>
-                <div style="display: flex; gap: 6px; align-items: center;">
+                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                   <button type="button" class="btn-action-track" onclick="openTrackerModal('<?= htmlspecialchars($req['tracking_number'], ENT_QUOTES) ?>')">Track</button>
+                  <?php if (!empty($req['pickup_date']) || in_array($req['status'], ['Ready for Release', 'Processing', 'Completed', 'Released'])): ?>
+                    <a href="claim_slip.php?ref=<?= urlencode($req['tracking_number']) ?>" target="_blank" class="btn-action-track" style="background: #4338ca; border-color: #4338ca; color: #ffffff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 700;" title="View & Print Official Claim Slip (Ipakita sa Registrar)">
+                      <span>🎫</span> <span>Claim Slip</span>
+                    </a>
+                  <?php endif; ?>
                   <?php if ($req['status'] === 'Returned for Revision'): ?>
                     <a href="edit_request.php?ref=<?= urlencode($req['tracking_number']) ?>" class="btn-action-edit" title="Re-upload or edit document">Edit</a>
                   <?php endif; ?>

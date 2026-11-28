@@ -120,12 +120,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'edit_user') {
     $status = trim($_POST['status'] ?? 'Active');
 
     $allowed_roles = ['student', 'teacher', 'registrar', 'admin'];
-    $allowed_statuses = ['Active', 'Pending', 'Inactive', 'Dropped'];
+    $allowed_statuses = ['Active', 'Pending', 'Inactive', 'Dropped', 'Graduated'];
 
     if ($edit_id <= 0 || empty($full_name) || empty($email)) {
         $error_msg = "Please fill in all required fields (Full Name and Email).";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error_msg = "Please provide a valid email address.";
+    } elseif (!preg_match("/^[a-zA-Z\sñÑ.'-]+$/u", $full_name)) {
+        $error_msg = "Full Name must only contain letters, spaces, hyphens, and periods (numbers and special characters are not allowed).";
+    } elseif ($role === 'student' && !empty($id_number) && !preg_match('/^[0-9]+$/', $id_number)) {
+        $error_msg = "Student LRN / ID Number must contain numbers only (e.g., 12-digit LRN: 136887180061). Letters are strictly not allowed.";
     } elseif (!in_array($role, $allowed_roles)) {
         $error_msg = "Invalid role selected.";
     } elseif (!in_array($status, $allowed_statuses)) {
@@ -187,6 +191,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'edit_user') {
                     $audit_desc = "Activated user account ID {$edit_id}: {$full_name} ({$email}, {$role}) - Status changed from {$prev_status} to Active";
                 } elseif ($status_changed && $status === 'Dropped') {
                     $audit_desc = "Marked user account ID {$edit_id}: {$full_name} ({$email}, {$role}) as Dropped - Status changed from {$prev_status} to Dropped";
+                } elseif ($status_changed && $status === 'Graduated') {
+                    $audit_desc = "Marked user account ID {$edit_id}: {$full_name} ({$email}, {$role}) as Graduated / Alumnus - Status changed from {$prev_status} to Graduated";
                 } elseif ($status_changed) {
                     $audit_desc = "Updated user account ID {$edit_id}: {$full_name} ({$email}, {$role}) - Status changed from {$prev_status} to {$status}";
                 } elseif ($role_changed) {
@@ -215,12 +221,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add_user') {
     $status = trim($_POST['status'] ?? 'Active');
 
     $allowed_roles = ['student', 'teacher', 'registrar', 'admin'];
-    $allowed_statuses = ['Active', 'Pending', 'Inactive', 'Dropped'];
+    $allowed_statuses = ['Active', 'Pending', 'Inactive', 'Dropped', 'Graduated'];
 
     if (empty($full_name) || empty($email) || empty($password)) {
         $error_msg = "Please provide Full Name, Email Address, and Initial Password.";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error_msg = "Please provide a valid email address.";
+    } elseif (!preg_match("/^[a-zA-Z\sñÑ.'-]+$/u", $full_name)) {
+        $error_msg = "Full Name must only contain letters, spaces, hyphens, and periods (numbers and special characters are not allowed).";
+    } elseif ($role === 'student' && !empty($id_number) && !preg_match('/^[0-9]+$/', $id_number)) {
+        $error_msg = "Student LRN / ID Number must contain numbers only (e.g., 12-digit LRN: 136887180061). Letters are strictly not allowed.";
     } elseif (!in_array($role, $allowed_roles)) {
         $error_msg = "Invalid role selected.";
     } elseif (!in_array($status, $allowed_statuses)) {
@@ -601,6 +611,8 @@ $all_users = $stmt->fetchAll();
                   <span class="badge-status" style="background: #fef3c7; color: #b45309; font-weight: 700;">Pending Approval</span>
                 <?php elseif ($u['status'] === 'Active'): ?>
                   <span style="color: #16a34a; font-weight: 700;">Active</span>
+                <?php elseif ($u['status'] === 'Graduated'): ?>
+                  <span class="badge-status" style="background: #e0e7ff; color: #3730a3; font-weight: 700; border: 1px solid #c7d2fe;">🎓 Graduated / Alumnus</span>
                 <?php else: ?>
                   <span style="color: #94a3b8; font-weight: 600;"><?= htmlspecialchars($u['status']) ?></span>
                 <?php endif; ?>
@@ -749,13 +761,14 @@ $all_users = $stmt->fetchAll();
 
       <div class="user-modal-body">
         <div class="form-group" style="margin-bottom: 14px;">
-          <label class="form-label">ID / Employee Number</label>
-          <input type="text" name="id_number" id="modal_id_number" class="form-control" placeholder="e.g. 2024-0012 or EMP-102">
+          <label class="form-label" id="edit_modal_id_label">ID / LRN / Employee Number</label>
+          <input type="text" name="id_number" id="modal_id_number" class="form-control" placeholder="e.g. 12-digit LRN (136887180061) or Employee ID" oninput="validateEditModalId(this)">
+          <small id="edit_modal_id_hint" style="color: #64748b; font-size: 0.76rem; display: block; margin-top: 3px;">For Students: 12-digit DepEd Learner Reference Number (LRN). Numbers only.</small>
         </div>
 
         <div class="form-group" style="margin-bottom: 14px;">
           <label class="form-label">Full Name <span style="color: #ef4444;">*</span></label>
-          <input type="text" name="full_name" id="modal_full_name" class="form-control" required placeholder="e.g. Juan Dela Cruz">
+          <input type="text" name="full_name" id="modal_full_name" class="form-control" required placeholder="e.g. Juan Dela Cruz" oninput="this.value = this.value.replace(/[^a-zA-Z\sñÑ.'-]/g, '')">
         </div>
 
         <div class="form-group" style="margin-bottom: 14px;">
@@ -766,7 +779,7 @@ $all_users = $stmt->fetchAll();
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
           <div class="form-group">
             <label class="form-label">Role <span style="color: #ef4444;">*</span></label>
-            <select name="role" id="modal_role" class="form-control" required>
+            <select name="role" id="modal_role" class="form-control" required onchange="updateEditModalRoleLabels(this.value)">
               <option value="student">Student</option>
               <option value="teacher">Teacher</option>
               <option value="registrar">Registrar</option>
@@ -781,6 +794,7 @@ $all_users = $stmt->fetchAll();
               <option value="Pending">Pending Approval</option>
               <option value="Inactive">Inactive (Deactivated)</option>
               <option value="Dropped">Dropped</option>
+              <option value="Graduated">Graduated / Alumnus</option>
             </select>
           </div>
         </div>
@@ -837,18 +851,20 @@ $all_users = $stmt->fetchAll();
               <option value="Pending">Pending Approval</option>
               <option value="Inactive">Inactive (Deactivated)</option>
               <option value="Dropped">Dropped</option>
+              <option value="Graduated">Graduated / Alumnus</option>
             </select>
           </div>
         </div>
 
         <div class="form-group" style="margin-bottom: 14px;">
-          <label class="form-label" id="add_modal_id_label">ID / LRN / Employee Number</label>
-          <input type="text" name="id_number" id="add_modal_id_number" class="form-control" placeholder="e.g. 654651 (Student LRN / ID)">
+          <label class="form-label" id="add_modal_id_label">Student LRN / ID Number (12 Digits)</label>
+          <input type="text" name="id_number" id="add_modal_id_number" class="form-control" placeholder="e.g. 136887180061 (12-digit LRN)" oninput="validateAddModalId(this)">
+          <small id="add_modal_id_hint" style="color: #64748b; font-size: 0.76rem; display: block; margin-top: 3px;">For Students: 12-digit DepEd Learner Reference Number (LRN). Numbers only.</small>
         </div>
 
         <div class="form-group" style="margin-bottom: 14px;">
           <label class="form-label">Full Name <span style="color: #ef4444;">*</span></label>
-          <input type="text" name="full_name" class="form-control" required placeholder="e.g. Maria Clara S. Santos">
+          <input type="text" name="full_name" class="form-control" required placeholder="e.g. Maria Clara S. Santos" oninput="this.value = this.value.replace(/[^a-zA-Z\sñÑ.'-]/g, '')">
         </div>
 
         <div class="form-group" style="margin-bottom: 14px;">
@@ -1011,37 +1027,82 @@ function closeAddUserModal() {
   }
 }
 
+function validateAddModalId(input) {
+  const role = document.getElementById('add_modal_role')?.value || 'student';
+  if (role === 'student') {
+    input.value = input.value.replace(/[^0-9]/g, '');
+    if (input.value.length > 12) input.value = input.value.slice(0, 12);
+  }
+}
+
+function validateEditModalId(input) {
+  const role = document.getElementById('modal_role')?.value || 'student';
+  if (role === 'student') {
+    input.value = input.value.replace(/[^0-9]/g, '');
+    if (input.value.length > 12) input.value = input.value.slice(0, 12);
+  }
+}
+
+function updateEditModalRoleLabels(role) {
+  const idLabel = document.getElementById('edit_modal_id_label');
+  const idInput = document.getElementById('modal_id_number');
+  const idHint = document.getElementById('edit_modal_id_hint');
+
+  if (role === 'student') {
+    if (idLabel) idLabel.textContent = 'Student LRN / ID Number (12 Digits)';
+    if (idInput) idInput.placeholder = 'e.g. 136887180061 (12-digit LRN)';
+    if (idHint) idHint.textContent = 'For Students: 12-digit DepEd Learner Reference Number (LRN). Numbers only.';
+  } else if (role === 'teacher') {
+    if (idLabel) idLabel.textContent = 'Teacher Employee ID Number';
+    if (idInput) idInput.placeholder = 'e.g. EMP-2026-001';
+    if (idHint) idHint.textContent = 'Official Teacher / Faculty Employee ID number.';
+  } else if (role === 'registrar') {
+    if (idLabel) idLabel.textContent = 'Registrar Employee Number';
+    if (idInput) idInput.placeholder = 'e.g. REG-001';
+    if (idHint) idHint.textContent = 'Official Registrar Staff ID number.';
+  } else {
+    if (idLabel) idLabel.textContent = 'Admin / Employee Number';
+    if (idInput) idInput.placeholder = 'e.g. ADM-001';
+    if (idHint) idHint.textContent = 'Administrator Employee ID number.';
+  }
+}
+
 function handleRoleChangeAddUser(role) {
   const studentFields = document.getElementById('add_modal_student_fields');
   const deptLabel = document.getElementById('add_modal_dept_label');
   const deptInput = document.getElementById('add_modal_department');
   const idLabel = document.getElementById('add_modal_id_label');
   const idInput = document.getElementById('add_modal_id_number');
+  const idHint = document.getElementById('add_modal_id_hint');
 
   if (role === 'student') {
     if (studentFields) studentFields.style.display = 'grid';
     if (deptLabel) deptLabel.textContent = 'Program / Academic Strand';
     if (deptInput) { deptInput.value = ''; deptInput.placeholder = 'e.g. STEM Strand, Junior High School (General)'; }
-    if (idLabel) idLabel.textContent = 'Student LRN / ID Number';
-    if (idInput) idInput.placeholder = 'e.g. 654651';
+    if (idLabel) idLabel.textContent = 'Student LRN / ID Number (12 Digits)';
+    if (idInput) { idInput.placeholder = 'e.g. 136887180061 (12-digit LRN)'; idInput.value = idInput.value.replace(/[^0-9]/g, ''); }
+    if (idHint) idHint.textContent = 'For Students: 12-digit DepEd Learner Reference Number (LRN). Numbers only.';
   } else if (role === 'teacher') {
     if (studentFields) studentFields.style.display = 'none';
     if (deptLabel) deptLabel.textContent = 'Grade Level / Department';
     if (deptInput) { deptInput.value = ''; deptInput.placeholder = 'e.g. Junior High School, Senior High School'; }
     if (idLabel) idLabel.textContent = 'Teacher Employee ID Number';
     if (idInput) idInput.placeholder = 'e.g. EMP-2026-001';
+    if (idHint) idHint.textContent = 'Official Teacher / Faculty Employee ID number.';
   } else if (role === 'registrar') {
     if (studentFields) studentFields.style.display = 'none';
     if (deptLabel) deptLabel.textContent = 'Office';
     if (deptInput) { deptInput.value = 'Office of the Registrar'; deptInput.placeholder = 'Office of the Registrar'; }
     if (idLabel) idLabel.textContent = 'Registrar Employee Number';
     if (idInput) idInput.placeholder = 'e.g. REG-001';
+    if (idHint) idHint.textContent = 'Official Registrar Staff ID number.';
   } else if (role === 'admin') {
     if (studentFields) studentFields.style.display = 'none';
     if (deptLabel) deptLabel.textContent = 'Office';
     if (deptInput) { deptInput.value = 'Administration'; deptInput.placeholder = 'Administration'; }
     if (idLabel) idLabel.textContent = 'Admin Employee Number';
     if (idInput) idInput.placeholder = 'e.g. ADM-001';
+    if (idHint) idHint.textContent = 'Administrator Employee ID number.';
   }
 }
 
@@ -1053,6 +1114,8 @@ function openEditUserModal(user) {
   document.getElementById('modal_role').value = user.role || 'student';
   document.getElementById('modal_status').value = user.status || 'Active';
   document.getElementById('modal_department').value = user.department || '';
+
+  updateEditModalRoleLabels(user.role || 'student');
 
   const modal = document.getElementById('editUserModal');
   modal.classList.add('active');

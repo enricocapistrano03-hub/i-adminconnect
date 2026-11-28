@@ -34,9 +34,15 @@ $available_types = $stmt->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $doc_type_id = (int)($_POST['doc_type_id'] ?? 0);
-    $copies = max(1, min(10, (int)($_POST['copies'] ?? 1)));
+    $raw_copies = $_POST['copies'] ?? '1';
+    $copies = max(1, min(10, (int)$raw_copies));
     $purpose = trim($_POST['purpose'] ?? '');
     $notes = trim($_POST['notes'] ?? '');
+
+    // Strict validation for copies (digits only between 1 and 10)
+    if (!preg_match('/^[0-9]+$/', (string)$raw_copies) || (int)$raw_copies < 1 || (int)$raw_copies > 10) {
+        $error_msg = 'Number of copies must be a valid number between 1 and 10 (letters and symbols are not allowed).';
+    }
 
     // Identify selected document type code
     $doc_code = '';
@@ -50,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Special validation & processing for Certificate of Employment (COE) and Service Record (SR)
-    if ($doc_code === 'COE' || $doc_code === 'SR') {
+    if (empty($error_msg) && ($doc_code === 'COE' || $doc_code === 'SR')) {
         $emp_full_name = trim($_POST['emp_full_name'] ?? '');
         $emp_number = trim($_POST['emp_number'] ?? '');
         $emp_position = trim($_POST['emp_position'] ?? '');
@@ -63,6 +69,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (empty($emp_full_name) || empty($emp_number) || empty($emp_position) || empty($emp_salary_grade) || empty($emp_step) || empty($emp_date_hired) || empty($emp_purpose)) {
             $error_msg = 'Please fill in all required employee fields (Full Name, Employee Number, Position, Salary Grade, Step, Date Hired, and Purpose).';
+        } elseif (!preg_match("/^[a-zA-Z\sñÑ.'-]+$/u", $emp_full_name)) {
+            $error_msg = 'Employee Full Name must only contain letters, spaces, hyphens, and periods (numbers and special symbols are strictly not allowed).';
+        } elseif (!preg_match('/^[0-9-]+$/', $emp_number)) {
+            $error_msg = 'Employee Number must contain numbers and hyphens only (letters are strictly not allowed).';
         } else {
             $purpose = $emp_purpose;
 
@@ -95,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Special validation & processing for Certificate of Rating (CR) - 3-Year Performance Ratings
-    if ($doc_code === 'CR') {
+    if (empty($error_msg) && $doc_code === 'CR') {
         $sy1 = trim($_POST['sy_year_1'] ?? '2022–2023');
         $sy2 = trim($_POST['sy_year_2'] ?? '2023–2024');
         $sy3 = trim($_POST['sy_year_3'] ?? '2024–2025');
@@ -103,8 +113,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $r2 = (float)($_POST['rating_year_2'] ?? 0);
         $r3 = (float)($_POST['rating_year_3'] ?? 0);
 
-        if ($r1 <= 0 || $r2 <= 0 || $r3 <= 0) {
-            $error_msg = 'Please enter your numerical rating grades for all three (3) School Years (e.g. 4.32, 4.38, 4.40).';
+        if ($r1 <= 0 || $r2 <= 0 || $r3 <= 0 || $r1 > 5.00 || $r2 > 5.00 || $r3 > 5.00) {
+            $error_msg = 'Please enter valid numerical rating grades between 1.00 and 5.00 for all three (3) School Years (e.g. 4.32, 4.38, 4.40).';
         } else {
             $avg_rating = round(($r1 + $r2 + $r3) / 3, 2);
             $adjectival = ($avg_rating >= 4.50) ? 'Outstanding' : (($avg_rating >= 3.50) ? 'Very Satisfactory' : 'Satisfactory');
@@ -120,25 +130,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Special validation & processing for Form 137 / SF10
-    if ($doc_code === 'F137') {
+    if (empty($error_msg) && $doc_code === 'F137') {
         $recent_sec = trim($_POST['f137_recent_section'] ?? '');
         $grad_yr = trim($_POST['f137_year_graduated'] ?? '');
         $trans_school = trim($_POST['f137_transferee_school'] ?? '');
 
-        if (empty($recent_sec) || empty($grad_yr) || empty($trans_school)) {
-            $error_msg = 'Please fill in your Recent Section, Year Graduated / Last SY, and Specific School / Transferee University for Form 137 processing.';
-        } else {
-            $f137_summary = "[Form 137 Student Records Info]\n"
-                . "• Recent Section: " . $recent_sec . "\n"
-                . "• Year Graduated / Last SY: " . $grad_yr . "\n"
-                . "• Specific School / Transferee University: " . $trans_school;
+        // Handle "Others" or custom transferee school selection
+        if ($trans_school === 'Others (Not in Top 100 List / Please specify below)' || $trans_school === 'Others' || stripos($trans_school, 'Others') !== false) {
+            $custom_other = trim($_POST['f137_other_school_input'] ?? '');
+            if (empty($custom_other)) {
+                $error_msg = 'Please specify the Complete School Name and Campus Address for your Transferee School under "Others".';
+            } else {
+                $trans_school = "Others: " . $custom_other;
+            }
+        }
 
-            $notes = empty($notes) ? $f137_summary : $f137_summary . "\n\nAdditional Notes: " . $notes;
+        if (empty($error_msg)) {
+            if (empty($recent_sec) || empty($grad_yr) || empty($trans_school)) {
+                $error_msg = 'Please fill in your Recent Section, Year Graduated / Last SY, and Specific School / Transferee University for Form 137 processing.';
+            } elseif (!preg_match('/^[0-9]{4}$/', $grad_yr)) {
+                // Panel Feedback: Reject inputs like '2026a' with clear error
+                $error_msg = 'Invalid Year format for Form 137 ("' . htmlspecialchars($grad_yr) . '"). Please enter a valid 4-digit numeric year (e.g. 2024, 2026). Letters and special characters are strictly not allowed.';
+            } elseif ((int)$grad_yr < 1970 || (int)$grad_yr > ((int)date('Y') + 2)) {
+                $error_msg = 'Year Graduated / Last SY must be between 1970 and ' . ((int)date('Y') + 2) . '.';
+            } else {
+                $f137_summary = "[Form 137 Student Records Info]\n"
+                    . "• Recent Section: " . $recent_sec . "\n"
+                    . "• Year Graduated / Last SY: " . $grad_yr . "\n"
+                    . "• Specific School / Transferee University: " . $trans_school;
+
+                $notes = empty($notes) ? $f137_summary : $f137_summary . "\n\nAdditional Notes: " . $notes;
+            }
         }
     }
 
     // Special validation & processing for Good Moral Certificate (GMC), Certificate of Grades (COG), and Certificate of Enrollment (COE_ST)
-    if (in_array($doc_code, ['GMC', 'COG', 'COE_ST'])) {
+    if (empty($error_msg) && in_array($doc_code, ['GMC', 'COG', 'COE_ST'])) {
         $gmc_name = trim($_POST['gmc_full_name'] ?? '');
         $gmc_sec = trim($_POST['gmc_section_strand'] ?? '');
         $gmc_status = trim($_POST['gmc_status'] ?? 'Currently Enrolled');
@@ -159,8 +186,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (empty($gmc_name) || empty($gmc_sec) || empty($gmc_purpose)) {
             $error_msg = "Please fill in your Full Name, Section / Strand, and Specific School / Purpose for the {$doc_title_label}.";
+        } elseif (!preg_match("/^[a-zA-Z\sñÑ.'-]+$/u", $gmc_name)) {
+            $error_msg = 'Student Full Name must only contain letters, spaces, hyphens, and periods (numbers and special symbols are strictly not allowed).';
         } elseif ($gmc_status === 'Graduated' && empty($gmc_year)) {
             $error_msg = 'Please specify your Year Graduated / Batch since you indicated you have graduated.';
+        } elseif (!empty($gmc_year) && !preg_match('/^[0-9]{4}$/', $gmc_year)) {
+            // Panel Feedback: Reject inputs like '2026a' with clear error
+            $error_msg = 'Invalid Year format for ' . $doc_title_label . ' ("' . htmlspecialchars($gmc_year) . '"). Please enter a valid 4-digit numeric year (e.g. 2024, 2026). Letters and special characters are strictly not allowed.';
+        } elseif (!empty($gmc_year) && ((int)$gmc_year < 1970 || (int)$gmc_year > ((int)date('Y') + 2))) {
+            $error_msg = 'Year must be between 1970 and ' . ((int)date('Y') + 2) . '.';
         } else {
             $purpose = $gmc_purpose;
 
@@ -415,6 +449,137 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </select>
     </div>
 
+    <!-- Top 100+ Philippine Universities & High Schools Autocomplete DataList -->
+    <datalist id="ph_universities_schools_list">
+      <!-- Special Custom / Other Option -->
+      <option value="Others (Not in Top 100 List / Please specify below)">Specify Other School / Destination</option>
+
+      <!-- Premier State Universities and Colleges (SUCs) -->
+      <option value="University of the Philippines Diliman (UPD)">UP Diliman - Quezon City</option>
+      <option value="University of the Philippines Manila (UPM)">UP Manila - Padre Faura, Ermita</option>
+      <option value="University of the Philippines Los Baños (UPLB)">UP Los Baños - Laguna</option>
+      <option value="University of the Philippines Baguio (UPB)">UP Baguio - Governor Pack Rd</option>
+      <option value="University of the Philippines Visayas (UPV)">UP Visayas - Miagao, Iloilo</option>
+      <option value="University of the Philippines Mindanao (UPMin)">UP Mindanao - Davao City</option>
+      <option value="University of the Philippines Cebu (UPC)">UP Cebu - Lahug, Cebu City</option>
+      <option value="University of the Philippines Open University (UPOU)">UP Open University - Los Baños, Laguna</option>
+      <option value="Polytechnic University of the Philippines (PUP Main - Sta. Mesa, Manila)">PUP Main Campus - Sta. Mesa, Manila</option>
+      <option value="Polytechnic University of the Philippines (PUP Taguig Campus)">PUP Taguig - General Santos Ave, Lower Bicutan</option>
+      <option value="Polytechnic University of the Philippines (PUP Quezon City Campus)">PUP Quezon City - Commonwealth</option>
+      <option value="Polytechnic University of the Philippines (PUP San Juan Campus)">PUP San Juan - Addition Hills</option>
+      <option value="Polytechnic University of the Philippines (PUP Parañaque Campus)">PUP Parañaque - Col. E. De Leon St.</option>
+      <option value="Technological University of the Philippines (TUP Manila)">TUP Manila - Ayala Blvd, Ermita</option>
+      <option value="Technological University of the Philippines (TUP Taguig Campus)">TUP Taguig - Km. 14 East Service Rd, Western Bicutan</option>
+      <option value="Technological University of the Philippines (TUP Cavite Campus)">TUP Cavite - Salawag, Dasmariñas</option>
+      <option value="Rizal Technological University (RTU Boni - Mandaluyong)">RTU Boni - Mandaluyong City</option>
+      <option value="Rizal Technological University (RTU Pasig Campus)">RTU Pasig - Maybunga, Pasig City</option>
+      <option value="Philippine Normal University (PNU Manila)">PNU Manila - Taft Avenue, Ermita</option>
+      <option value="Eulogio 'Amang' Rodriguez Institute of Science and Technology (EARIST Manila)">EARIST - Nagtahan, Sampaloc, Manila</option>
+      <option value="Philippine State College of Aeronautics (PhilSCA - Pasay)">PhilSCA - Piccio Garden, Pasay City</option>
+      <option value="Marikina Polytechnic College (MPC)">MPC - Chanyungco St, Marikina</option>
+
+      <!-- Local Universities and Colleges (LUCs) -->
+      <option value="Pamantasan ng Lungsod ng Maynila (PLM - Intramuros)">PLM - General Luna St, Intramuros, Manila</option>
+      <option value="Universidad de Manila (UDM - Mehan Garden)">UDM - Mehan Garden, Ermita, Manila</option>
+      <option value="Taguig City University (TCU - Taguig)">TCU - Gen. Santos Ave, Central Bicutan, Taguig City</option>
+      <option value="Pamantasan ng Lungsod ng Pasig (PLP)">PLP - Alcalde St, Kapasigan, Pasig City</option>
+      <option value="Pamantasan ng Lungsod ng Marikina (PLMar)">PLMar - Brazil St, Greenheights, Marikina</option>
+      <option value="Pamantasan ng Lungsod ng Muntinlupa (PLMun)">PLMun - University Rd, Poblacion, Muntinlupa</option>
+      <option value="Quezon City University (QCU - San Bartolome)">QCU - 673 Quirino Highway, Novaliches, QC</option>
+      <option value="University of Makati (UMak)">UMak - J.P. Rizal Ext, West Rembo, Taguig / Makati</option>
+      <option value="Pateros Technological College (PTC)">PTC - College St, Sto. Rosario-Kanluran, Pateros</option>
+      <option value="Parañaque City College (PCC)">PCC - Coastal Rd, San Dionisio, Parañaque</option>
+      <option value="City University of Pasay (CUP)">CUP - Pasadena St, F.B. Harrison, Pasay</option>
+      <option value="City of Malabon University (CMU)">CMU - Pampano St, Maya-maya, Malabon</option>
+      <option value="Navotas Polytechnic College (NPC)">NPC - Bangkulasi, Navotas City</option>
+      <option value="Valenzuela City Technological College (VCTC)">VCTC - Kamagong St, Fortune Village, Valenzuela</option>
+
+      <!-- Top Private Universities (Metro Manila) -->
+      <option value="Ateneo de Manila University (ADMU - Quezon City)">ADMU - Katipunan Ave, Loyola Heights, QC</option>
+      <option value="De La Salle University (DLSU - Manila, Taft)">DLSU - 2401 Taft Ave, Malate, Manila</option>
+      <option value="De La Salle-College of Saint Benilde (DLS-CSB - Manila)">DLS-CSB - Taft Ave / Ocampo St, Malate, Manila</option>
+      <option value="University of Santo Tomas (UST - Manila)">UST - España Blvd, Sampaloc, Manila</option>
+      <option value="Far Eastern University (FEU - Manila)">FEU - Nicanor Reyes St, Sampaloc, Manila</option>
+      <option value="FEU Institute of Technology (FEU Tech - Manila)">FEU Tech - P. Paredes St, Sampaloc, Manila</option>
+      <option value="Far Eastern University - Alabang (FEU Alabang)">FEU Alabang - Filinvest City, Muntinlupa</option>
+      <option value="Far Eastern University - Diliman (FEU Diliman)">FEU Diliman - Sampaguita Ave, Quezon City</option>
+      <option value="Mapúa University (Intramuros, Manila)">Mapúa University - Muralla St, Intramuros, Manila</option>
+      <option value="Mapúa University (Makati Campus)">Mapúa Makati - Pablo Ocampo Sr. Ext, Makati</option>
+      <option value="University of the East (UE - Manila)">UE Manila - 221 C.M. Recto Ave, Sampaloc, Manila</option>
+      <option value="University of the East (UE - Caloocan)">UE Caloocan - Samson Rd, Caloocan City</option>
+      <option value="Technological Institute of the Philippines (TIP - Manila)">TIP Manila - P. Casal / Arlegui, Quiapo, Manila</option>
+      <option value="Technological Institute of the Philippines (TIP - Quezon City)">TIP QC - 938 Aurora Blvd, Cubao, Quezon City</option>
+      <option value="Adamson University (AdU - San Marcelino, Manila)">AdU - 900 San Marcelino St, Ermita, Manila</option>
+      <option value="National University (NU - Main Manila)">NU Manila - 551 M.F. Jhocson St, Sampaloc, Manila</option>
+      <option value="National University (NU - Mall of Asia, Pasay)">NU MOA - Coral Way, Pasay City</option>
+      <option value="National University (NU - Fairview, Quezon City)">NU Fairview - SM City Fairview, QC</option>
+      <option value="San Beda University (SBU - Mendiola, Manila)">SBU - 638 Mendiola St, San Miguel, Manila</option>
+      <option value="Centro Escolar University (CEU - Manila, Mendiola)">CEU Manila - 9 Mendiola St, San Miguel, Manila</option>
+      <option value="Centro Escolar University (CEU - Makati Campus)">CEU Makati - Gil Puyat Ave, Makati City</option>
+      <option value="Colegio de San Juan de Letran (Intramuros, Manila)">Letran - 151 Muralla St, Intramuros, Manila</option>
+      <option value="Lyceum of the Philippines University (LPU - Manila)">LPU Manila - Muralla cor. Real St, Intramuros</option>
+      <option value="Manila Central University (MCU - Caloocan)">MCU - EDSA, Morning Breeze, Caloocan</option>
+      <option value="Trinity University of Asia (TUA - Quezon City)">TUA - Cathedral Heights, E. Rodriguez Sr. Ave, QC</option>
+      <option value="Miriam College (MC - Quezon City)">Miriam College - Katipunan Ave, Loyola Heights, QC</option>
+      <option value="St. Scholastica's College (SSC - Manila)">SSC Manila - 2560 Leon Guinto St, Malate, Manila</option>
+      <option value="San Sebastian College – Recoletos (SSC-R - Manila)">SSC-R - C.M. Recto Ave, Quiapo, Manila</option>
+      <option value="Philippine Christian University (PCU - Manila)">PCU - 1648 Taft Ave, Malate, Manila</option>
+      <option value="Philippine Women's University (PWU - Manila)">PWU - 1743 Taft Ave, Malate, Manila</option>
+      <option value="Emilio Aguinaldo College (EAC - Manila)">EAC Manila - 1113-1117 San Marcelino St, Paco, Manila</option>
+      <option value="Arellano University (AU - Juan Sumulong, Manila)">AU - 2600 Legarda St, Sampaloc, Manila</option>
+      <option value="Arellano University (AU - Andres Bonifacio, Pasig)">AU Pasig - Pag-asa St, Caniogan, Pasig City</option>
+      <option value="Asia Pacific College (APC - Magallanes, Makati)">APC - 3 Humabon St, Magallanes, Makati</option>
+      <option value="FEATI University (Sta. Cruz, Manila)">FEATI - Helios St, Sta. Cruz, Manila</option>
+      <option value="Our Lady of Fatima University (OLFU - Valenzuela)">OLFU Valenzuela - MacArthur Highway, Valenzuela</option>
+      <option value="Our Lady of Fatima University (OLFU - Quezon City)">OLFU QC - Regalado Ave, Fairview, QC</option>
+      <option value="Our Lady of Fatima University (OLFU - Antipolo)">OLFU Antipolo - Sumulong Highway, Antipolo</option>
+      <option value="University of Perpetual Help System DALTA (Las Piñas)">Perpetual DALTA - Alabang-Zapote Rd, Las Piñas</option>
+      <option value="STI College (Global City / Bonifacio Global City)">STI Global City - 32nd St, University Parkway, BGC, Taguig</option>
+      <option value="AMA Computer University (Main - Project 8, Quezon City)">AMACU - Maximina St, Villa Arca, QC</option>
+
+      <!-- Leading Regional & Provincial Universities -->
+      <option value="Saint Louis University (SLU - Baguio City)">SLU - A. Bonifacio St, Baguio City</option>
+      <option value="University of Baguio (UB - Baguio City)">UB - General Luna Rd, Baguio City</option>
+      <option value="University of the Cordilleras (UC - Baguio City)">UC - Gov. Pack Rd, Baguio City</option>
+      <option value="Central Luzon State University (CLSU - Nueva Ecija)">CLSU - Science City of Muñoz, Nueva Ecija</option>
+      <option value="Angeles University Foundation (AUF - Angeles City, Pampanga)">AUF - MacArthur Highway, Angeles City</option>
+      <option value="Holy Angel University (HAU - Angeles City, Pampanga)">HAU - Holy Angel Ave, Angeles City</option>
+      <option value="Bulacan State University (BulSU - Malolos, Bulacan)">BulSU - Guinhawa, Malolos, Bulacan</option>
+      <option value="Cavite State University (CvSU - Main Indang)">CvSU Main - Bancod, Indang, Cavite</option>
+      <option value="De La Salle University - Dasmariñas (DLSU-D)">DLSU-D - DBB-B, Dasmariñas City, Cavite</option>
+      <option value="De La Salle Medical and Health Sciences Institute (DLSMHSI)">DLSMHSI - Gov. D. Mangubat Ave, Dasmariñas, Cavite</option>
+      <option value="Batangas State University (BatStateU - The National Engineering University)">BatStateU - Rizal Ave, Batangas City</option>
+      <option value="University of San Carlos (USC - Cebu City)">USC - P. del Rosario St / Talamban, Cebu City</option>
+      <option value="University of San Jose-Recoletos (USJ-R - Cebu City)">USJ-R - Magallanes St, Cebu City</option>
+      <option value="Cebu Institute of Technology - University (CIT-U - Cebu City)">CIT-U - N. Bacalso Ave, Cebu City</option>
+      <option value="Cebu Normal University (CNU - Cebu City)">CNU - Osmeña Blvd, Cebu City</option>
+      <option value="Silliman University (SU - Dumaguete City)">Silliman - Hibbard Ave, Dumaguete City, Negros Oriental</option>
+      <option value="Central Philippine University (CPU - Iloilo City)">CPU - Lopez Jaena St, Jaro, Iloilo City</option>
+      <option value="University of San Agustin (USA - Iloilo City)">USA - General Luna St, Iloilo City</option>
+      <option value="West Visayas State University (WVSU - Iloilo City)">WVSU - Luna St, La Paz, Iloilo City</option>
+      <option value="Ateneo de Davao University (ADDU - Davao City)">ADDU - E. Jacinto St, Davao City</option>
+      <option value="University of the Immaculate Conception (UIC - Davao City)">UIC - Fr. Selga St, Davao City</option>
+      <option value="University of Mindanao (UM - Davao City)">UM - Bolton St / Matina, Davao City</option>
+      <option value="Mindanao State University - Iligan Institute of Technology (MSU-IIT)">MSU-IIT - Andres Bonifacio Ave, Tibanga, Iligan City</option>
+      <option value="Mindanao State University (MSU - Main Marawi)">MSU Main - Marawi City, Lanao del Sur</option>
+      <option value="Xavier University – Ateneo de Cagayan (XU - Cagayan de Oro)">Xavier Ateneo - Corrales Ave, Cagayan de Oro City</option>
+      <option value="Ateneo de Naga University (ADNU - Naga City)">ADNU - Ateneo Ave, Naga City, Camarines Sur</option>
+
+      <!-- Science High Schools & Partner Public High Schools -->
+      <option value="Philippine Science High School (PSHS - Main Campus, Diliman)">PSHS Main - Agham Rd, Diliman, QC</option>
+      <option value="Manila Science High School (MSHS - Ermita, Manila)">MSHS - Padre Faura cor. Taft Ave, Ermita, Manila</option>
+      <option value="Quezon City Science High School (QCSHS)">QCSHS - Golden Ave, Bago Bantay, Quezon City</option>
+      <option value="Makati Science High School (MSHS - Kalayaan, Makati)">MSHS - Kalayaan Ave, Cembo, Taguig / Makati</option>
+      <option value="Pasig City Science High School (PCSHS)">PCSHS - Caruncho Ave, San Nicolas, Pasig</option>
+      <option value="Senator Renato 'Compañero' Cayetano Memorial Science & Technology High School (SRCCMSTHS)">SRCCMSTHS - 31st St, Ususan, Taguig City</option>
+      <option value="Taguig National High School (TNHS - Taguig)">TNHS - General Santos Ave, Lower Bicutan, Taguig City</option>
+      <option value="Signal Village National High School (SVNHS - Taguig)">SVNHS - Ballecer St, Central Signal Village, Taguig City</option>
+      <option value="Western Bicutan National High School (WBNHS)">WBNHS - EP Housing Phase 2, Western Bicutan, Taguig City</option>
+      <option value="Upper Bicutan National High School (UBNHS)">UBNHS - General Santos Ave, Upper Bicutan, Taguig City</option>
+      <option value="Bagumbayan National High School (BNHS - Taguig)">BNHS - MLQ Ave, Bagumbayan, Taguig City</option>
+      <option value="Tipas National High School (TNHS - Taguig)">Tipas NHS - F. Manalo St, Ibayo Tipas, Taguig City</option>
+    </datalist>
+
     <!-- Request Dynamic Fields Container (Only shown when a Document Type is selected) -->
     <div id="request-fields-container" style="display: <?= !empty($doc_type_id) ? 'block' : 'none' ?>;">
 
@@ -447,7 +612,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">Year 1 School Year</label>
           <input type="text" name="sy_year_1" id="sy_year_1" class="form-control" value="2022–2023" placeholder="e.g. 2022–2023" style="font-size: 0.88rem; margin-bottom: 6px;">
           <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">Numerical Rating (Points) <span style="color: #ef4444;">*</span></label>
-          <input type="number" step="0.01" min="1.00" max="5.00" name="rating_year_1" id="rating_year_1" class="form-control" placeholder="e.g. 4.32" oninput="calculateRatingAvg()" style="font-size: 0.95rem; font-weight: 700; color: #0f172a;">
+          <input type="number" step="0.01" min="1.00" max="5.00" name="rating_year_1" id="rating_year_1" class="form-control" placeholder="e.g. 4.32" oninput="this.value = this.value.replace(/[^0-9.]/g, ''); calculateRatingAvg();" style="font-size: 0.95rem; font-weight: 700; color: #0f172a;">
         </div>
 
         <!-- Year 2 -->
@@ -455,7 +620,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">Year 2 School Year</label>
           <input type="text" name="sy_year_2" id="sy_year_2" class="form-control" value="2023–2024" placeholder="e.g. 2023–2024" style="font-size: 0.88rem; margin-bottom: 6px;">
           <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">Numerical Rating (Points) <span style="color: #ef4444;">*</span></label>
-          <input type="number" step="0.01" min="1.00" max="5.00" name="rating_year_2" id="rating_year_2" class="form-control" placeholder="e.g. 4.38" oninput="calculateRatingAvg()" style="font-size: 0.95rem; font-weight: 700; color: #0f172a;">
+          <input type="number" step="0.01" min="1.00" max="5.00" name="rating_year_2" id="rating_year_2" class="form-control" placeholder="e.g. 4.38" oninput="this.value = this.value.replace(/[^0-9.]/g, ''); calculateRatingAvg();" style="font-size: 0.95rem; font-weight: 700; color: #0f172a;">
         </div>
 
         <!-- Year 3 -->
@@ -463,7 +628,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">Year 3 School Year</label>
           <input type="text" name="sy_year_3" id="sy_year_3" class="form-control" value="2024–2025" placeholder="e.g. 2024–2025" style="font-size: 0.88rem; margin-bottom: 6px;">
           <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">Numerical Rating (Points) <span style="color: #ef4444;">*</span></label>
-          <input type="number" step="0.01" min="1.00" max="5.00" name="rating_year_3" id="rating_year_3" class="form-control" placeholder="e.g. 4.40" oninput="calculateRatingAvg()" style="font-size: 0.95rem; font-weight: 700; color: #0f172a;">
+          <input type="number" step="0.01" min="1.00" max="5.00" name="rating_year_3" id="rating_year_3" class="form-control" placeholder="e.g. 4.40" oninput="this.value = this.value.replace(/[^0-9.]/g, ''); calculateRatingAvg();" style="font-size: 0.95rem; font-weight: 700; color: #0f172a;">
         </div>
       </div>
 
@@ -485,6 +650,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           min="1" 
           max="10" 
           required 
+          oninput="this.value = this.value.replace(/[^0-9]/g, ''); if(parseInt(this.value) > 10) this.value = 10; if(parseInt(this.value) < 1 && this.value !== '') this.value = 1;"
           style="font-weight: 700; width: 90px; text-align: center; font-size: 1rem;"
         />
         <span style="font-size: 0.9rem; font-weight: 600; color: #475569;">copy / copies</span>
@@ -511,6 +677,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             id="emp_full_name" 
             class="form-control" 
             placeholder="e.g., Juan Dela Cruz"
+            oninput="validateNameOnly(this, 'Employee Full Name')"
             style="background: #ffffff;"
           />
         </div>
@@ -524,7 +691,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             name="emp_number" 
             id="emp_number" 
             class="form-control" 
-            placeholder="e.g., 1029384"
+            placeholder="e.g., 1029384 (Numbers only)"
+            oninput="this.value = this.value.replace(/[^0-9-]/g, '')"
             style="background: #ffffff;"
           />
         </div>
@@ -678,9 +846,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             name="f137_year_graduated" 
             id="f137_year_graduated" 
             class="form-control" 
-            placeholder="e.g., 2024 / SY 2023–2024"
+            maxlength="4"
+            placeholder="e.g. 2024 (4-digit numeric year)"
+            oninput="validateYearOnly(this, 'Year Graduated / Last SY Attended')"
             style="background: #ffffff;"
           />
+          <small id="f137_year_hint" style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Numbers only: 4-digit numeric year (halimbawa: 2024, 2026).</small>
         </div>
 
         <div style="grid-column: 1 / -1;">
@@ -691,10 +862,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             type="text" 
             name="f137_transferee_school" 
             id="f137_transferee_school" 
+            list="ph_universities_schools_list"
             class="form-control" 
-            placeholder="e.g., PUP Manila, UST, Taguig City University, etc."
+            placeholder="Type school name to search Top 100 Universities / High Schools or select..."
+            autocomplete="off"
+            oninput="handleTransfereeSchoolChange(this)"
             style="background: #ffffff;"
           />
+          <small style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 4px;">
+            🔍 Habang nagta-type, unti-unting lalabas ang mga pangalan ng Top 100+ Philippine Universities at Schools. Piliin ang inyong target school.
+          </small>
+
+          <!-- Quick Suggestion Badges -->
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center;">
+            <span style="font-size: 0.75rem; color: #475569; font-weight: 700;">Quick Select:</span>
+            <button type="button" class="school-quick-pill" onclick="selectQuickSchool('Polytechnic University of the Philippines (PUP Main - Sta. Mesa, Manila)')">PUP Manila</button>
+            <button type="button" class="school-quick-pill" onclick="selectQuickSchool('University of the Philippines Diliman (UPD)')">UP Diliman</button>
+            <button type="button" class="school-quick-pill" onclick="selectQuickSchool('University of Santo Tomas (UST - Manila)')">UST</button>
+            <button type="button" class="school-quick-pill" onclick="selectQuickSchool('De La Salle University (DLSU - Manila, Taft)')">DLSU</button>
+            <button type="button" class="school-quick-pill" onclick="selectQuickSchool('Ateneo de Manila University (ADMU - Quezon City)')">Ateneo</button>
+            <button type="button" class="school-quick-pill" onclick="selectQuickSchool('Pamantasan ng Lungsod ng Maynila (PLM - Intramuros)')">PLM</button>
+            <button type="button" class="school-quick-pill" onclick="selectQuickSchool('Taguig City University (TCU - Taguig)')">TCU</button>
+            <button type="button" class="school-quick-pill" onclick="selectQuickSchool('Technological University of the Philippines (TUP Taguig Campus)')">TUP Taguig</button>
+            <button type="button" class="school-quick-pill" onclick="selectQuickSchool('Others (Not in Top 100 List / Please specify below)')" style="background: #fef3c7; color: #92400e; border-color: #fde68a;">+ Others (Custom)</button>
+          </div>
+
+          <!-- Custom "Others" School Specification Box -->
+          <div id="f137_other_school_box" style="display: none; margin-top: 10px; background: #ffffff; border: 1.5px dashed #16a34a; border-radius: 8px; padding: 12px 14px;">
+            <label class="form-label" style="font-size: 0.8rem; font-weight: 700; color: #166534; margin-bottom: 3px;">
+              Specify Transferee School Name &amp; Complete Campus Address <span style="color: #ef4444;">*</span>
+            </label>
+            <input 
+              type="text" 
+              name="f137_other_school_input" 
+              id="f137_other_school_input" 
+              class="form-control" 
+              placeholder="e.g. University of Eastern Philippines - Catarman Campus, Northern Samar"
+              style="background: #f8fafc; font-size: 0.9rem;"
+            />
+            <small style="color: #64748b; font-size: 0.74rem; display: block; margin-top: 3px;">Pakilagay ang buong opisyal na pangalan ng school kasama ang campus/branch kung wala sa Top 100 list.</small>
+          </div>
         </div>
       </div>
     </div>
@@ -721,9 +928,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             class="form-control" 
             value="<?= htmlspecialchars($user_name) ?>"
             placeholder="e.g., Juan M. Dela Cruz"
+            oninput="validateNameOnly(this, 'Student Full Name')"
             style="background: #ffffff;"
           />
-          <small style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Siguraduhing tama ang spelling ng inyong buong opisyal na pangalan.</small>
+          <small style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Siguraduhing tama ang spelling ng inyong buong opisyal na pangalan. Titik (letters) lamang ang tinatanggap.</small>
         </div>
 
         <!-- Section / Strand -->
@@ -770,10 +978,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             name="gmc_year_graduated" 
             id="gmc_year_graduated" 
             class="form-control" 
-            placeholder="Leave blank (Currently Enrolled) or expected year"
+            maxlength="4"
+            placeholder="Leave blank (Currently Enrolled) or expected 4-digit year (e.g. 2024)"
+            oninput="validateYearOnly(this, 'Year Graduated / Batch')"
             style="background: #ffffff;"
           />
-          <small id="gmc_year_hint" style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Kung hindi pa graduate, iwanang blangko.</small>
+          <small id="gmc_year_hint" style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Kung hindi pa graduate, iwanang blangko. 4-digit numbers lamang ang tinatanggap.</small>
         </div>
 
         <!-- Target School / University or Purpose -->
@@ -785,11 +995,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             type="text" 
             name="gmc_purpose_school" 
             id="gmc_purpose_school" 
+            list="ph_universities_schools_list"
             class="form-control" 
+            autocomplete="off"
             placeholder="e.g., PUP Manila - College Admission / UST / DOST Scholarship / Employment"
             style="background: #ffffff;"
           />
-          <small id="student-doc-purpose-hint" style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Pangalan ng school/kolehiyo o layunin kung bakit kinakailangan ang dokumento.</small>
+          <small id="student-doc-purpose-hint" style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Pangalan ng school/kolehiyo o layunin kung bakit kinakailangan ang dokumento. May autocomplete sa Top 100 Universities.</small>
         </div>
 
         <!-- Optional Additional Notes -->
@@ -854,8 +1066,125 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </form>
 </div>
 
+<style>
+.school-quick-pill {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 0.73rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.4;
+}
+.school-quick-pill:hover {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+.realtime-input-error {
+  animation: fadeInErr 0.2s ease-in-out;
+}
+@keyframes fadeInErr {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+
 <script>
 const isTeacher = <?= $is_teacher ? 'true' : 'false' ?>;
+
+function validateYearOnly(input, fieldName) {
+  const original = input.value;
+  const filtered = original.replace(/[^0-9]/g, '');
+  if (original !== filtered) {
+    input.value = filtered;
+    showInputToastError(input, `Numbers only! Ang "${original}" ay may kasamang letters. 4-digit year lamang ang tinatanggap (hal. 2024, 2026).`);
+  } else {
+    clearInputToastError(input);
+  }
+  if (input.value.length > 4) {
+    input.value = input.value.slice(0, 4);
+  }
+}
+
+function validateNameOnly(input, fieldName) {
+  const original = input.value;
+  const filtered = original.replace(/[^a-zA-Z\sñÑ.'-]/g, '');
+  if (original !== filtered) {
+    input.value = filtered;
+    showInputToastError(input, `Letters only! Bawal ang numbers o special symbols sa ${fieldName}.`);
+  } else {
+    clearInputToastError(input);
+  }
+}
+
+function showInputToastError(input, message) {
+  input.style.borderColor = '#ef4444';
+  input.style.backgroundColor = '#fef2f2';
+  
+  let parent = input.closest('div');
+  if (!parent) parent = input.parentNode;
+  let errEl = parent.querySelector('.realtime-input-error');
+  if (!errEl) {
+    errEl = document.createElement('div');
+    errEl.className = 'realtime-input-error';
+    errEl.style.color = '#b91c1c';
+    errEl.style.fontSize = '0.74rem';
+    errEl.style.fontWeight = '700';
+    errEl.style.marginTop = '4px';
+    errEl.style.display = 'flex';
+    errEl.style.alignItems = 'center';
+    errEl.style.gap = '4px';
+    parent.appendChild(errEl);
+  }
+  errEl.innerHTML = `⚠️ ${message}`;
+  errEl.style.display = 'flex';
+
+  setTimeout(() => {
+    input.style.borderColor = '';
+    input.style.backgroundColor = '';
+  }, 3200);
+}
+
+function clearInputToastError(input) {
+  let parent = input.closest('div');
+  if (!parent) parent = input.parentNode;
+  let errEl = parent.querySelector('.realtime-input-error');
+  if (errEl) {
+    errEl.style.display = 'none';
+  }
+  input.style.borderColor = '';
+  input.style.backgroundColor = '';
+}
+
+function handleTransfereeSchoolChange(input) {
+  const val = input.value.trim();
+  const otherBox = document.getElementById('f137_other_school_box');
+  const otherInput = document.getElementById('f137_other_school_input');
+  
+  const isOther = (val === 'Others (Not in Top 100 List / Please specify below)' || val.toLowerCase() === 'others' || val.toLowerCase().startsWith('others:'));
+  if (isOther) {
+    if (otherBox) otherBox.style.display = 'block';
+    if (otherInput) {
+      otherInput.required = true;
+      otherInput.focus();
+    }
+  } else {
+    if (otherBox) otherBox.style.display = 'none';
+    if (otherInput) otherInput.required = false;
+  }
+}
+
+function selectQuickSchool(schoolName) {
+  const input = document.getElementById('f137_transferee_school');
+  if (input) {
+    input.value = schoolName;
+    handleTransfereeSchoolChange(input);
+  }
+}
 
 // Document-specific guidance and reminders
 const docGuidance = {
@@ -1489,6 +1818,95 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', function(e) {
       const docTypeSelect = document.getElementById('doc_type_id');
       const curCode = docTypeSelect ? docTypeSelect.options[docTypeSelect.selectedIndex]?.getAttribute('data-code') : '';
+
+      // Validate copies input
+      const copiesInput = document.getElementById('copies');
+      if (copiesInput) {
+        const val = copiesInput.value.trim();
+        if (!/^[0-9]+$/.test(val) || parseInt(val) < 1 || parseInt(val) > 10) {
+          e.preventDefault();
+          alert('Invalid Number of Copies. Numbers only between 1 and 10.');
+          copiesInput.focus();
+          return false;
+        }
+      }
+
+      // Check Form 137 inputs
+      if (curCode === 'F137') {
+        const f137Yr = document.getElementById('f137_year_graduated');
+        if (f137Yr) {
+          const val = f137Yr.value.trim();
+          if (val === '' || !/^[0-9]{4}$/.test(val)) {
+            e.preventDefault();
+            alert('Invalid Year format sa Form 137: "' + val + '". 4-digit numbers lamang po ang ilagay (halimbawa: 2024, 2026). Letters at symbols ay hindi pinapayagan.');
+            f137Yr.focus();
+            showInputToastError(f137Yr, '4-digit numbers only (e.g. 2026)');
+            return false;
+          }
+        }
+
+        const f137School = document.getElementById('f137_transferee_school');
+        const otherInput = document.getElementById('f137_other_school_input');
+        if (f137School && (f137School.value.includes('Others') || f137School.value.trim().toLowerCase() === 'others')) {
+          if (otherInput && otherInput.value.trim() === '') {
+            e.preventDefault();
+            alert('Pakilagay po ang buong pangalan at campus address ng inyong transferee school sa ilalim ng "Others".');
+            otherInput.focus();
+            return false;
+          }
+        }
+      }
+
+      // Check Good Moral Certificate & Student Certificates
+      if (['GMC', 'COG', 'COE_ST'].includes(curCode)) {
+        const gmcName = document.getElementById('gmc_full_name');
+        if (gmcName && !/^[a-zA-Z\sñÑ.'-]+$/.test(gmcName.value.trim())) {
+          e.preventDefault();
+          alert('Student Full Name must only contain letters, spaces, hyphens, and periods (numbers and symbols are not allowed).');
+          gmcName.focus();
+          showInputToastError(gmcName, 'Letters only (letters, spaces, periods, hyphens)');
+          return false;
+        }
+
+        const gmcYr = document.getElementById('gmc_year_graduated');
+        const gmcStatus = document.getElementById('gmc_status')?.value;
+        if (gmcYr) {
+          const val = gmcYr.value.trim();
+          if (gmcStatus === 'Graduated' && (val === '' || !/^[0-9]{4}$/.test(val))) {
+            e.preventDefault();
+            alert('Invalid Year format: "' + val + '". Required po ang valid 4-digit numeric year para sa Graduated / Alumnus (hal. 2024, 2026).');
+            gmcYr.focus();
+            showInputToastError(gmcYr, '4-digit numbers only (e.g. 2026)');
+            return false;
+          } else if (val !== '' && !/^[0-9]{4}$/.test(val)) {
+            e.preventDefault();
+            alert('Invalid Year format: "' + val + '". 4-digit numbers lamang po ang ilagay (hal. 2024, 2026).');
+            gmcYr.focus();
+            showInputToastError(gmcYr, '4-digit numbers only (e.g. 2026)');
+            return false;
+          }
+        }
+      }
+
+      // Check Faculty COE & Service Record inputs
+      if (curCode === 'COE' || curCode === 'SR') {
+        const empName = document.getElementById('emp_full_name');
+        if (empName && !/^[a-zA-Z\sñÑ.'-]+$/.test(empName.value.trim())) {
+          e.preventDefault();
+          alert('Employee Full Name must only contain letters, spaces, hyphens, and periods (numbers and symbols are not allowed).');
+          empName.focus();
+          showInputToastError(empName, 'Letters only');
+          return false;
+        }
+        const empNum = document.getElementById('emp_number');
+        if (empNum && !/^[0-9-]+$/.test(empNum.value.trim())) {
+          e.preventDefault();
+          alert('Employee Number must contain numbers and hyphens only (letters are not allowed).');
+          empNum.focus();
+          showInputToastError(empNum, 'Numbers and hyphens only');
+          return false;
+        }
+      }
 
       // Enforce file attachment for Form 137 / SF10
       if (curCode === 'F137' && selectedFiles.length === 0) {

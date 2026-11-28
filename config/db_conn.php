@@ -99,6 +99,13 @@ try {
         // Silently ignore if already migrated
     }
 
+    // Auto-migrate users status enum to support 'Graduated' (Alumni student status)
+    try {
+        $pdo->exec("ALTER TABLE users MODIFY COLUMN status ENUM('Active','Inactive','Dropped','Pending','Graduated') NOT NULL DEFAULT 'Active'");
+    } catch (Exception $e) {
+        // Silently ignore if already migrated
+    }
+
     // Auto-migrate login_attempts column in users table
     try {
         $pdo->query("SELECT login_attempts FROM users LIMIT 1");

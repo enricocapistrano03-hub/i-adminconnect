@@ -149,6 +149,47 @@ try {
     } catch (Exception $e) {
         // Silently ignore if table not yet loaded
     }
+
+    // Auto-migrate disciplinary_records table for Guidance Hold List
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS disciplinary_records (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            lrn VARCHAR(32) NOT NULL,
+            student_name VARCHAR(255) NOT NULL,
+            grade_section VARCHAR(100) DEFAULT NULL,
+            case_title VARCHAR(255) NOT NULL,
+            case_details TEXT DEFAULT NULL,
+            date_reported DATE NOT NULL,
+            status ENUM('Active Hold', 'Cleared') NOT NULL DEFAULT 'Active Hold',
+            cleared_date DATETIME DEFAULT NULL,
+            cleared_by VARCHAR(150) DEFAULT NULL,
+            created_by VARCHAR(150) DEFAULT 'Guidance Office',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_lrn (lrn),
+            INDEX idx_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        // Seed initial sample guidance records if table is brand new
+        $chk_cases = $pdo->query("SELECT COUNT(*) FROM disciplinary_records");
+        if ($chk_cases && (int)$chk_cases->fetchColumn() === 0) {
+            $sample_ins = $pdo->prepare("INSERT INTO disciplinary_records 
+                (lrn, student_name, grade_section, case_title, case_details, date_reported, status, created_by) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $sample_ins->execute([
+                '136887180099',
+                'Sample Hold Student (Guidance Case)',
+                'Grade 10 - Einstein',
+                'Pending Disciplinary Review: Campus Conduct & Property Disturbance',
+                'Student has an unresolved disciplinary citation regarding campus disturbance reported by faculty adviser. Good Moral clearance held pending counseling completion.',
+                date('Y-m-d', strtotime('-5 days')),
+                'Active Hold',
+                'Guidance Office'
+            ]);
+        }
+    } catch (Exception $e) {
+        // Silently ignore
+    }
 } catch (PDOException $e) {
     // Helpful message if database hasn't been imported yet in phpMyAdmin
     die("<div style='font-family: sans-serif; padding: 20px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 8px; margin: 40px auto; max-width: 600px; color: #991b1b;'>

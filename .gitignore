@@ -10,6 +10,7 @@ Desktop.ini
 # Large raw archive/temp files
 *.log
 *.tmp
+*.zip
 
 # Temporary scratch conversion files
 parse_students.py

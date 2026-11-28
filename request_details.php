@@ -8,7 +8,7 @@ if ($user_role !== 'admin' && $user_role !== 'registrar') {
 }
 
 $req_id = (int)($_GET['id'] ?? 0);
-$stmt = $pdo->prepare("SELECT r.*, u.full_name, u.email as requester_email, u.role as requester_role, rt.name as request_type_name, rt.code as request_type_code 
+$stmt = $pdo->prepare("SELECT r.*, u.full_name, u.id_number, u.email as requester_email, u.role as requester_role, rt.name as request_type_name, rt.code as request_type_code 
     FROM requests r
     JOIN users u ON r.user_id = u.id
     JOIN request_types rt ON r.request_type_id = rt.id
@@ -23,6 +23,17 @@ if (!$req) {
 }
 
 $alert_msg = '';
+$error_alert = '';
+
+// Check Guidance Clearance Hold for Good Moral Certificate (GMC)
+$req_id_number = $req['id_number'] ?? '';
+$is_good_moral = ($req['request_type_code'] === 'GMC' || stripos($req['request_type_name'], 'Good Moral') !== false);
+$req_guidance_hold = null;
+if ($is_good_moral) {
+    $chk_hold = $pdo->prepare("SELECT * FROM disciplinary_records WHERE status = 'Active Hold' AND (lrn = ? OR student_name = ? OR student_name LIKE ?) LIMIT 1");
+    $chk_hold->execute([$req_id_number, $req['full_name'], "%{$req['full_name']}%"]);
+    $req_guidance_hold = $chk_hold->fetch();
+}
 
 // Process Status Actions (Registrar & Admin)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -92,101 +103,109 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $req['current_stage'] = 2;
 
     } elseif ($action === 'approve') {
-        $update_sql = "UPDATE requests SET status = 'Ready for Release', current_stage = 3, stage3_time = ?, remarks = 'Document is ready for release. Please proceed to the Registrar\'s Office.' WHERE id = ?";
-        $stmt = $pdo->prepare($update_sql);
-        $stmt->execute([$now_str, $req_id]);
+        if ($is_good_moral && $req_guidance_hold) {
+            $error_alert = "Action Blocked: Student {$req['full_name']} has an Active Guidance Disciplinary Hold (\"" . htmlspecialchars($req_guidance_hold['case_title']) . "\"). Good Moral Certificate cannot be marked as Ready for Release until cleared by the Guidance Office.";
+        } else {
+            $update_sql = "UPDATE requests SET status = 'Ready for Release', current_stage = 3, stage3_time = ?, remarks = 'Document is ready for release. Please proceed to the Registrar\'s Office.' WHERE id = ?";
+            $stmt = $pdo->prepare($update_sql);
+            $stmt->execute([$now_str, $req_id]);
 
-        log_audit_action($pdo, $user_name, $actor_role, "Approved Request {$req['tracking_number']} ({$req['request_type_name']}) - Ready for Release");
+            log_audit_action($pdo, $user_name, $actor_role, "Approved Request {$req['tracking_number']} ({$req['request_type_name']}) - Ready for Release");
 
-        // Insert Notification for User
-        try {
-            $notif_msg = "Your request for {$req['request_type_name']} has been approved and marked Ready for Release by the Office of the Registrar. Please proceed to the Registrar's Office to claim your document.";
-            $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Please visit the Registrar\'s Office to claim your document.')");
-            $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Ready for Release", $notif_msg]);
-        } catch (Exception $ne) {
-            error_log("Failed to insert ready notification: " . $ne->getMessage());
-        }
-
-        // Send Real-Time Email Notification
-        $mail_info = '';
-        if (!empty($req['requester_email'])) {
+            // Insert Notification for User
             try {
-                $m_res = send_request_status_email(
-                    $req['requester_email'],
-                    $req['full_name'],
-                    $req['tracking_number'],
-                    $req['request_type_name'],
-                    'Ready for Release',
-                    'Your request has been approved and marked Ready for Release. Please proceed to the Registrar\'s Office to claim your document.',
-                    'Office of the Registrar'
-                );
-                if ($m_res['success']) {
-                    $mail_info = " &bull; Real-time notification email sent to <strong>{$req['requester_email']}</strong>";
-                }
-            } catch (Exception $me) {
-                error_log("Failed to send approve email: " . $me->getMessage());
+                $notif_msg = "Your request for {$req['request_type_name']} has been approved and marked Ready for Release by the Office of the Registrar. Please proceed to the Registrar's Office to claim your document.";
+                $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, 'Please visit the Registrar\'s Office to claim your document.')");
+                $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Ready for Release", $notif_msg]);
+            } catch (Exception $ne) {
+                error_log("Failed to insert ready notification: " . $ne->getMessage());
             }
-        }
 
-        $alert_msg = "Request Approved Successfully! You have marked request <strong>{$req['tracking_number']}</strong> as Ready for Release.{$mail_info}";
-        $req['status'] = 'Ready for Release';
-        $req['current_stage'] = 3;
+            // Send Real-Time Email Notification
+            $mail_info = '';
+            if (!empty($req['requester_email'])) {
+                try {
+                    $m_res = send_request_status_email(
+                        $req['requester_email'],
+                        $req['full_name'],
+                        $req['tracking_number'],
+                        $req['request_type_name'],
+                        'Ready for Release',
+                        'Your request has been approved and marked Ready for Release. Please proceed to the Registrar\'s Office to claim your document.',
+                        'Office of the Registrar'
+                    );
+                    if ($m_res['success']) {
+                        $mail_info = " &bull; Real-time notification email sent to <strong>{$req['requester_email']}</strong>";
+                    }
+                } catch (Exception $me) {
+                    error_log("Failed to send approve email: " . $me->getMessage());
+                }
+            }
+
+            $alert_msg = "Request Approved Successfully! You have marked request <strong>{$req['tracking_number']}</strong> as Ready for Release.{$mail_info}";
+            $req['status'] = 'Ready for Release';
+            $req['current_stage'] = 3;
+        }
 
     } elseif ($action === 'complete') {
-        $update_sql = "UPDATE requests SET status = 'Completed', current_stage = 4, stage4_time = ?, remarks = 'Document released and transaction successfully completed.' WHERE id = ?";
-        $stmt = $pdo->prepare($update_sql);
-        $stmt->execute([$now_str, $req_id]);
+        if ($is_good_moral && $req_guidance_hold) {
+            $error_alert = "Action Blocked: Student {$req['full_name']} has an Active Guidance Disciplinary Hold (\"" . htmlspecialchars($req_guidance_hold['case_title']) . "\"). Good Moral Certificate cannot be released or completed until cleared by the Guidance Office.";
+        } else {
+            $update_sql = "UPDATE requests SET status = 'Completed', current_stage = 4, stage4_time = ?, remarks = 'Document released and transaction successfully completed.' WHERE id = ?";
+            $stmt = $pdo->prepare($update_sql);
+            $stmt->execute([$now_str, $req_id]);
 
-        // Immediately log audit trail so it is guaranteed to be recorded!
-        log_audit_action($pdo, $user_name, $actor_role, "Marked Request {$req['tracking_number']} ({$req['request_type_name']}) as Completed");
+            // Immediately log audit trail so it is guaranteed to be recorded!
+            log_audit_action($pdo, $user_name, $actor_role, "Marked Request {$req['tracking_number']} ({$req['request_type_name']}) as Completed");
 
-        // Insert Notifications safely
-        try {
-            $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, ?)");
-            $notif_msg = "Your request for {$req['request_type_name']} ({$req['tracking_number']}) has been officially completed and released.";
-            $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Completed", $notif_msg, "Registrar's Office"]);
-
-            // Insert Notification for Active Registrars and Admins
-            $staff_target_office = ($req['requester_role'] === 'teacher') ? 'Administrator Office' : 'Office of the Registrar';
-            $staff_roles = ($req['requester_role'] === 'teacher') ? "('admin')" : "('registrar', 'admin')";
-            $staff_stmt = $pdo->query("SELECT id FROM users WHERE role IN {$staff_roles} AND status = 'Active'");
-            foreach ($staff_stmt->fetchAll() as $staff) {
-                $stmt_notif->execute([
-                    $staff['id'],
-                    $req['tracking_number'],
-                    "Request {$req['tracking_number']} Completed",
-                    "Document request {$req['tracking_number']} ({$req['request_type_name']}) for {$req['full_name']} has been released and completed.",
-                    $staff_target_office
-                ]);
-            }
-        } catch (Exception $ne) {
-            error_log("Failed to insert complete notification: " . $ne->getMessage());
-        }
-
-        // Send Real-Time Email Notification safely
-        $mail_info = '';
-        if (!empty($req['requester_email'])) {
+            // Insert Notifications safely
             try {
-                $m_res = send_request_status_email(
-                    $req['requester_email'],
-                    $req['full_name'],
-                    $req['tracking_number'],
-                    $req['request_type_name'],
-                    'Completed',
-                    'Your document has been released and the transaction is officially completed.',
-                    'Office of the Registrar'
-                );
-                if ($m_res['success']) {
-                    $mail_info = " &bull; Real-time confirmation email sent to <strong>{$req['requester_email']}</strong>";
-                }
-            } catch (Exception $me) {
-                error_log("Failed to send complete email: " . $me->getMessage());
-            }
-        }
+                $stmt_notif = $pdo->prepare("INSERT INTO notifications (user_id, request_id, title, message, location) VALUES (?, ?, ?, ?, ?)");
+                $notif_msg = "Your request for {$req['request_type_name']} ({$req['tracking_number']}) has been officially completed and released.";
+                $stmt_notif->execute([$req['user_id'], $req['tracking_number'], "Request {$req['tracking_number']} Completed", $notif_msg, "Registrar's Office"]);
 
-        $alert_msg = "Transaction Complete! Request <strong>{$req['tracking_number']}</strong> is now marked as <strong>Completed</strong>.{$mail_info}";
-        $req['status'] = 'Completed';
-        $req['current_stage'] = 4;
+                // Insert Notification for Active Registrars and Admins
+                $staff_target_office = ($req['requester_role'] === 'teacher') ? 'Administrator Office' : 'Office of the Registrar';
+                $staff_roles = ($req['requester_role'] === 'teacher') ? "('admin')" : "('registrar', 'admin')";
+                $staff_stmt = $pdo->query("SELECT id FROM users WHERE role IN {$staff_roles} AND status = 'Active'");
+                foreach ($staff_stmt->fetchAll() as $staff) {
+                    $stmt_notif->execute([
+                        $staff['id'],
+                        $req['tracking_number'],
+                        "Request {$req['tracking_number']} Completed",
+                        "Document request {$req['tracking_number']} ({$req['request_type_name']}) for {$req['full_name']} has been released and completed.",
+                        $staff_target_office
+                    ]);
+                }
+            } catch (Exception $ne) {
+                error_log("Failed to insert complete notification: " . $ne->getMessage());
+            }
+
+            // Send Real-Time Email Notification safely
+            $mail_info = '';
+            if (!empty($req['requester_email'])) {
+                try {
+                    $m_res = send_request_status_email(
+                        $req['requester_email'],
+                        $req['full_name'],
+                        $req['tracking_number'],
+                        $req['request_type_name'],
+                        'Completed',
+                        'Your document has been released and the transaction is officially completed.',
+                        'Office of the Registrar'
+                    );
+                    if ($m_res['success']) {
+                        $mail_info = " &bull; Real-time confirmation email sent to <strong>{$req['requester_email']}</strong>";
+                    }
+                } catch (Exception $me) {
+                    error_log("Failed to send complete email: " . $me->getMessage());
+                }
+            }
+
+            $alert_msg = "Transaction Complete! Request <strong>{$req['tracking_number']}</strong> is now marked as <strong>Completed</strong>.{$mail_info}";
+            $req['status'] = 'Completed';
+            $req['current_stage'] = 4;
+        }
 
     } elseif ($action === 'revise') {
         $update_sql = "UPDATE requests SET status = 'Returned for Revision', remarks = ? WHERE id = ?";
@@ -261,6 +280,41 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
     <div class="alert-success-banner" style="margin-bottom: 20px;">
       <div style="font-weight: 800; font-size: 1rem; margin-bottom: 4px;">✅ Status Updated</div>
       <div><?= $alert_msg ?></div>
+    </div>
+  <?php endif; ?>
+
+  <?php if (!empty($error_alert)): ?>
+    <div style="background: #fee2e2; border: 1.5px solid #fca5a5; color: #b91c1c; padding: 14px 18px; border-radius: 10px; margin-bottom: 20px; font-size: 0.92rem; display: flex; align-items: center; gap: 10px;">
+      <span style="font-size: 1.4rem;">⛔</span>
+      <div><strong>Action Blocked:</strong> <?= htmlspecialchars($error_alert) ?></div>
+    </div>
+  <?php endif; ?>
+
+  <?php if ($is_good_moral && $req_guidance_hold): ?>
+    <div style="background: #fff1f2; border: 2px solid #f43f5e; border-radius: 12px; padding: 16px 20px; margin-bottom: 22px; box-shadow: 0 4px 14px rgba(244, 63, 94, 0.12);">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <span style="font-size: 2rem; line-height: 1;">⚠️</span>
+          <div>
+            <div style="font-weight: 800; font-size: 1.02rem; color: #9f1239; letter-spacing: 0.3px;">
+              GUIDANCE DISCIPLINARY HOLD &mdash; GOOD MORAL CERTIFICATE BLOCKED
+            </div>
+            <p style="margin: 4px 0 6px 0; font-size: 0.88rem; color: #be123c; line-height: 1.5;">
+              May aktibong tala sa Guidance and Counseling Office ang estudyanteng ito: 
+              <strong style="color: #881337; background: #ffe4e6; padding: 2px 7px; border-radius: 4px;"><?= htmlspecialchars($req_guidance_hold['case_title']) ?></strong>
+              (Iniulat noong: <?= date('F j, Y', strtotime($req_guidance_hold['date_reported'])) ?>).
+            </p>
+            <div style="font-size: 0.82rem; color: #9f1239; line-height: 1.45;">
+              🔒 <strong>Patakaran sa Releasing:</strong> Bawal munang i-approve o i-release ang Good Moral Certificate. Kinakailangan munang makipag-ugnayan ng mag-aaral sa <strong>Guidance Office</strong> upang ma-settle ang kaso at mabigyan ng opisyal na clearance.
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <a href="guidance_records.php?search=<?= urlencode($req_guidance_hold['lrn']) ?>" class="btn-primary-cta" style="background: #9f1239; padding: 9px 18px; font-size: 0.84rem; text-decoration: none; border-radius: 8px; white-space: nowrap; box-shadow: 0 2px 8px rgba(159, 18, 57, 0.3);">
+            🛡️ View Guidance Record ↗
+          </a>
+        </div>
+      </div>
     </div>
   <?php endif; ?>
 
@@ -504,7 +558,11 @@ $status_class = strtolower(str_replace(' ', '-', $req['status']));
         ✕ Request Closed (Rejected)
       </div>
     <?php else: ?>
-      <?php if ($req['status'] === 'Ready for Release'): ?>
+      <?php if ($is_good_moral && $req_guidance_hold): ?>
+        <button type="button" class="btn-primary-cta" style="background: #94a3b8; cursor: not-allowed; opacity: 0.8; font-size: 0.92rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;" disabled title="Blocked: May active disciplinary hold ang estudyante sa Guidance Office.">
+          🔒 Blocked by Guidance Hold
+        </button>
+      <?php elseif ($req['status'] === 'Ready for Release'): ?>
         <button type="button" class="btn-primary-cta" style="background: #059669; padding: 10px 20px; font-size: 0.92rem; font-weight: 700;" onclick="submitAction('complete')">✔ Mark as Completed</button>
       <?php else: ?>
         <button type="button" class="btn-action-approve" onclick="submitAction('approve')">Mark Ready for Release</button>

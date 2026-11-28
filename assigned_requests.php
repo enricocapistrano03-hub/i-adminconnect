@@ -10,7 +10,8 @@ if ($user_role !== 'registrar' && $user_role !== 'admin') {
 $search = trim($_GET['search'] ?? '');
 $status_filter = trim($_GET['status'] ?? '');
 
-$query = "SELECT r.*, u.full_name as student_or_teacher_name, u.role as requester_role, rt.name as request_type_name
+$query = "SELECT r.*, u.full_name as student_or_teacher_name, u.role as requester_role, u.id_number, rt.name as request_type_name, rt.code as request_type_code,
+          (SELECT COUNT(*) FROM disciplinary_records dr WHERE dr.status = 'Active Hold' AND (dr.lrn = u.id_number OR dr.student_name = u.full_name OR dr.student_name LIKE CONCAT('%', u.full_name, '%'))) as has_guidance_hold
           FROM requests r
           JOIN users u ON r.user_id = u.id
           JOIN request_types rt ON r.request_type_id = rt.id
@@ -110,12 +111,19 @@ $assigned_requests = $stmt->fetchAll();
               <td><?= htmlspecialchars($req['student_or_teacher_name']) ?></td>
               <td><span style="font-size: 0.78rem; font-weight: 700; color: #64748b;"><?= strtoupper($req['requester_role']) ?></span></td>
               <td>
-                <?= htmlspecialchars($req['request_type_name']) ?>
-                <?php if ((int)($req['copies'] ?? 1) > 1): ?>
-                  <span style="font-size: 0.72rem; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">
-                    <?= (int)$req['copies'] ?> copies
-                  </span>
-                <?php endif; ?>
+                <div style="font-weight: 600;"><?= htmlspecialchars($req['request_type_name']) ?></div>
+                <div style="margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
+                  <?php if ((int)($req['copies'] ?? 1) > 1): ?>
+                    <span style="font-size: 0.72rem; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px;">
+                      <?= (int)$req['copies'] ?> copies
+                    </span>
+                  <?php endif; ?>
+                  <?php if ((int)($req['has_guidance_hold'] ?? 0) > 0 && ($req['request_type_code'] === 'GMC' || stripos($req['request_type_name'], 'Good Moral') !== false)): ?>
+                    <span style="background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; font-size: 0.70rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px;" title="Active Disciplinary Hold - Guidance clearance required">
+                      ⚠️ GUIDANCE HOLD
+                    </span>
+                  <?php endif; ?>
+                </div>
               </td>
               <td><?= htmlspecialchars(mb_strimwidth($req['purpose'], 0, 35, '...')) ?></td>
               <td><span class="badge-status <?= $status_class ?>"><?= htmlspecialchars($req['status']) ?></span></td>

@@ -32,6 +32,26 @@ $stmt = $pdo->prepare("SELECT * FROM request_types WHERE target_role = ? OR targ
 $stmt->execute([$user_role]);
 $available_types = $stmt->fetchAll();
 
+// Fetch student's LRN / ID Number
+$user_lrn = $_SESSION['id_number'] ?? '';
+if (empty($user_lrn) && !empty($user_id)) {
+    $u_stmt = $pdo->prepare("SELECT id_number FROM users WHERE id = ? LIMIT 1");
+    $u_stmt->execute([$user_id]);
+    $user_lrn = $u_stmt->fetchColumn() ?: '';
+}
+
+// Check if student has an active disciplinary hold with Guidance Office (Restricts Good Moral Certificate)
+$has_guidance_hold = false;
+$guidance_hold_record = null;
+if (!empty($user_lrn) || !empty($user_name)) {
+    $hold_stmt = $pdo->prepare("SELECT * FROM disciplinary_records WHERE status = 'Active Hold' AND (lrn = ? OR student_name = ? OR student_name LIKE ?) LIMIT 1");
+    $hold_stmt->execute([$user_lrn, $user_name, "%{$user_name}%"]);
+    $guidance_hold_record = $hold_stmt->fetch();
+    if ($guidance_hold_record) {
+        $has_guidance_hold = true;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $doc_type_id = (int)($_POST['doc_type_id'] ?? 0);
     $raw_copies = $_POST['copies'] ?? '1';
@@ -52,6 +72,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $doc_code = $t['code'] ?? '';
             $selected_type_name = $t['name'] ?? '';
             break;
+        }
+    }
+
+    // Guidance Disciplinary Hold Enforcement for Good Moral Certificate (GMC)
+    if (empty($error_msg) && $doc_code === 'GMC') {
+        $chk_hold = $pdo->prepare("SELECT * FROM disciplinary_records WHERE status = 'Active Hold' AND (lrn = ? OR student_name = ? OR student_name LIKE ?) LIMIT 1");
+        $chk_hold->execute([$user_lrn, $user_name, "%{$user_name}%"]);
+        $active_hold = $chk_hold->fetch();
+        if ($active_hold) {
+            $error_msg = "Cannot submit Good Moral Certificate: You currently have an Active Disciplinary Hold on file with the Guidance and Counseling Office (\"" . htmlspecialchars($active_hold['case_title']) . "\"). Please coordinate with the Guidance Office to settle and clear your record before requesting a Good Moral Certificate.";
         }
     }
 
@@ -915,6 +945,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Kinakailangan ang mga impormasyong ito upang mabilis at tumpak na maihanda ang inyong opisyal na sertipiko:
       </p>
 
+      <!-- Guidance Disciplinary Hold Alert (Shown dynamically if student has an active hold) -->
+      <?php if ($has_guidance_hold && $guidance_hold_record): ?>
+        <div id="guidance-hold-warning-box" style="display: none; background: #fef2f2; border: 2px solid #ef4444; border-radius: 10px; padding: 14px 18px; margin-bottom: 18px;">
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <span style="font-size: 1.6rem; line-height: 1;">⚠️</span>
+            <div>
+              <div style="font-weight: 800; color: #991b1b; font-size: 0.95rem; margin-bottom: 4px;">
+                CLEARANCE HOLD: PENDING DISCIPLINARY RECORD WITH GUIDANCE OFFICE
+              </div>
+              <p style="margin: 0 0 8px 0; color: #b91c1c; font-size: 0.85rem; line-height: 1.45;">
+                Ipinapakita sa opisyal na talaan ng Guidance and Counseling Office na mayroon kayong <strong>Pending Disciplinary Case</strong>: 
+                <span style="background: #fee2e2; padding: 2px 6px; border-radius: 4px; font-weight: 700; color: #7f1d1d;"><?= htmlspecialchars($guidance_hold_record['case_title']) ?></span> 
+                (Iniulat noong: <?= date('F j, Y', strtotime($guidance_hold_record['date_reported'])) ?>).
+              </p>
+              <div style="background: #ffffff; border: 1px solid #fecaca; border-radius: 6px; padding: 10px 14px; font-size: 0.82rem; color: #7f1d1d; line-height: 1.45;">
+                🔒 <strong>Patakaran sa Good Moral Certificate:</strong> Hindi po maaaring magsumite o magpalabas ng Good Moral Certificate habang may aktibong hold. Mangyaring magsadya sa <strong>Guidance and Counseling Office</strong> upang makipag-ugnayan at ma-settle ang inyong clearance bago muling magsumite.
+              </div>
+            </div>
+          </div>
+        </div>
+      <?php endif; ?>
+
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
         <!-- Full Name -->
         <div style="grid-column: 1 / -1;">
@@ -1059,7 +1111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <div style="display: flex; gap: 12px; margin-top: 25px;">
-      <button type="submit" class="btn-primary-cta">Submit Request</button>
+      <button type="submit" class="btn-primary-cta" id="btn-submit-request">Submit Request</button>
       <a href="dashboard.php" class="btn-primary-cta" style="background: #ffffff; color: #475569; border: 1px solid #cbd5e1; box-shadow: none; text-decoration: none;">✕ Cancel</a>
     </div>
     </div><!-- End #request-fields-container -->
@@ -1475,21 +1527,54 @@ function updateRequirements(select) {
     const docBadge = document.getElementById('student-doc-badge');
     const docDesc = document.getElementById('student-doc-desc');
 
+    const holdBox = document.getElementById('guidance-hold-warning-box');
+    const submitBtn = document.getElementById('btn-submit-request');
+
     if (code === 'GMC') {
       if (docIcon) docIcon.textContent = '📜';
       if (docTitle) docTitle.textContent = 'Good Moral Certificate Student Information';
       if (docBadge) docBadge.textContent = 'Required by Guidance Office';
       if (docDesc) docDesc.textContent = 'Kinakailangan ng Guidance Office ang mga impormasyong ito upang mabilis at tumpak na maihanda ang inyong Certificate of Good Moral Character:';
-    } else if (code === 'COG') {
-      if (docIcon) docIcon.textContent = '📊';
-      if (docTitle) docTitle.textContent = 'Certificate of Grades Student Information';
-      if (docBadge) docBadge.textContent = 'Required by Registrar';
-      if (docDesc) docDesc.textContent = 'Kinakailangan ng Registrar ang mga impormasyong ito upang mabilis at tumpak na maihanda ang inyong Certificate of Grades:';
-    } else if (code === 'COE_ST') {
-      if (docIcon) docIcon.textContent = '🎓';
-      if (docTitle) docTitle.textContent = 'Certificate of Enrollment Student Information';
-      if (docBadge) docBadge.textContent = 'Required by Registrar';
-      if (docDesc) docDesc.textContent = 'Kinakailangan ng Registrar ang mga impormasyong ito upang ma-verify at maihanda ang inyong official Certificate of Enrollment:';
+
+      // Check Guidance Clearance Hold specifically for Good Moral Certificate
+      const hasHold = <?= $has_guidance_hold ? 'true' : 'false' ?>;
+      if (hasHold) {
+        if (holdBox) holdBox.style.display = 'block';
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = '0.5';
+          submitBtn.style.cursor = 'not-allowed';
+          submitBtn.title = 'Naka-hold ang inyong Good Moral Certificate dahil sa pending Guidance record.';
+        }
+      } else {
+        if (holdBox) holdBox.style.display = 'none';
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+          submitBtn.style.cursor = 'pointer';
+          submitBtn.title = '';
+        }
+      }
+    } else {
+      if (holdBox) holdBox.style.display = 'none';
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.style.cursor = 'pointer';
+        submitBtn.title = '';
+      }
+
+      if (code === 'COG') {
+        if (docIcon) docIcon.textContent = '📊';
+        if (docTitle) docTitle.textContent = 'Certificate of Grades Student Information';
+        if (docBadge) docBadge.textContent = 'Required by Registrar';
+        if (docDesc) docDesc.textContent = 'Kinakailangan ng Registrar ang mga impormasyong ito upang mabilis at tumpak na maihanda ang inyong Certificate of Grades:';
+      } else if (code === 'COE_ST') {
+        if (docIcon) docIcon.textContent = '🎓';
+        if (docTitle) docTitle.textContent = 'Certificate of Enrollment Student Information';
+        if (docBadge) docBadge.textContent = 'Required by Registrar';
+        if (docDesc) docDesc.textContent = 'Kinakailangan ng Registrar ang mga impormasyong ito upang ma-verify at maihanda ang inyong official Certificate of Enrollment:';
+      }
     }
 
     updateGmcGradStatus();
@@ -1859,6 +1944,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Check Good Moral Certificate & Student Certificates
       if (['GMC', 'COG', 'COE_ST'].includes(curCode)) {
+        if (curCode === 'GMC' && <?= $has_guidance_hold ? 'true' : 'false' ?>) {
+          e.preventDefault();
+          alert('Hindi po maaaring magsumite ng Good Moral Certificate dahil may aktibong Disciplinary Hold kayo sa Guidance Office. Mangyaring makipag-ugnayan sa Guidance Office para sa inyong clearance.');
+          return false;
+        }
+
         const gmcName = document.getElementById('gmc_full_name');
         if (gmcName && !/^[a-zA-Z\sñÑ.'-]+$/.test(gmcName.value.trim())) {
           e.preventDefault();

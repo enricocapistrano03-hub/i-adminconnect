@@ -1,6 +1,13 @@
 <?php
 $current_page = basename($_SERVER['PHP_SELF']);
 $role = $_SESSION['role'] ?? 'student';
+
+$active_guidance_holds_count = 0;
+if (in_array($role, ['admin', 'registrar']) && isset($pdo)) {
+    try {
+        $active_guidance_holds_count = (int)$pdo->query("SELECT COUNT(*) FROM disciplinary_records WHERE status = 'Active Hold'")->fetchColumn();
+    } catch(Exception $e) {}
+}
 ?>
 <aside class="sidebar" id="appSidebar">
   <button type="button" class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Close menu">&times;</button>
@@ -23,6 +30,12 @@ $role = $_SESSION['role'] ?? 'student';
       <a href="records.php" class="nav-item <?= $current_page === 'records.php' ? 'active' : '' ?>">
         <span>Records</span>
       </a>
+      <a href="guidance_records.php" class="nav-item <?= $current_page === 'guidance_records.php' ? 'active' : '' ?>" style="display: flex; align-items: center; justify-content: space-between;">
+        <span>Guidance Hold List</span>
+        <?php if ($active_guidance_holds_count > 0): ?>
+          <span style="background: #ef4444; color: white; padding: 2px 7px; border-radius: 10px; font-size: 0.72rem; font-weight: 800;"><?= $active_guidance_holds_count ?></span>
+        <?php endif; ?>
+      </a>
       <a href="users.php" class="nav-item <?= $current_page === 'users.php' ? 'active' : '' ?>">
         <span>Users</span>
       </a>
@@ -38,6 +51,12 @@ $role = $_SESSION['role'] ?? 'student';
       </a>
       <a href="assigned_requests.php" class="nav-item <?= in_array($current_page, ['assigned_requests.php', 'request_details.php']) ? 'active' : '' ?>">
         <span>View Assigned Request</span>
+      </a>
+      <a href="guidance_records.php" class="nav-item <?= $current_page === 'guidance_records.php' ? 'active' : '' ?>" style="display: flex; align-items: center; justify-content: space-between;">
+        <span>Guidance Hold List</span>
+        <?php if ($active_guidance_holds_count > 0): ?>
+          <span style="background: #ef4444; color: white; padding: 2px 7px; border-radius: 10px; font-size: 0.72rem; font-weight: 800;"><?= $active_guidance_holds_count ?></span>
+        <?php endif; ?>
       </a>
       <a href="notifications.php" class="nav-item <?= $current_page === 'notifications.php' ? 'active' : '' ?>">
         <span>Notifications</span>

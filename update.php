@@ -29,6 +29,7 @@ $files = [
     'css/style.css',
     'style.css',
     'config/announcements.json',
+    'guidance_records.php',
     'includes/mailer.php',
     'includes/bulk_user_parser.php',
     'includes/sidebar.php',
@@ -117,12 +118,13 @@ if (!empty($healed_requests)) {
 }
 
 echo "<div style='background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;'>";
-echo "<h3 style='margin: 0 0 8px 0; color: #166534; font-size: 0.95rem;'>Mga Na-update (Phase 1 Post-Defense Revisions):</h3>";
+echo "<h3 style='margin: 0 0 8px 0; color: #166534; font-size: 0.95rem;'>Mga Na-update (Phase 1 & Phase 2 Post-Defense Revisions):</h3>";
 echo "<ul style='margin: 0; padding-left: 20px; color: #15803d; font-size: 0.88rem; line-height: 1.6;'>";
-echo "<li><strong>Strict Input Validation:</strong> Numbers only sa Year (e.g. 2026, awtomatikong bawal ang '2026a'), LRN, at Copies; Letters only sa Full Names ng estudyante at empleyado.</li>";
+echo "<li><strong>Guidance Disciplinary Records & Hold Guard (Phase 2):</strong> Bagong table at management page (<code>guidance_records.php</code>) para sa Guidance & Registrar upang mag-record, mag-hold, o mag-clear ng disciplinary cases.</li>";
+echo "<li><strong>Good Moral Clearance Hold:</strong> Awtomatikong bina-block ang pag-request ng Good Moral Certificate ng estudyanteng may aktibong kaso sa Guidance, may red warning banner, at hindi maaaring i-release ni Registrar hangga't hindi cleared.</li>";
+echo "<li><strong>Strict Input Validation (Phase 1):</strong> Numbers only sa Year (e.g. 2026, awtomatikong bawal ang '2026a'), LRN, at Copies; Letters only sa Full Names ng estudyante at empleyado.</li>";
 echo "<li><strong>Form 137 Top 100+ PH Universities Autocomplete:</strong> May searchable listahan ng premier state and private universities at science high schools habang nagta-type, plus 'Others' box para sa custom school address.</li>";
-echo "<li><strong>User Directory LRN Guide:</strong> Dynamic guide label para sa Student LRN (12 Digits) sa Add at Edit User modals.</li>";
-echo "<li><strong>Graduated / Alumnus Status:</strong> Naidagdag na ang 'Graduated' sa account status at awtomatikong na-migrate ang database enum.</li>";
+echo "<li><strong>User Directory & Graduated Status:</strong> Dynamic guide label para sa Student LRN (12 Digits) sa Add/Edit User modals, at 'Graduated / Alumnus' status choice.</li>";
 echo "</ul></div>";
 
 echo "<div style='display: flex; gap: 12px; flex-wrap: wrap;'>";

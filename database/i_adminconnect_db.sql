@@ -241,4 +241,28 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
+--
+-- Table structure for table `disciplinary_records` (Guidance Hold List)
+--
+
+DROP TABLE IF EXISTS `disciplinary_records`;
+CREATE TABLE `disciplinary_records` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `lrn` varchar(32) NOT NULL,
+  `student_name` varchar(255) NOT NULL,
+  `grade_section` varchar(100) DEFAULT NULL,
+  `case_title` varchar(255) NOT NULL,
+  `case_details` text DEFAULT NULL,
+  `date_reported` date NOT NULL,
+  `status` enum('Active Hold','Cleared') NOT NULL DEFAULT 'Active Hold',
+  `cleared_date` datetime DEFAULT NULL,
+  `cleared_by` varchar(150) DEFAULT NULL,
+  `created_by` varchar(150) DEFAULT 'Guidance Office',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_lrn` (`lrn`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Dump completed on 2026-11-12 23:23:28

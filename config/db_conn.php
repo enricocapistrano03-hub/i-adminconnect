@@ -190,6 +190,100 @@ try {
     } catch (Exception $e) {
         // Silently ignore
     }
+
+    // Auto-migrate student_grades table for Viewing of Grades & SF9 Report Card
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS student_grades (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            lrn VARCHAR(32) NOT NULL,
+            student_name VARCHAR(150) NOT NULL,
+            grade_level VARCHAR(50) NOT NULL,
+            section VARCHAR(50) DEFAULT NULL,
+            school_year VARCHAR(20) NOT NULL,
+            semester VARCHAR(30) NOT NULL DEFAULT '1st Semester',
+            subject_code VARCHAR(30) DEFAULT NULL,
+            subject_name VARCHAR(150) NOT NULL,
+            q1 DECIMAL(5,2) DEFAULT NULL,
+            q2 DECIMAL(5,2) DEFAULT NULL,
+            q3 DECIMAL(5,2) DEFAULT NULL,
+            q4 DECIMAL(5,2) DEFAULT NULL,
+            final_grade DECIMAL(5,2) DEFAULT NULL,
+            remarks VARCHAR(30) DEFAULT 'Passed',
+            teacher_name VARCHAR(150) DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_lrn (lrn),
+            INDEX idx_sy_sem (school_year, semester),
+            INDEX idx_grade_section (grade_level, section),
+            UNIQUE KEY uniq_student_subject (lrn, school_year, semester, subject_name)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        // Seed initial sample grades if table is empty
+        $chk_grades = $pdo->query("SELECT COUNT(*) FROM student_grades");
+        if ($chk_grades && (int)$chk_grades->fetchColumn() === 0) {
+            $sample_subjects = [
+                ['sub' => 'Oral Communication in Context', 'code' => 'OCC-11', 'q1' => 88, 'q2' => 90, 'final' => 89, 'rem' => 'Passed'],
+                ['sub' => 'Komunikasyon at Pananaliksik sa Wika at Kulturang Pilipino', 'code' => 'KPWKP-11', 'q1' => 91, 'q2' => 92, 'final' => 92, 'rem' => 'Passed'],
+                ['sub' => 'General Mathematics', 'code' => 'GENMATH-11', 'q1' => 86, 'q2' => 89, 'final' => 88, 'rem' => 'Passed'],
+                ['sub' => 'Earth and Life Science', 'code' => 'ELS-11', 'q1' => 87, 'q2' => 91, 'final' => 89, 'rem' => 'Passed'],
+                ['sub' => 'Personal Development / Pansariling Kaunlaran', 'code' => 'PERDEV-11', 'q1' => 93, 'q2' => 94, 'final' => 94, 'rem' => 'Passed'],
+                ['sub' => 'Understanding Culture, Society and Politics', 'code' => 'UCSP-11', 'q1' => 89, 'q2' => 90, 'final' => 90, 'rem' => 'Passed'],
+                ['sub' => 'Physical Education and Health 1', 'code' => 'PEH-11', 'q1' => 95, 'q2' => 96, 'final' => 96, 'rem' => 'Passed'],
+                ['sub' => 'Empowerment Technologies (E-Tech)', 'code' => 'ETECH-11', 'q1' => 92, 'q2' => 94, 'final' => 93, 'rem' => 'Passed'],
+            ];
+
+            $students_to_seed = [];
+            try {
+                $st_query = $pdo->query("SELECT id_number, full_name, section, year_level FROM users WHERE role = 'student' AND id_number IS NOT NULL AND id_number != '' LIMIT 5");
+                while ($s = $st_query->fetch(PDO::FETCH_ASSOC)) {
+                    $students_to_seed[] = [
+                        'lrn' => $s['id_number'],
+                        'name' => $s['full_name'],
+                        'grade' => !empty($s['year_level']) ? $s['year_level'] : 'Grade 11',
+                        'sec' => !empty($s['section']) ? $s['section'] : 'STEM - Einstein'
+                    ];
+                }
+            } catch (Exception $e) {}
+
+            if (empty($students_to_seed)) {
+                $students_to_seed[] = [
+                    'lrn' => '136887180001',
+                    'name' => 'Maria Santos',
+                    'grade' => 'Grade 11',
+                    'sec' => 'STEM - Einstein'
+                ];
+                $students_to_seed[] = [
+                    'lrn' => '136887180002',
+                    'name' => 'Enrico Capistrano',
+                    'grade' => 'Grade 11',
+                    'sec' => 'STEM - Einstein'
+                ];
+            }
+
+            $ins_g = $pdo->prepare("INSERT IGNORE INTO student_grades 
+                (lrn, student_name, grade_level, section, school_year, semester, subject_code, subject_name, q1, q2, final_grade, remarks, teacher_name)
+                VALUES (?, ?, ?, ?, '2025-2026', '1st Semester', ?, ?, ?, ?, ?, ?, 'Faculty Adviser')");
+
+            foreach ($students_to_seed as $stu) {
+                foreach ($sample_subjects as $sub) {
+                    $ins_g->execute([
+                        $stu['lrn'],
+                        $stu['name'],
+                        $stu['grade'],
+                        $stu['sec'],
+                        $sub['code'],
+                        $sub['sub'],
+                        $sub['q1'],
+                        $sub['q2'],
+                        $sub['final'],
+                        $sub['rem']
+                    ]);
+                }
+            }
+        }
+    } catch (Exception $e) {
+        // Silently ignore
+    }
 } catch (PDOException $e) {
     // Helpful message if database hasn't been imported yet in phpMyAdmin
     die("<div style='font-family: sans-serif; padding: 20px; background: #fee2e2; border: 1px solid #ef4444; border-radius: 8px; margin: 40px auto; max-width: 600px; color: #991b1b;'>

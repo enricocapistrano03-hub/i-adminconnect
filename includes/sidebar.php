@@ -30,6 +30,9 @@ if (in_array($role, ['admin', 'registrar']) && isset($pdo)) {
       <a href="records.php" class="nav-item <?= $current_page === 'records.php' ? 'active' : '' ?>">
         <span>Records</span>
       </a>
+      <a href="grades_management.php" class="nav-item <?= $current_page === 'grades_management.php' ? 'active' : '' ?>">
+        <span>Grade Management</span>
+      </a>
       <a href="guidance_records.php" class="nav-item <?= $current_page === 'guidance_records.php' ? 'active' : '' ?>" style="display: flex; align-items: center; justify-content: space-between;">
         <span>Guidance Hold List</span>
         <?php if ($active_guidance_holds_count > 0): ?>
@@ -52,6 +55,9 @@ if (in_array($role, ['admin', 'registrar']) && isset($pdo)) {
       <a href="assigned_requests.php" class="nav-item <?= in_array($current_page, ['assigned_requests.php', 'request_details.php']) ? 'active' : '' ?>">
         <span>View Assigned Request</span>
       </a>
+      <a href="grades_management.php" class="nav-item <?= $current_page === 'grades_management.php' ? 'active' : '' ?>">
+        <span>Grade Records &amp; Upload</span>
+      </a>
       <a href="guidance_records.php" class="nav-item <?= $current_page === 'guidance_records.php' ? 'active' : '' ?>" style="display: flex; align-items: center; justify-content: space-between;">
         <span>Guidance Hold List</span>
         <?php if ($active_guidance_holds_count > 0): ?>
@@ -61,9 +67,28 @@ if (in_array($role, ['admin', 'registrar']) && isset($pdo)) {
       <a href="notifications.php" class="nav-item <?= $current_page === 'notifications.php' ? 'active' : '' ?>">
         <span>Notifications</span>
       </a>
+    <?php elseif ($role === 'teacher'): ?>
+      <a href="dashboard.php" class="nav-item <?= $current_page === 'dashboard.php' ? 'active' : '' ?>">
+        <span>Dashboard</span>
+      </a>
+      <a href="grades_management.php" class="nav-item <?= $current_page === 'grades_management.php' ? 'active' : '' ?>">
+        <span>Grade Encoding &amp; Upload</span>
+      </a>
+      <a href="submit_request.php" class="nav-item <?= $current_page === 'submit_request.php' ? 'active' : '' ?>">
+        <span>Submit Request</span>
+      </a>
+      <a href="my_requests.php" class="nav-item <?= $current_page === 'my_requests.php' ? 'active' : '' ?>">
+        <span>My Requests</span>
+      </a>
+      <a href="notifications.php" class="nav-item <?= $current_page === 'notifications.php' ? 'active' : '' ?>">
+        <span>Notifications</span>
+      </a>
     <?php else: ?>
       <a href="dashboard.php" class="nav-item <?= $current_page === 'dashboard.php' ? 'active' : '' ?>">
         <span>Dashboard</span>
+      </a>
+      <a href="my_grades.php" class="nav-item <?= $current_page === 'my_grades.php' ? 'active' : '' ?>">
+        <span>My Grades (SF9)</span>
       </a>
       <a href="submit_request.php" class="nav-item <?= $current_page === 'submit_request.php' ? 'active' : '' ?>">
         <span>Submit Request</span>

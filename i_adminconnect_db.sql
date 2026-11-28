@@ -264,4 +264,35 @@ CREATE TABLE `disciplinary_records` (
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Table structure for table `student_grades` (Viewing of Grades & SF9 Report Card)
+--
+
+DROP TABLE IF EXISTS `student_grades`;
+CREATE TABLE `student_grades` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `lrn` varchar(32) NOT NULL,
+  `student_name` varchar(150) NOT NULL,
+  `grade_level` varchar(50) NOT NULL,
+  `section` varchar(50) DEFAULT NULL,
+  `school_year` varchar(20) NOT NULL,
+  `semester` varchar(30) NOT NULL DEFAULT '1st Semester',
+  `subject_code` varchar(30) DEFAULT NULL,
+  `subject_name` varchar(150) NOT NULL,
+  `q1` decimal(5,2) DEFAULT NULL,
+  `q2` decimal(5,2) DEFAULT NULL,
+  `q3` decimal(5,2) DEFAULT NULL,
+  `q4` decimal(5,2) DEFAULT NULL,
+  `final_grade` decimal(5,2) DEFAULT NULL,
+  `remarks` varchar(30) DEFAULT 'Passed',
+  `teacher_name` varchar(150) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_lrn` (`lrn`),
+  KEY `idx_sy_sem` (`school_year`,`semester`),
+  KEY `idx_grade_section` (`grade_level`,`section`),
+  UNIQUE KEY `uniq_student_subject` (`lrn`,`school_year`,`semester`,`subject_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Dump completed on 2026-11-12 23:23:28

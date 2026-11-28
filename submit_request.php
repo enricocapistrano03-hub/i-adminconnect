@@ -731,42 +731,109 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
             Position <span style="color: #ef4444;">*</span>
           </label>
-          <input 
-            type="text" 
+          <select 
             name="emp_position" 
             id="emp_position" 
             class="form-control" 
-            placeholder="e.g., Teacher I, Teacher II, Teacher III, Master Teacher I"
             style="background: #ffffff;"
-          />
+            onchange="autoSuggestSalaryGrade(this.value)"
+          >
+            <option value="">-- Piliin ang DepEd Position --</option>
+            <optgroup label="DepEd Teaching Positions (JHS & SHS)">
+              <option value="Teacher I">Teacher I</option>
+              <option value="Teacher II">Teacher II</option>
+              <option value="Teacher III">Teacher III</option>
+              <option value="Special Science Teacher I">Special Science Teacher I (TagSci)</option>
+              <option value="Special Science Teacher II">Special Science Teacher II (TagSci)</option>
+              <option value="Teacher IV">Teacher IV</option>
+              <option value="Teacher V">Teacher V</option>
+              <option value="Teacher VI">Teacher VI</option>
+              <option value="Teacher VII">Teacher VII</option>
+            </optgroup>
+            <optgroup label="Master Teachers">
+              <option value="Master Teacher I">Master Teacher I</option>
+              <option value="Master Teacher II">Master Teacher II</option>
+              <option value="Master Teacher III">Master Teacher III</option>
+              <option value="Master Teacher IV">Master Teacher IV</option>
+            </optgroup>
+            <optgroup label="Department Heads & School Administration">
+              <option value="Head Teacher I">Head Teacher I</option>
+              <option value="Head Teacher II">Head Teacher II</option>
+              <option value="Head Teacher III">Head Teacher III</option>
+              <option value="Head Teacher IV">Head Teacher IV</option>
+              <option value="Head Teacher V">Head Teacher V</option>
+              <option value="Head Teacher VI">Head Teacher VI</option>
+              <option value="Assistant School Principal I">Assistant School Principal I</option>
+              <option value="Assistant School Principal II">Assistant School Principal II</option>
+              <option value="School Principal I">School Principal I</option>
+              <option value="School Principal II">School Principal II</option>
+              <option value="School Principal III">School Principal III</option>
+              <option value="School Principal IV">School Principal IV</option>
+            </optgroup>
+            <optgroup label="Non-Teaching & Administrative Personnel">
+              <option value="Administrative Officer II">Administrative Officer II</option>
+              <option value="Administrative Assistant III">Administrative Assistant III</option>
+              <option value="Administrative Assistant II">Administrative Assistant II</option>
+              <option value="Administrative Aide VI">Administrative Aide VI</option>
+              <option value="Registrar I">Registrar I</option>
+              <option value="Guidance Counselor I">Guidance Counselor I</option>
+            </optgroup>
+            <option value="Other Faculty / Staff">Other Faculty / Staff Position</option>
+          </select>
         </div>
 
         <div>
           <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
             Salary Grade <span style="color: #ef4444;">*</span>
           </label>
-          <input 
-            type="text" 
+          <select 
             name="emp_salary_grade" 
             id="emp_salary_grade" 
             class="form-control" 
-            placeholder="e.g., SG 11 / SG 12 / SG 13"
             style="background: #ffffff;"
-          />
+          >
+            <option value="">-- Piliin ang Salary Grade --</option>
+            <option value="SG 11">SG 11 (Teacher I / Entry Level)</option>
+            <option value="SG 12">SG 12 (Teacher II)</option>
+            <option value="SG 13">SG 13 (Teacher III / SST I)</option>
+            <option value="SG 14">SG 14 (SST II / Teacher IV)</option>
+            <option value="SG 15">SG 15 (Head Teacher I / Teacher V)</option>
+            <option value="SG 16">SG 16 (Head Teacher II / Teacher VI)</option>
+            <option value="SG 17">SG 17 (Head Teacher III / Teacher VII)</option>
+            <option value="SG 18">SG 18 (Master Teacher I / Head Teacher IV)</option>
+            <option value="SG 19">SG 19 (Master Teacher II / Head Teacher V / Asst. Principal I)</option>
+            <option value="SG 20">SG 20 (Master Teacher III / Head Teacher VI / Asst. Principal II)</option>
+            <option value="SG 21">SG 21 (Master Teacher IV / Principal I)</option>
+            <option value="SG 22">SG 22 (Principal II)</option>
+            <option value="SG 23">SG 23 (Principal III)</option>
+            <option value="SG 24">SG 24 (Principal IV)</option>
+            <option value="SG 10">SG 10</option>
+            <option value="SG 9">SG 9</option>
+            <option value="SG 8">SG 8</option>
+            <option value="SG 6">SG 6</option>
+          </select>
         </div>
 
         <div>
           <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
             Step <span style="color: #ef4444;">*</span>
           </label>
-          <input 
-            type="text" 
+          <select 
             name="emp_step" 
             id="emp_step" 
             class="form-control" 
-            placeholder="e.g., Step 1 / Step 2 / Step 3"
             style="background: #ffffff;"
-          />
+          >
+            <option value="">-- Piliin ang Step Increment --</option>
+            <option value="Step 1">Step 1 (Starting / Base Step)</option>
+            <option value="Step 2">Step 2 (3 Years Satisfactory Service)</option>
+            <option value="Step 3">Step 3 (6 Years Satisfactory Service)</option>
+            <option value="Step 4">Step 4 (9 Years Satisfactory Service)</option>
+            <option value="Step 5">Step 5 (12 Years Satisfactory Service)</option>
+            <option value="Step 6">Step 6 (15 Years Satisfactory Service)</option>
+            <option value="Step 7">Step 7 (18 Years Satisfactory Service)</option>
+            <option value="Step 8">Step 8 (Maximum Step Increment)</option>
+          </select>
         </div>
 
         <div>
@@ -871,17 +938,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <label class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
             Year Graduated / Last SY Attended <span style="color: #ef4444;">*</span>
           </label>
-          <input 
-            type="text" 
+          <select 
             name="f137_year_graduated" 
             id="f137_year_graduated" 
             class="form-control" 
-            maxlength="4"
-            placeholder="e.g. 2024 (4-digit numeric year)"
-            oninput="validateYearOnly(this, 'Year Graduated / Last SY Attended')"
             style="background: #ffffff;"
-          />
-          <small id="f137_year_hint" style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Numbers only: 4-digit numeric year (halimbawa: 2024, 2026).</small>
+          >
+            <option value="">-- Piliin ang Taon / SY Attended --</option>
+            <?php for ($y = 2026; $y >= 2004; $y--): ?>
+              <option value="<?= $y ?>"><?= $y ?> (SY <?= ($y - 1) . '-' . $y ?>)</option>
+            <?php endfor; ?>
+          </select>
+          <small id="f137_year_hint" style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Pumili sa listahan mula 2026 hanggang sa pagkakatatag ng TagSci (2004).</small>
         </div>
 
         <div style="grid-column: 1 / -1;">
@@ -1025,17 +1093,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <label id="gmc_year_label" class="form-label" style="font-size: 0.82rem; font-weight: 700; color: #166534; margin-bottom: 4px;">
             Year Graduated <span id="gmc_year_req_badge" style="font-weight: normal; color: #64748b;">(Optional kung Currently Enrolled)</span>
           </label>
-          <input 
-            type="text" 
+          <select 
             name="gmc_year_graduated" 
             id="gmc_year_graduated" 
             class="form-control" 
-            maxlength="4"
-            placeholder="Leave blank (Currently Enrolled) or expected 4-digit year (e.g. 2024)"
-            oninput="validateYearOnly(this, 'Year Graduated / Batch')"
             style="background: #ffffff;"
-          />
-          <small id="gmc_year_hint" style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Kung hindi pa graduate, iwanang blangko. 4-digit numbers lamang ang tinatanggap.</small>
+          >
+            <option value="">-- Iwanang Blangko kung Currently Enrolled o Pumili ng Taon --</option>
+            <?php for ($y = 2026; $y >= 2004; $y--): ?>
+              <option value="<?= $y ?>"><?= $y ?> (Batch / SY <?= ($y - 1) . '-' . $y ?>)</option>
+            <?php endfor; ?>
+          </select>
+          <small id="gmc_year_hint" style="color: #15803d; font-size: 0.75rem; display: block; margin-top: 3px;">Kung hindi pa graduate, iwanang blangko. Piliin ang taon kung Alumnus / Graduated.</small>
         </div>
 
         <!-- Target School / University or Purpose -->
@@ -1314,6 +1383,56 @@ function calculateRatingAvg() {
   }
 }
 
+function autoSuggestSalaryGrade(pos) {
+  const sgSelect = document.getElementById('emp_salary_grade');
+  if (!sgSelect || !pos) return;
+
+  const map = {
+    'Teacher I': 'SG 11',
+    'Teacher II': 'SG 12',
+    'Teacher III': 'SG 13',
+    'Special Science Teacher I': 'SG 13',
+    'Special Science Teacher II': 'SG 14',
+    'Teacher IV': 'SG 14',
+    'Teacher V': 'SG 15',
+    'Teacher VI': 'SG 16',
+    'Teacher VII': 'SG 17',
+    'Master Teacher I': 'SG 18',
+    'Master Teacher II': 'SG 19',
+    'Master Teacher III': 'SG 20',
+    'Master Teacher IV': 'SG 21',
+    'Head Teacher I': 'SG 15',
+    'Head Teacher II': 'SG 16',
+    'Head Teacher III': 'SG 17',
+    'Head Teacher IV': 'SG 18',
+    'Head Teacher V': 'SG 19',
+    'Head Teacher VI': 'SG 20',
+    'Assistant School Principal I': 'SG 19',
+    'Assistant School Principal II': 'SG 20',
+    'School Principal I': 'SG 21',
+    'School Principal II': 'SG 22',
+    'School Principal III': 'SG 23',
+    'School Principal IV': 'SG 24',
+    'Administrative Officer II': 'SG 11',
+    'Administrative Assistant III': 'SG 9',
+    'Administrative Assistant II': 'SG 8',
+    'Administrative Aide VI': 'SG 6',
+    'Registrar I': 'SG 11',
+    'Guidance Counselor I': 'SG 11'
+  };
+
+  if (map[pos]) {
+    sgSelect.value = map[pos];
+    // Gentle pulse visual cue
+    sgSelect.style.borderColor = '#16a34a';
+    sgSelect.style.backgroundColor = '#f0fdf4';
+    setTimeout(() => {
+      sgSelect.style.borderColor = '';
+      sgSelect.style.backgroundColor = '#ffffff';
+    }, 1200);
+  }
+}
+
 function updateGmcGradStatus() {
   const statusSelect = document.getElementById('gmc_status');
   const yearInput = document.getElementById('gmc_year_graduated');
@@ -1330,9 +1449,8 @@ function updateGmcGradStatus() {
       yearBadge.innerHTML = '<span style="color: #ef4444; font-weight: 800;">*</span> <span style="font-weight: 700; color: #166534; background: #dcfce7; padding: 1px 6px; border-radius: 4px; font-size: 0.72rem;">Required para sa Alumnus</span>';
     }
     if (yearHint) {
-      yearHint.textContent = 'Pakilagay ang taon ng inyong pagtatapos (hal. 2024 / Batch 2023).';
+      yearHint.textContent = 'Pumili sa listahan ng taon ng inyong pagtatapos (hal. 2024 / Batch 2023).';
     }
-    yearInput.placeholder = 'e.g., 2024 / Batch 2023';
     if (['GMC', 'COG', 'COE_ST'].includes(curCode)) {
       yearInput.required = true;
     }
@@ -1341,9 +1459,8 @@ function updateGmcGradStatus() {
       yearBadge.innerHTML = '(Optional kung Currently Enrolled)';
     }
     if (yearHint) {
-      yearHint.textContent = 'Kung kasalukuyang nag-aaral pa, iwanang blangko.';
+      yearHint.textContent = 'Kung hindi pa graduate, iwanang blangko o piliin ang inaasahang taon.';
     }
-    yearInput.placeholder = 'Leave blank (Currently Enrolled) or expected year';
     yearInput.required = false;
   }
 }
@@ -1923,9 +2040,9 @@ document.addEventListener('DOMContentLoaded', function() {
           const val = f137Yr.value.trim();
           if (val === '' || !/^[0-9]{4}$/.test(val)) {
             e.preventDefault();
-            alert('Invalid Year format sa Form 137: "' + val + '". 4-digit numbers lamang po ang ilagay (halimbawa: 2024, 2026). Letters at symbols ay hindi pinapayagan.');
+            alert('Pakipili po ang inyong Year Graduated / Last SY Attended mula sa dropdown list.');
             f137Yr.focus();
-            showInputToastError(f137Yr, '4-digit numbers only (e.g. 2026)');
+            showInputToastError(f137Yr, 'Please select a year');
             return false;
           }
         }
@@ -1965,9 +2082,9 @@ document.addEventListener('DOMContentLoaded', function() {
           const val = gmcYr.value.trim();
           if (gmcStatus === 'Graduated' && (val === '' || !/^[0-9]{4}$/.test(val))) {
             e.preventDefault();
-            alert('Invalid Year format: "' + val + '". Required po ang valid 4-digit numeric year para sa Graduated / Alumnus (hal. 2024, 2026).');
+            alert('Pakipili po ang taon ng inyong graduation mula sa dropdown (Required po para sa Graduated / Alumnus).');
             gmcYr.focus();
-            showInputToastError(gmcYr, '4-digit numbers only (e.g. 2026)');
+            showInputToastError(gmcYr, 'Please select graduation year');
             return false;
           } else if (val !== '' && !/^[0-9]{4}$/.test(val)) {
             e.preventDefault();

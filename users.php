@@ -412,6 +412,90 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'bulk_upload') {
     }
 }
 
+// 6. Handle 1-Click Batch Graduation for Grade 12 / Completers
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'batch_graduate') {
+    $target_level = trim($_POST['target_level'] ?? 'Grade 12');
+    $target_section = trim($_POST['target_section'] ?? 'ALL');
+    $check_holds = isset($_POST['skip_disciplinary_holds']) && $_POST['skip_disciplinary_holds'] === '1';
+
+    // Build conditions
+    $params = [$target_level, $target_level];
+    $sql = "SELECT id, full_name, id_number, section, year_level FROM users WHERE role = 'student' AND status = 'Active' AND (year_level = ? OR department = ?)";
+
+    if ($target_section !== 'ALL' && !empty($target_section)) {
+        $sql .= " AND section = ?";
+        $params[] = $target_section;
+    }
+
+    $stmt_c = $pdo->prepare($sql);
+    $stmt_c->execute($params);
+    $candidates = $stmt_c->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($candidates)) {
+        $error_msg = "Walang nahanap na aktibong mag-aaral sa {$target_level}" . ($target_section !== 'ALL' ? " ({$target_section})" : "") . " na eligible para i-graduate.";
+    } else {
+        // Fetch active disciplinary holds if disciplinary_records table exists
+        $active_holds_map = [];
+        try {
+            $dh_stmt = $pdo->query("SELECT lrn, student_name FROM disciplinary_records WHERE status = 'Active Hold'");
+            while ($dhr = $dh_stmt->fetch(PDO::FETCH_ASSOC)) {
+                if (!empty($dhr['lrn'])) $active_holds_map[trim($dhr['lrn'])] = true;
+                if (!empty($dhr['student_name'])) $active_holds_map[strtolower(trim($dhr['student_name']))] = true;
+            }
+        } catch (Exception $e) {}
+
+        $graduated_ids = [];
+        $held_students = [];
+
+        foreach ($candidates as $cand) {
+            $lrn = trim($cand['id_number'] ?? '');
+            $name_key = strtolower(trim($cand['full_name'] ?? ''));
+
+            $is_held = (!empty($lrn) && isset($active_holds_map[$lrn])) || (!empty($name_key) && isset($active_holds_map[$name_key]));
+
+            if ($is_held && $check_holds) {
+                $held_students[] = $cand['full_name'] . ($cand['section'] ? " ({$cand['section']})" : "");
+                continue;
+            }
+
+            $graduated_ids[] = (int)$cand['id'];
+        }
+
+        if (!empty($graduated_ids)) {
+            $placeholders = implode(',', array_fill(0, count($graduated_ids), '?'));
+            $upd_stmt = $pdo->prepare("UPDATE users SET status = 'Graduated' WHERE id IN ($placeholders)");
+            $upd_stmt->execute($graduated_ids);
+
+            $grad_count = count($graduated_ids);
+            $audit_msg = "Batch graduated {$grad_count} student(s) in {$target_level}" . ($target_section !== 'ALL' ? " ({$target_section})" : "") . " to 'Graduated' status.";
+            log_audit_action($pdo, $user_name, 'ADMIN', $audit_msg);
+
+            $success_msg = "🎓 <strong>Batch Graduation Successful!</strong> Matagumpay na nai-set bilang <strong>Graduated / Alumni</strong> ang <strong>{$grad_count} mag-aaral</strong> sa {$target_level}" . ($target_section !== 'ALL' ? " ({$target_section})" : "") . ".";
+
+            if (!empty($held_students)) {
+                $success_msg .= "<br><div style='margin-top: 8px; font-size: 0.88rem; color: #b91c1c; background: #fee2e2; padding: 8px 12px; border-radius: 6px;'>⚠️ <strong>Pansamantalang Hindi Naisama (Active Guidance Hold):</strong> " . count($held_students) . " estudyante ang may active disciplinary hold sa Guidance Office kaya pinanatili munang Active hanggang mag-clear: " . htmlspecialchars(implode(', ', $held_students)) . "</div>";
+            }
+        } else {
+            $error_msg = "Lahat ng " . count($candidates) . " kandidatong mag-aaral sa {$target_level} ay may aktibong Guidance Disciplinary Hold kaya walang na-graduate.";
+        }
+    }
+}
+
+// Fetch available sections and year levels for batch graduation
+$grad_sections = [];
+$grad_year_levels = [];
+try {
+    $sec_stmt = $pdo->query("SELECT DISTINCT section FROM users WHERE section IS NOT NULL AND TRIM(section) != '' ORDER BY section ASC");
+    $grad_sections = $sec_stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    $yl_stmt = $pdo->query("SELECT DISTINCT year_level FROM users WHERE year_level IS NOT NULL AND TRIM(year_level) != '' ORDER BY year_level ASC");
+    $grad_year_levels = $yl_stmt->fetchAll(PDO::FETCH_COLUMN);
+} catch (Exception $e) {}
+
+if (empty($grad_year_levels)) {
+    $grad_year_levels = ['Grade 12', 'Grade 11', 'Grade 10', 'Grade 9', 'Grade 8', 'Grade 7'];
+}
+
 // Fetch users with search, role filter, status filter, and pagination (25 per page)
 $search = trim($_GET['search'] ?? '');
 $role_filter = trim($_GET['role_filter'] ?? 'ALL');
@@ -526,6 +610,9 @@ $all_users = $stmt->fetchAll();
       <span style="background: #0284c7; color: white; padding: 7px 15px; border-radius: 20px; font-size: 0.82rem; font-weight: 700;">
         Total: <?= number_format($total_matching_users) ?> Users
       </span>
+      <button type="button" class="btn-primary-cta" onclick="openBatchGraduateModal()" style="background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%); padding: 8px 18px; font-size: 0.86rem; display: inline-flex; align-items: center; gap: 7px; border: none; cursor: pointer; border-radius: 9px; box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3);">
+        <span style="font-size: 1rem;">🎓</span> <span>Batch Graduate</span>
+      </button>
       <button type="button" class="btn-primary-cta" onclick="openBulkUploadModal()" style="background: #0284c7; padding: 8px 18px; font-size: 0.86rem; display: inline-flex; align-items: center; gap: 7px; border: none; cursor: pointer; border-radius: 9px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);">
         <span style="font-size: 1rem;">📁</span> <span>Bulk Upload</span>
       </button>
@@ -1014,7 +1101,100 @@ $all_users = $stmt->fetchAll();
   </div>
 </div>
 
+<!-- ============================================================================== -->
+<!-- BATCH GRADUATE MODAL (ADMIN ONLY)                                              -->
+<!-- ============================================================================== -->
+<div id="batchGraduateModal" class="user-modal-overlay">
+  <div class="user-modal-card" style="max-width: 550px;">
+    <div class="user-modal-header" style="background: linear-gradient(135deg, #312e81 0%, #4338ca 100%);">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 1.5rem;">🎓</span>
+        <div>
+          <h3 style="margin: 0; font-size: 1.12rem; color: #ffffff;">Batch Student Graduation Tool</h3>
+          <p style="margin: 0; font-size: 0.8rem; color: #c7d2fe;">Taguig Science High School Senior High School Graduation</p>
+        </div>
+      </div>
+      <button type="button" class="modal-close-btn" onclick="closeBatchGraduateModal()" style="color: #ffffff;">&times;</button>
+    </div>
+
+    <form method="POST" action="users.php" onsubmit="return confirm('Sigurado ba kayong nais i-set bilang Graduated / Alumni ang mga napiling mag-aaral?');">
+      <input type="hidden" name="action" value="batch_graduate">
+
+      <div class="user-modal-body">
+        <div style="background: #eef2ff; border: 1.5px solid #c7d2fe; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;">
+          <div style="font-weight: 700; color: #3730a3; font-size: 0.88rem; margin-bottom: 3px;">
+            ℹ️ Paano Gumagana ang Batch Graduation:
+          </div>
+          <p style="font-size: 0.8rem; color: #4338ca; margin: 0; line-height: 1.45;">
+            Hindi awtomatikong nagiging graduate ang mga estudyante base lamang sa petsa o kalendaryo upang maiwasang maging "Graduated" ang may mga back subjects o kulang na requirements. Sa pamamagitan ng tool na ito, opisyal at ligtas na mai-a-update ang status ng buong batch ng mga Grade 12 students patungong <strong>Graduated (Alumni)</strong> sa isang pindot lamang.
+          </p>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label" style="font-weight: 700; color: #1e293b;">Target Grade Level <span style="color: #ef4444;">*</span></label>
+          <select name="target_level" id="batch_target_level" class="form-control" required style="font-weight: 600;">
+            <option value="Grade 12" selected>Grade 12 (Senior High School Completers / Graduating Class)</option>
+            <option value="Grade 10">Grade 10 (Junior High School Completers / Moving Up)</option>
+            <?php foreach ($grad_year_levels as $yl): ?>
+              <?php if (!in_array($yl, ['Grade 12', 'Grade 10'])): ?>
+                <option value="<?= htmlspecialchars($yl) ?>"><?= htmlspecialchars($yl) ?></option>
+              <?php endif; ?>
+            <?php endforeach; ?>
+          </select>
+          <small style="color: #64748b; font-size: 0.76rem; display: block; margin-top: 3px;">Piliin ang antas ng mga mag-aaral na nagtapos na.</small>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label class="form-label" style="font-weight: 700; color: #1e293b;">Section / Strand Filter <span style="font-weight: normal; color: #64748b;">(Optional)</span></label>
+          <select name="target_section" id="batch_target_section" class="form-control">
+            <option value="ALL" selected>-- Lahat ng Seksyon sa Napiling Grade Level (Buong Batch) --</option>
+            <?php foreach ($grad_sections as $sec): ?>
+              <option value="<?= htmlspecialchars($sec) ?>"><?= htmlspecialchars($sec) ?></option>
+            <?php endforeach; ?>
+          </select>
+          <small style="color: #64748b; font-size: 0.76rem; display: block; margin-top: 3px;">Maaaring buong batch o isang partikular na section lang ang i-graduate.</small>
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
+          <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; margin: 0;">
+            <input type="checkbox" name="skip_disciplinary_holds" value="1" checked style="margin-top: 3px; width: 17px; height: 17px; accent-color: #4338ca;">
+            <div style="font-size: 0.82rem; color: #1e293b; line-height: 1.4;">
+              <strong style="color: #991b1b;">Guidance Disciplinary Safety Guard:</strong>
+              I-hold (huwag munang i-graduate) ang mga estudyanteng may aktibong kaso sa Guidance Office hanggang makuha ang kanilang official clearance.
+            </div>
+          </label>
+        </div>
+
+        <div style="font-size: 0.78rem; color: #64748b; line-height: 1.4;">
+          🔒 <strong>Record Integrity:</strong> Ang mga nakaraang dokumento, requests, at grades ng mga mag-aaral ay mananatiling buo at mababasa pa rin sa archive ng system.
+        </div>
+      </div>
+
+      <div class="user-modal-footer">
+        <button type="button" class="btn-primary-cta" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; box-shadow: none;" onclick="closeBatchGraduateModal()">Cancel</button>
+        <button type="submit" class="btn-primary-cta" style="background: linear-gradient(135deg, #3730a3 0%, #4f46e5 100%); box-shadow: 0 4px 12px rgba(67, 56, 202, 0.3);">
+          🎓 I-graduate ang Batch
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
+function openBatchGraduateModal() {
+  const modal = document.getElementById('batchGraduateModal');
+  if (modal) {
+    modal.classList.add('active');
+  }
+}
+
+function closeBatchGraduateModal() {
+  const modal = document.getElementById('batchGraduateModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
 function openBulkUploadModal() {
   const modal = document.getElementById('bulkUploadModal');
   if (modal) {
@@ -1148,6 +1328,7 @@ window.addEventListener('keydown', (e) => {
     closeEditUserModal();
     closeAddUserModal();
     closeBulkUploadModal();
+    closeBatchGraduateModal();
   }
 });
 
@@ -1160,6 +1341,9 @@ document.getElementById('addUserModal')?.addEventListener('click', (e) => {
 });
 document.getElementById('bulkUploadModal')?.addEventListener('click', (e) => {
   if (e.target.id === 'bulkUploadModal') closeBulkUploadModal();
+});
+document.getElementById('batchGraduateModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'batchGraduateModal') closeBatchGraduateModal();
 });
 </script>
 
